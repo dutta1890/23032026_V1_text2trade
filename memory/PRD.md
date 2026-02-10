@@ -22,9 +22,11 @@ Build a basic full-stack web app scaffold called Text2trade with:
 
 ## Core Requirements (Static)
 - [x] Home/Landing page with hero section
-- [x] Login page (UI mockup, no auth)
+- [x] Login page with Sign In / Sign Up tabs
 - [x] Dashboard page (empty placeholder with grid layout)
 - [x] /api/health endpoint
+- [x] /api/signup endpoint (POST)
+- [x] /api/login endpoint (POST)
 - [x] Dark theme with Signal Green primary color
 - [x] JetBrains Mono + Inter typography
 - [x] Heavily commented code
@@ -37,8 +39,15 @@ Build a basic full-stack web app scaffold called Text2trade with:
 - Sharp edges (no rounded corners)
 - Monospace typography for headings
 - All interactive elements have data-testid attributes
-- Login form with client-side validation (mockup only)
-- Dashboard with stat cards and widget placeholders
+
+**Date: 2026-02-10 - Auth Update**
+- Added POST /api/signup - creates user in memory
+- Added POST /api/login - validates credentials
+- Login page now has Sign In / Sign Up tab interface
+- Signup form with email, password, confirm password
+- Auth state stored in localStorage (userEmail)
+- Dashboard protected - redirects to login if not authenticated
+- Logout clears localStorage and redirects to login
 
 ## File Structure
 ```
@@ -65,7 +74,8 @@ Build a basic full-stack web app scaffold called Text2trade with:
 - [x] Navigation between pages
 
 ### P1 - Important (Next Phase)
-- [ ] Real authentication (JWT or OAuth)
+- [x] Basic email/password authentication (in-memory)
+- [ ] Persistent storage (MongoDB)
 - [ ] WebSocket connection for real-time data
 - [ ] Price chart component
 - [ ] Order book component
