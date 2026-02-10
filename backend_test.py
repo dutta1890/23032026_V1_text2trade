@@ -224,6 +224,368 @@ class Text2tradeAPITester:
         self.log_test("Invalid Endpoint Handling", success, details)
         return success
 
+    def test_signup_new_user(self) -> bool:
+        """Test signup with new user credentials."""
+        url = f"{self.base_url}/api/signup"
+        
+        # Use timestamp to ensure unique email
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        test_email = f"test_user_{timestamp}@example.com"
+        test_password = "testpass123"
+        
+        try:
+            start_time = datetime.now()
+            response = requests.post(url, json={
+                "email": test_email,
+                "password": test_password
+            }, timeout=10)
+            end_time = datetime.now()
+            response_time = (end_time - start_time).total_seconds()
+            
+            success = response.status_code == 200
+            
+            details = {
+                "status_code": response.status_code,
+                "response_time": response_time,
+                "url": url,
+                "test_email": test_email
+            }
+            
+            if success:
+                try:
+                    data = response.json()
+                    details.update({
+                        "response_data": data,
+                        "has_success": "success" in data,
+                        "has_message": "message" in data,
+                        "has_email": "email" in data,
+                        "success_value": data.get("success"),
+                        "message_value": data.get("message"),
+                        "email_value": data.get("email")
+                    })
+                    
+                    # Validate response structure
+                    if not data.get("success"):
+                        success = False
+                        details["error"] = f"Expected success=true, got {data.get('success')}"
+                    elif data.get("email") != test_email:
+                        success = False
+                        details["error"] = f"Expected email '{test_email}', got '{data.get('email')}'"
+                    
+                except json.JSONDecodeError as e:
+                    success = False
+                    details["error"] = f"Invalid JSON response: {str(e)}"
+                    details["response_text"] = response.text[:200]
+            else:
+                details["error"] = f"HTTP {response.status_code}"
+                try:
+                    error_data = response.json()
+                    details["error_detail"] = error_data.get("detail", "No detail provided")
+                except:
+                    details["response_text"] = response.text[:200]
+                
+        except requests.exceptions.RequestException as e:
+            success = False
+            details = {
+                "error": f"Request failed: {str(e)}",
+                "url": url
+            }
+        
+        self.log_test("Signup New User", success, details)
+        return success
+
+    def test_signup_duplicate_email(self) -> bool:
+        """Test signup with duplicate email (should fail)."""
+        url = f"{self.base_url}/api/signup"
+        
+        # First, create a user
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        test_email = f"duplicate_test_{timestamp}@example.com"
+        test_password = "testpass123"
+        
+        try:
+            # First signup - should succeed
+            first_response = requests.post(url, json={
+                "email": test_email,
+                "password": test_password
+            }, timeout=10)
+            
+            if first_response.status_code != 200:
+                success = False
+                details = {
+                    "error": "Failed to create initial user for duplicate test",
+                    "first_signup_status": first_response.status_code,
+                    "url": url
+                }
+            else:
+                # Second signup with same email - should fail
+                start_time = datetime.now()
+                response = requests.post(url, json={
+                    "email": test_email,
+                    "password": test_password
+                }, timeout=10)
+                end_time = datetime.now()
+                response_time = (end_time - start_time).total_seconds()
+                
+                success = response.status_code == 400
+                
+                details = {
+                    "status_code": response.status_code,
+                    "response_time": response_time,
+                    "url": url,
+                    "test_email": test_email,
+                    "expected_status": 400
+                }
+                
+                if success:
+                    try:
+                        data = response.json()
+                        details.update({
+                            "error_detail": data.get("detail"),
+                            "response_data": data
+                        })
+                        
+                        # Check if error message is appropriate
+                        if "already registered" not in data.get("detail", "").lower():
+                            print(f"   Warning: Error message might not be clear: {data.get('detail')}")
+                        
+                    except json.JSONDecodeError:
+                        details["response_text"] = response.text[:200]
+                else:
+                    details["error"] = f"Expected 400 for duplicate email, got {response.status_code}"
+                    try:
+                        error_data = response.json()
+                        details["unexpected_response"] = error_data
+                    except:
+                        details["response_text"] = response.text[:200]
+                
+        except requests.exceptions.RequestException as e:
+            success = False
+            details = {
+                "error": f"Request failed: {str(e)}",
+                "url": url
+            }
+        
+        self.log_test("Signup Duplicate Email", success, details)
+        return success
+
+    def test_login_valid_credentials(self) -> bool:
+        """Test login with valid credentials."""
+        url_signup = f"{self.base_url}/api/signup"
+        url_login = f"{self.base_url}/api/login"
+        
+        # Create a test user first
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        test_email = f"login_test_{timestamp}@example.com"
+        test_password = "loginpass123"
+        
+        try:
+            # First, create the user
+            signup_response = requests.post(url_signup, json={
+                "email": test_email,
+                "password": test_password
+            }, timeout=10)
+            
+            if signup_response.status_code != 200:
+                success = False
+                details = {
+                    "error": "Failed to create user for login test",
+                    "signup_status": signup_response.status_code,
+                    "url": url_login
+                }
+            else:
+                # Now test login
+                start_time = datetime.now()
+                response = requests.post(url_login, json={
+                    "email": test_email,
+                    "password": test_password
+                }, timeout=10)
+                end_time = datetime.now()
+                response_time = (end_time - start_time).total_seconds()
+                
+                success = response.status_code == 200
+                
+                details = {
+                    "status_code": response.status_code,
+                    "response_time": response_time,
+                    "url": url_login,
+                    "test_email": test_email
+                }
+                
+                if success:
+                    try:
+                        data = response.json()
+                        details.update({
+                            "response_data": data,
+                            "has_success": "success" in data,
+                            "has_message": "message" in data,
+                            "has_email": "email" in data,
+                            "success_value": data.get("success"),
+                            "message_value": data.get("message"),
+                            "email_value": data.get("email")
+                        })
+                        
+                        # Validate response structure
+                        if not data.get("success"):
+                            success = False
+                            details["error"] = f"Expected success=true, got {data.get('success')}"
+                        elif data.get("email") != test_email:
+                            success = False
+                            details["error"] = f"Expected email '{test_email}', got '{data.get('email')}'"
+                        
+                    except json.JSONDecodeError as e:
+                        success = False
+                        details["error"] = f"Invalid JSON response: {str(e)}"
+                        details["response_text"] = response.text[:200]
+                else:
+                    details["error"] = f"HTTP {response.status_code}"
+                    try:
+                        error_data = response.json()
+                        details["error_detail"] = error_data.get("detail", "No detail provided")
+                    except:
+                        details["response_text"] = response.text[:200]
+                
+        except requests.exceptions.RequestException as e:
+            success = False
+            details = {
+                "error": f"Request failed: {str(e)}",
+                "url": url_login
+            }
+        
+        self.log_test("Login Valid Credentials", success, details)
+        return success
+
+    def test_login_invalid_credentials(self) -> bool:
+        """Test login with invalid credentials (should fail)."""
+        url = f"{self.base_url}/api/login"
+        
+        # Use non-existent credentials
+        test_email = "nonexistent@example.com"
+        test_password = "wrongpassword"
+        
+        try:
+            start_time = datetime.now()
+            response = requests.post(url, json={
+                "email": test_email,
+                "password": test_password
+            }, timeout=10)
+            end_time = datetime.now()
+            response_time = (end_time - start_time).total_seconds()
+            
+            success = response.status_code == 401
+            
+            details = {
+                "status_code": response.status_code,
+                "response_time": response_time,
+                "url": url,
+                "test_email": test_email,
+                "expected_status": 401
+            }
+            
+            if success:
+                try:
+                    data = response.json()
+                    details.update({
+                        "error_detail": data.get("detail"),
+                        "response_data": data
+                    })
+                    
+                    # Check if error message is appropriate
+                    if "invalid" not in data.get("detail", "").lower():
+                        print(f"   Warning: Error message might not be clear: {data.get('detail')}")
+                    
+                except json.JSONDecodeError:
+                    details["response_text"] = response.text[:200]
+            else:
+                details["error"] = f"Expected 401 for invalid credentials, got {response.status_code}"
+                try:
+                    error_data = response.json()
+                    details["unexpected_response"] = error_data
+                except:
+                    details["response_text"] = response.text[:200]
+                
+        except requests.exceptions.RequestException as e:
+            success = False
+            details = {
+                "error": f"Request failed: {str(e)}",
+                "url": url
+            }
+        
+        self.log_test("Login Invalid Credentials", success, details)
+        return success
+
+    def test_existing_test_user(self) -> bool:
+        """Test login with the existing test user mentioned in context."""
+        url = f"{self.base_url}/api/login"
+        
+        # Test with the existing user: test@example.com / pass123
+        test_email = "test@example.com"
+        test_password = "pass123"
+        
+        try:
+            start_time = datetime.now()
+            response = requests.post(url, json={
+                "email": test_email,
+                "password": test_password
+            }, timeout=10)
+            end_time = datetime.now()
+            response_time = (end_time - start_time).total_seconds()
+            
+            success = response.status_code == 200
+            
+            details = {
+                "status_code": response.status_code,
+                "response_time": response_time,
+                "url": url,
+                "test_email": test_email
+            }
+            
+            if success:
+                try:
+                    data = response.json()
+                    details.update({
+                        "response_data": data,
+                        "has_success": "success" in data,
+                        "has_message": "message" in data,
+                        "has_email": "email" in data,
+                        "success_value": data.get("success"),
+                        "message_value": data.get("message"),
+                        "email_value": data.get("email")
+                    })
+                    
+                    # Validate response structure
+                    if not data.get("success"):
+                        success = False
+                        details["error"] = f"Expected success=true, got {data.get('success')}"
+                    elif data.get("email") != test_email:
+                        success = False
+                        details["error"] = f"Expected email '{test_email}', got '{data.get('email')}'"
+                    
+                except json.JSONDecodeError as e:
+                    success = False
+                    details["error"] = f"Invalid JSON response: {str(e)}"
+                    details["response_text"] = response.text[:200]
+            else:
+                details["error"] = f"HTTP {response.status_code}"
+                try:
+                    error_data = response.json()
+                    details["error_detail"] = error_data.get("detail", "No detail provided")
+                    # If user doesn't exist, that's also valuable info
+                    if response.status_code == 401:
+                        details["note"] = "Test user test@example.com may not exist in memory"
+                except:
+                    details["response_text"] = response.text[:200]
+                
+        except requests.exceptions.RequestException as e:
+            success = False
+            details = {
+                "error": f"Request failed: {str(e)}",
+                "url": url
+            }
+        
+        self.log_test("Existing Test User Login", success, details)
+        return success
+
     def run_all_tests(self) -> Dict[str, Any]:
         """Run all backend tests and return summary."""
         print("🚀 Starting Text2trade Backend API Tests")
