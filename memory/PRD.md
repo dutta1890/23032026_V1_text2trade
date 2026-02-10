@@ -34,11 +34,6 @@ Build a basic full-stack web app scaffold called Text2trade with:
 ## What's Been Implemented
 **Date: 2026-02-10**
 - Created full scaffold with 3 pages (Home, Login, Dashboard)
-- Backend server.py with /api/health and /api/ endpoints
-- Tactical Bloomberg dark theme
-- Sharp edges (no rounded corners)
-- Monospace typography for headings
-- All interactive elements have data-testid attributes
 
 **Date: 2026-02-10 - Auth Update**
 - Added POST /api/signup - creates user in memory
@@ -48,6 +43,21 @@ Build a basic full-stack web app scaffold called Text2trade with:
 - Auth state stored in localStorage (userEmail)
 - Dashboard protected - redirects to login if not authenticated
 - Logout clears localStorage and redirects to login
+
+- Backend server.py with /api/health and /api/ endpoints
+- Tactical Bloomberg dark theme
+- Sharp edges (no rounded corners)
+- Monospace typography for headings
+- All interactive elements have data-testid attributes
+
+**Date: 2026-02-10 - Dashboard Layout Update**
+- Added fixed sidebar navigation (w-64)
+- Sidebar menu items: Create Strategy, My Strategies, Help
+- State-based content switching (no sub-routing)
+- Create Strategy: 3 cards (Blank, Template, Import)
+- My Strategies: Empty state + stats cards
+- Help: Documentation, Getting Started, Examples, FAQ
+- Active menu highlighting with primary color
 
 ## File Structure
 ```
