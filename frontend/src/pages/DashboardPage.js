@@ -1,11 +1,13 @@
 /**
  * Text2trade Dashboard Page
  * =========================
- * Empty dashboard placeholder with layout structure.
- * No trading logic - just UI scaffold showing grid layout.
+ * Protected dashboard - checks if user is logged in.
+ * If not logged in, redirects to login page.
+ * Shows user email and logout button.
  */
 
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   Card, 
@@ -20,14 +22,15 @@ import {
   BarChart3,
   Wallet,
   Clock,
-  LogOut
+  LogOut,
+  User
 } from "lucide-react";
 
 /**
  * Dashboard Navigation Component
- * Top bar with logo and logout button.
+ * Shows user email and logout button.
  */
-const DashboardNav = () => {
+const DashboardNav = ({ userEmail, onLogout }) => {
   return (
     <nav 
       className="fixed top-0 left-0 right-0 z-50 glass"
@@ -48,21 +51,27 @@ const DashboardNav = () => {
           </span>
         </Link>
         
-        {/* User actions */}
+        {/* User info and logout */}
         <div className="flex items-center gap-4">
-          <span className="mono-label hidden sm:inline">
-            DEMO USER
-          </span>
-          <Link to="/" data-testid="dashboard-logout-link">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="font-mono text-sm uppercase tracking-wider gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Exit</span>
-            </Button>
-          </Link>
+          {/* User email display */}
+          <div className="hidden sm:flex items-center gap-2 text-muted-foreground">
+            <User className="w-4 h-4" />
+            <span className="mono-label" data-testid="user-email">
+              {userEmail}
+            </span>
+          </div>
+          
+          {/* Logout button */}
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={onLogout}
+            className="font-mono text-sm uppercase tracking-wider gap-2"
+            data-testid="logout-button"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </Button>
         </div>
       </div>
     </nav>
@@ -141,13 +150,58 @@ const EmptyWidget = ({ title, icon: Icon, span = 1, testId }) => {
 
 /**
  * Dashboard Page Component
- * Empty dashboard with grid layout structure.
+ * Protected page - redirects to login if not authenticated.
+ * 
+ * AUTH CHECK FLOW:
+ * 1. On page load, check localStorage for "userEmail"
+ * 2. If not found → redirect to /login
+ * 3. If found → show dashboard with user's email
+ * 4. On logout → clear localStorage → redirect to /login
  */
 export default function DashboardPage() {
+  // Store the logged-in user's email
+  const [userEmail, setUserEmail] = useState(null);
+  
+  // Navigation hook for redirects
+  const navigate = useNavigate();
+  
+  /**
+   * Check authentication on page load
+   * If no user in localStorage, redirect to login
+   */
+  useEffect(() => {
+    const email = localStorage.getItem("userEmail");
+    
+    if (!email) {
+      // Not logged in - redirect to login page
+      navigate("/login");
+    } else {
+      // Logged in - show dashboard
+      setUserEmail(email);
+    }
+  }, [navigate]);
+  
+  /**
+   * Handle logout
+   * Clear localStorage and redirect to login
+   */
+  const handleLogout = () => {
+    // Clear the stored user
+    localStorage.removeItem("userEmail");
+    
+    // Redirect to login page
+    navigate("/login");
+  };
+  
+  // Don't render anything until we check auth
+  if (!userEmail) {
+    return null;
+  }
+  
   return (
     <div className="min-h-screen bg-background" data-testid="dashboard-page">
-      {/* Navigation */}
-      <DashboardNav />
+      {/* Navigation with user info */}
+      <DashboardNav userEmail={userEmail} onLogout={handleLogout} />
       
       {/* Main Content */}
       <main className="pt-24 pb-12 px-6">
@@ -161,7 +215,7 @@ export default function DashboardPage() {
               Overview
             </h1>
             <p className="text-muted-foreground mt-2">
-              Welcome to your trading dashboard. This is a scaffold preview.
+              Welcome back, <span className="text-primary">{userEmail}</span>
             </p>
           </div>
           
@@ -234,21 +288,21 @@ export default function DashboardPage() {
           <div className="mt-12 pt-8 border-t border-border">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="mono-label">
-                // MVP SCAFFOLD - NO TRADING LOGIC
+                // AUTHENTICATED AS: {userEmail}
               </span>
               <div className="flex items-center gap-4">
                 <span className="mono-label">
                   API Status: <span className="text-primary">CONNECTED</span>
                 </span>
-                <Link to="/" data-testid="dashboard-home-link">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="font-mono text-xs uppercase tracking-wider"
-                  >
-                    Back to Home
-                  </Button>
-                </Link>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleLogout}
+                  className="font-mono text-xs uppercase tracking-wider"
+                  data-testid="dashboard-logout-button"
+                >
+                  Logout
+                </Button>
               </div>
             </div>
           </div>

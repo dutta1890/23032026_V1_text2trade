@@ -1,21 +1,27 @@
 """
 Text2trade Backend Server
 =========================
-A minimal FastAPI backend scaffold for the Text2trade application.
-No business logic - just basic health check and placeholder endpoints.
+A minimal FastAPI backend with simple email/password authentication.
+Users are stored in memory (lost on restart - MVP only).
+
+AUTHENTICATION FLOW (Plain English):
+1. SIGNUP: User sends email + password → We store it in a dictionary → Return success
+2. LOGIN: User sends email + password → We check if it matches → Return success/failure
+3. No tokens, no sessions, no encryption - just simple string matching
 
 File Structure:
-- server.py (this file): Main FastAPI application with routes
+- server.py (this file): Main FastAPI application with auth routes
 """
 
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
+from typing import Dict
 
 
 # =============================================================================
@@ -27,11 +33,10 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # Create the main FastAPI app instance
-# Note: No business logic - this is just a scaffold
 app = FastAPI(
     title="Text2trade API",
-    description="A minimal backend scaffold for Text2trade",
-    version="0.1.0"
+    description="A minimal backend with simple auth for Text2trade",
+    version="0.2.0"
 )
 
 # Create an API router with /api prefix
@@ -40,7 +45,17 @@ api_router = APIRouter(prefix="/api")
 
 
 # =============================================================================
-# RESPONSE MODELS
+# IN-MEMORY USER STORAGE
+# =============================================================================
+
+# Simple dictionary to store users
+# Format: { "email@example.com": "password123" }
+# WARNING: This is lost when server restarts - MVP only!
+users_db: Dict[str, str] = {}
+
+
+# =============================================================================
+# REQUEST/RESPONSE MODELS
 # =============================================================================
 
 class HealthResponse(BaseModel):
@@ -56,8 +71,33 @@ class RootResponse(BaseModel):
     app_name: str
 
 
+class AuthRequest(BaseModel):
+    """
+    Request model for signup and login.
+    Both endpoints use the same format: email + password.
+    """
+    email: EmailStr       # Valid email format required
+    password: str         # Any string, no complexity requirements
+
+
+class AuthResponse(BaseModel):
+    """
+    Response model for successful authentication.
+    Returns the user's email to confirm who logged in.
+    """
+    success: bool
+    message: str
+    email: str
+
+
+class ErrorResponse(BaseModel):
+    """Response model for error messages"""
+    success: bool
+    message: str
+
+
 # =============================================================================
-# API ROUTES
+# API ROUTES - GENERAL
 # =============================================================================
 
 @api_router.get("/", response_model=RootResponse)
@@ -82,7 +122,98 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "0.1.0"
+        "version": "0.2.0"
+    }
+
+
+# =============================================================================
+# API ROUTES - AUTHENTICATION
+# =============================================================================
+
+@api_router.post("/signup", response_model=AuthResponse)
+async def signup(request: AuthRequest):
+    """
+    SIGNUP ENDPOINT
+    ---------------
+    Creates a new user account.
+    
+    How it works:
+    1. Check if email already exists in our users dictionary
+    2. If exists → return error (can't have duplicate accounts)
+    3. If new → store email:password in dictionary → return success
+    
+    No password hashing - this is MVP only!
+    """
+    email = request.email.lower()  # Normalize email to lowercase
+    password = request.password
+    
+    # Check if user already exists
+    if email in users_db:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Check password is not empty
+    if not password or len(password) < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Password cannot be empty"
+        )
+    
+    # Store the new user (plain text password - MVP only!)
+    users_db[email] = password
+    
+    # Log the signup (don't log password!)
+    logger.info(f"New user signed up: {email}")
+    
+    return {
+        "success": True,
+        "message": "Account created successfully",
+        "email": email
+    }
+
+
+@api_router.post("/login", response_model=AuthResponse)
+async def login(request: AuthRequest):
+    """
+    LOGIN ENDPOINT
+    --------------
+    Authenticates an existing user.
+    
+    How it works:
+    1. Look up email in our users dictionary
+    2. If not found → return error (user doesn't exist)
+    3. If found → compare passwords
+    4. If passwords match → return success
+    5. If passwords don't match → return error
+    
+    No tokens or sessions - frontend handles state!
+    """
+    email = request.email.lower()  # Normalize email to lowercase
+    password = request.password
+    
+    # Check if user exists
+    if email not in users_db:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+    
+    # Check password matches
+    if users_db[email] != password:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+    
+    # Log the login (don't log password!)
+    logger.info(f"User logged in: {email}")
+    
+    return {
+        "success": True,
+        "message": "Login successful",
+        "email": email
     }
 
 
@@ -112,4 +243,4 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Log startup message
-logger.info("Text2trade API server initialized")
+logger.info("Text2trade API server initialized with authentication")
