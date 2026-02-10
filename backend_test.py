@@ -597,7 +597,12 @@ class Text2tradeAPITester:
             self.test_health_endpoint,
             self.test_root_api_endpoint,
             self.test_cors_headers,
-            self.test_invalid_endpoint
+            self.test_invalid_endpoint,
+            self.test_signup_new_user,
+            self.test_signup_duplicate_email,
+            self.test_login_valid_credentials,
+            self.test_login_invalid_credentials,
+            self.test_existing_test_user
         ]
         
         for test_func in tests:
