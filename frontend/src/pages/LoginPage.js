@@ -48,14 +48,14 @@ export default function LoginPage() {
       return;
     }
     
-    if (!password.trim()) {
-      setError("Password is required");
+    // Email format check (basic) - check before password
+    if (!email.includes("@")) {
+      setError("Please enter a valid email");
       return;
     }
     
-    // Email format check (basic)
-    if (!email.includes("@")) {
-      setError("Please enter a valid email");
+    if (!password.trim()) {
+      setError("Password is required");
       return;
     }
     
