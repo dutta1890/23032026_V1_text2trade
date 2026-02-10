@@ -1,0 +1,167 @@
+{
+  "project_name": "Text2trade",
+  "design_philosophy": {
+    "theme_name": "Tactical Bloomberg",
+    "core_values": [
+      "Speed",
+      "Precision",
+      "Data-Density",
+      "Clarity"
+    ],
+    "visual_style": "Swiss High-Contrast meets Terminal UI. Dark mode default. Sharp edges. Monospace accents.",
+    "emotional_tone": "Professional, Trustworthy, Efficient, Institutional"
+  },
+  "typography": {
+    "font_families": {
+      "headings": {
+        "name": "JetBrains Mono",
+        "type": "Monospace",
+        "weights": [
+          "400",
+          "700"
+        ],
+        "source": "Google Fonts",
+        "usage": "All headings (h1-h6), data values, tickers, and buttons."
+      },
+      "body": {
+        "name": "Inter",
+        "type": "Sans-serif",
+        "weights": [
+          "400",
+          "500",
+          "600"
+        ],
+        "source": "Google Fonts",
+        "usage": "Long form text, labels, navigation, tooltips."
+      }
+    },
+    "scale": {
+      "h1": "text-4xl md:text-6xl font-bold tracking-tight",
+      "h2": "text-3xl md:text-4xl font-bold tracking-tight",
+      "h3": "text-2xl font-semibold tracking-tight",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-muted-foreground",
+      "mono_label": "text-xs font-mono uppercase tracking-wider text-muted-foreground"
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": "#09090b",
+      "foreground": "#fafafa",
+      "card": "#18181b",
+      "card_foreground": "#fafafa",
+      "popover": "#09090b",
+      "popover_foreground": "#fafafa",
+      "primary": "#00E599",
+      "primary_foreground": "#000000",
+      "secondary": "#27272a",
+      "secondary_foreground": "#fafafa",
+      "muted": "#27272a",
+      "muted_foreground": "#a1a1aa",
+      "accent": "#27272a",
+      "accent_foreground": "#fafafa",
+      "destructive": "#ef4444",
+      "destructive_foreground": "#fafafa",
+      "border": "#27272a",
+      "input": "#27272a",
+      "ring": "#00E599"
+    },
+    "usage_rules": {
+      "primary_action": "Use Primary Green (#00E599) for 'Buy', 'Execute', 'Confirm', and primary CTAs.",
+      "destructive_action": "Use Red (#ef4444) for 'Sell', 'Cancel', 'Delete'.",
+      "neutral_surface": "Use Zinc-900 (#18181b) for cards and panels. Avoid pure black for surfaces.",
+      "text_hierarchy": "Headings in White (#fafafa). Secondary text in Zinc-400 (#a1a1aa)."
+    }
+  },
+  "layout": {
+    "spacing_system": {
+      "base": "4px",
+      "container_padding": "p-6 md:p-8",
+      "section_gap": "gap-8 md:gap-12",
+      "component_gap": "gap-4"
+    },
+    "grid_system": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-12 gap-4",
+      "landing_hero": "grid grid-cols-1 md:grid-cols-2 gap-12 items-center",
+      "bento_grid": "grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-[minmax(180px,auto)]"
+    },
+    "border_radius": {
+      "default": "rounded-none",
+      "card": "rounded-sm",
+      "button": "rounded-sm",
+      "input": "rounded-none"
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "Sharp edges (rounded-sm). Uppercase text. Monospace font.",
+      "variants": {
+        "default": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-none",
+        "outline": "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        "ghost": "hover:bg-accent hover:text-accent-foreground"
+      }
+    },
+    "cards": {
+      "style": "Flat background (Zinc-900). 1px Border (Zinc-800). No shadow or very subtle shadow.",
+      "padding": "p-6"
+    },
+    "inputs": {
+      "style": "Flat background. 1px Border. Monospace text. Sharp edges.",
+      "focus": "ring-1 ring-primary border-primary"
+    },
+    "navigation": {
+      "style": "Sticky top. Glassmorphism (backdrop-blur-md) with border-b border-border/40."
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-md bg-background/80 border-b border-border/50",
+    "gradients": "NO gradients for backgrounds. Subtle gradients allowed for text highlights or active borders only.",
+    "borders": "1px solid borders are preferred over shadows for separation.",
+    "textures": "Subtle noise texture allowed on landing page background."
+  },
+  "media": {
+    "image_style": "High contrast, desaturated or duotone (Green/Black). Technical/Abstract subjects.",
+    "image_urls": {
+      "hero_background": "https://images.unsplash.com/photo-1762278804768-7109128de73f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHw0fHxhYnN0cmFjdCUyMGRpZ2l0YWwlMjBkYXRhJTIwZmxvdyUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3MDcxMzcwMHww&ixlib=rb-4.1.0&q=85",
+      "feature_abstract_1": "https://images.unsplash.com/photo-1762279388956-1c098163a2a8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGRpZ2l0YWwlMjBkYXRhJTIwZmxvdyUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3MDcxMzcwMHww&ixlib=rb-4.1.0&q=85",
+      "feature_abstract_2": "https://images.unsplash.com/photo-1762279389006-43963a0cee55?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGRpZ2l0YWwlMjBkYXRhJTIwZmxvdyUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3MDcxMzcwMHww&ixlib=rb-4.1.0&q=85"
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure 4.5:1 contrast ratio for all text. Use APCA for critical data.",
+    "motion": "Respect prefers-reduced-motion. Avoid flashing elements.",
+    "testing": "All interactive elements must have data-testid attributes."
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALL FONTS: Add 'JetBrains Mono' and 'Inter' from Google Fonts to index.html or CSS.",
+    "2. CONFIGURE TAILWIND: Update tailwind.config.js with the colors and font families defined above. Set default border radius to 0px or 2px.",
+    "3. SCAFFOLD PAGES: Create Home (Landing), Login, and Dashboard pages using the layout rules.",
+    "4. USE SHADCN: Use shadcn/ui components but customize them to match the 'Sharp/Technical' aesthetic (remove rounded corners).",
+    "5. LANDING PAGE: Use the 'hero_background' image with a dark overlay. Use large JetBrains Mono headings.",
+    "6. DASHBOARD: Create a dense grid layout. Use the 'Card' component for widgets. Keep it empty but structured.",
+    "7. LOGIN: Simple centered form on a dark background. Sharp inputs.",
+    "8. HEALTH CHECK: Ensure backend has /health endpoint.",
+    "9. DO NOT use gradients for main backgrounds. Keep it flat and clean.",
+    "10. ADD data-testid to all buttons, inputs, and links."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use sonner for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
