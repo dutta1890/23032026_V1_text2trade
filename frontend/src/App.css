@@ -1,34 +1,65 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/**
+ * Text2trade App-specific Styles
+ * ==============================
+ * Minimal CSS - most styling done via Tailwind utilities.
+ * Only add styles here that can't be achieved with Tailwind.
+ */
+
+/* Smooth page transitions */
+.page-enter {
+    opacity: 0;
+    transform: translateY(8px);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+.page-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 200ms ease-out, transform 200ms ease-out;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Button hover animation */
+.btn-hover {
+    transition: background-color 150ms ease, transform 100ms ease;
 }
 
-.App-link {
-    color: #61dafb;
+.btn-hover:hover {
+    transform: translateY(-1px);
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+.btn-hover:active {
+    transform: translateY(0);
+}
+
+/* Input focus glow effect */
+.input-glow:focus {
+    box-shadow: 0 0 0 1px hsl(156 100% 45% / 0.5);
+}
+
+/* Card hover effect */
+.card-hover {
+    transition: border-color 150ms ease;
+}
+
+.card-hover:hover {
+    border-color: hsl(156 100% 45% / 0.3);
+}
+
+/* Link underline animation */
+.link-underline {
+    position: relative;
+}
+
+.link-underline::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background-color: currentColor;
+    transition: width 200ms ease;
+}
+
+.link-underline:hover::after {
+    width: 100%;
 }

@@ -1,50 +1,43 @@
-import { useEffect } from "react";
+/**
+ * Text2trade Main App Component
+ * =============================
+ * Root component with routing setup.
+ * Routes: Home (/), Login (/login), Dashboard (/dashboard)
+ * 
+ * File Structure:
+ * - App.js (this file): Main app with routing
+ * - pages/HomePage.js: Landing page
+ * - pages/LoginPage.js: Login form (static mockup)
+ * - pages/DashboardPage.js: Empty dashboard placeholder
+ */
+
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// Import page components
+import HomePage from "@/pages/HomePage";
+import LoginPage from "@/pages/LoginPage";
+import DashboardPage from "@/pages/DashboardPage";
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
-
+/**
+ * Main App Component
+ * Sets up routing for the application.
+ * No authentication logic - just navigation.
+ */
 function App() {
   return (
-    <div className="App">
+    // Main container - no center alignment to preserve natural reading flow
+    <div className="min-h-screen bg-background">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          {/* Home/Landing page - public */}
+          <Route path="/" element={<HomePage />} />
+          
+          {/* Login page - static mockup form */}
+          <Route path="/login" element={<LoginPage />} />
+          
+          {/* Dashboard - empty placeholder */}
+          <Route path="/dashboard" element={<DashboardPage />} />
         </Routes>
       </BrowserRouter>
     </div>
