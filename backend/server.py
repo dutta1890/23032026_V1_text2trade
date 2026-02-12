@@ -6,17 +6,16 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, Union
 import uuid
 
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-app = FastAPI(title="Text2trade API", version="0.3.0")
+app = FastAPI(title="Text2trade API", version="0.4.0")
 api_router = APIRouter(prefix="/api")
 
-# In-memory storage
 users_db: Dict[str, str] = {}
 strategies_db: List[dict] = []
 
@@ -48,14 +47,21 @@ class AuthResponse(BaseModel):
 # STRATEGY MODELS
 # =============================================================================
 
+class IndicatorCondition(BaseModel):
+    name: str  # RSI, SMA, EMA, MACD, BB, VOLUME, PRICE, etc.
+    params: Dict[str, Any] = {}  # {"period": 14, "source": "close"}
+    operator: str  # >, <, ==, >=, <=, crosses_above, crosses_below
+    value: Optional[Union[float, str]] = None  # 70, "SMA_50", etc.
+
 class Metadata(BaseModel):
     name: str
     description: Optional[str] = None
+    tags: List[str] = []
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
 class Market(BaseModel):
-    type: str  # crypto, forex, stocks
+    type: str  # crypto, forex, stocks, futures
     exchange: Optional[str] = None
 
 class Instrument(BaseModel):
@@ -64,35 +70,30 @@ class Instrument(BaseModel):
     quote: Optional[str] = None
 
 class Timeframe(BaseModel):
-    interval: str  # 1m, 5m, 1h, 1d
+    interval: str  # 1m, 5m, 15m, 1h, 4h, 1d
     candle_count: Optional[int] = None
 
-class EntryRule(BaseModel):
-    condition: str
-    indicator: Optional[str] = None
-    value: Optional[float] = None
-    operator: Optional[str] = None  # >, <, ==, >=, <=
-
 class RiskManagement(BaseModel):
-    max_position_size: Optional[float] = None
+    position_size: Optional[float] = None
+    position_size_type: Optional[str] = None  # fixed, percent, risk_based
     max_daily_loss: Optional[float] = None
+    max_drawdown: Optional[float] = None
     risk_per_trade: Optional[float] = None
-
-class ExitRules(BaseModel):
     take_profit: Optional[float] = None
     stop_loss: Optional[float] = None
     trailing_stop: Optional[float] = None
-    time_exit: Optional[str] = None
 
 class Strategy(BaseModel):
     id: Optional[str] = None
+    version: str = "1.0"
     metadata: Metadata
     market: Market
     instrument: Instrument
     timeframe: Timeframe
-    entry_rules: List[EntryRule]
+    entry_conditions: List[IndicatorCondition] = []
+    exit_conditions: List[IndicatorCondition] = []
+    filters: List[IndicatorCondition] = []
     risk_management: RiskManagement
-    exit_rules: ExitRules
 
 class StrategyResponse(BaseModel):
     success: bool
@@ -117,7 +118,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "0.3.0"
+        "version": "0.4.0"
     }
 
 
@@ -157,7 +158,7 @@ async def create_strategy(strategy: Strategy):
     strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
     strategy.metadata.updated_at = strategy.metadata.created_at
     strategies_db.append(strategy.model_dump())
-    logger.info(f"Strategy created: {strategy.id}")
+    logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name}")
     return {"success": True, "strategy": strategy}
 
 @api_router.get("/strategies", response_model=StrategiesListResponse)
