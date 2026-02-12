@@ -132,14 +132,15 @@ const MyStrategiesContent = ({ strategies, onCreateNew }) => (
     ) : (
       <div className="space-y-4">
         {strategies.map((s, i) => (
-          <Card key={i} className="border-border bg-card" data-testid={`strategy-card-${i}`}>
+          <Card key={s.id || i} className="border-border bg-card" data-testid={`strategy-card-${i}`}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <h3 className="font-mono font-bold text-foreground">{s.metadata?.name || "Unnamed"}</h3>
                   <p className="text-xs text-muted-foreground font-mono mt-1">
                     {s.market?.type} / {s.instrument?.symbol} / {s.timeframe?.interval}
                   </p>
+                  <p className="text-sm text-muted-foreground mt-2">{explainStrategy(s)}</p>
                 </div>
                 <div className="text-right">
                   <span className="mono-label text-primary">DRAFT</span>
