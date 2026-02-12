@@ -49,6 +49,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const [strategy, setStrategy] = useState(initialStrategy);
   const [entryRSI, setEntryRSI] = useState({ period: "14", operator: "<", value: "30" });
   const [exitRSI, setExitRSI] = useState({ enabled: false, period: "14", operator: ">", value: "70" });
+  const [saving, setSaving] = useState(false);
 
   const updateStrategy = (section, field, value) => {
     setStrategy(prev => ({
@@ -60,7 +61,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const nextStep = () => step < STEPS.length - 1 && setStep(step + 1);
   const prevStep = () => step > 0 && setStep(step - 1);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const entry_conditions = [{
       name: "RSI",
       params: { period: parseInt(entryRSI.period) },
@@ -76,17 +77,26 @@ export default function StrategyBuilder({ onClose, onSave }) {
     }] : [];
 
     const finalStrategy = {
+      version: "1.0",
       ...strategy,
       entry_conditions,
       exit_conditions,
+      filters: [],
       risk_management: {
         stop_loss: parseFloat(strategy.risk_management.stop_loss) || null,
         take_profit: parseFloat(strategy.risk_management.take_profit) || null
       }
     };
 
-    onSave?.(finalStrategy);
-    console.log("Strategy:", finalStrategy);
+    setSaving(true);
+    try {
+      const res = await axios.post(`${API_URL}/strategy`, finalStrategy);
+      onSave?.(res.data.strategy);
+    } catch (err) {
+      console.error("Save failed:", err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderStep = () => {
