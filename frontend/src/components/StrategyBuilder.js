@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Check, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, TrendingUp, Loader2 } from "lucide-react";
+import axios from "axios";
+
+const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const STEPS = ["Market", "Instrument", "Timeframe", "Entry", "Exit", "Risk"];
 
