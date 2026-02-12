@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, PlusCircle, FolderOpen, HelpCircle, LogOut, User, ChevronRight, Lightbulb, FileText, Settings, BarChart3, Zap, X } from "lucide-react";
 import StrategyBuilder from "@/components/StrategyBuilder";
+import { explainStrategy } from "@/utils/explainStrategy";
+import axios from "axios";
+
+const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Sidebar = ({ activePage, onPageChange, userEmail, onLogout }) => {
   const menuItems = [
