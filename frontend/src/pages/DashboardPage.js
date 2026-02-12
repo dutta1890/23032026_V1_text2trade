@@ -197,9 +197,18 @@ export default function DashboardPage() {
   const [strategies, setStrategies] = useState([]);
   const navigate = useNavigate();
 
+  const fetchStrategies = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/strategies`);
+      setStrategies(res.data.strategies || []);
+    } catch (err) {
+      console.error("Fetch failed:", err);
+    }
+  };
+
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
-    if (!email) { navigate("/login"); } else { setUserEmail(email); }
+    if (!email) { navigate("/login"); } else { setUserEmail(email); fetchStrategies(); }
   }, [navigate]);
 
   const handleLogout = () => { localStorage.removeItem("userEmail"); navigate("/login"); };
