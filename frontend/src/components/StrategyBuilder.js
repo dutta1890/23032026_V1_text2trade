@@ -393,8 +393,9 @@ export default function StrategyBuilder({ onClose, onSave }) {
               Next <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           ) : (
-            <Button onClick={handleSave} data-testid="btn-save">
-              <Check className="w-4 h-4 mr-1" /> Save Strategy
+            <Button onClick={handleSave} disabled={saving} data-testid="btn-save">
+              {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+              {saving ? "Saving..." : "Save Strategy"}
             </Button>
           )}
         </div>
