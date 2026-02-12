@@ -1,18 +1,3 @@
-"""
-Text2trade Backend Server
-=========================
-A minimal FastAPI backend with simple email/password authentication.
-Users are stored in memory (lost on restart - MVP only).
-
-AUTHENTICATION FLOW (Plain English):
-1. SIGNUP: User sends email + password → We store it in a dictionary → Return success
-2. LOGIN: User sends email + password → We check if it matches → Return success/failure
-3. No tokens, no sessions, no encryption - just simple string matching
-
-File Structure:
-- server.py (this file): Main FastAPI application with auth routes
-"""
-
 from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -21,199 +6,166 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Dict, List, Optional
+import uuid
 
 
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
-
-# Load environment variables from .env file
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Create the main FastAPI app instance
-app = FastAPI(
-    title="Text2trade API",
-    description="A minimal backend with simple auth for Text2trade",
-    version="0.2.0"
-)
-
-# Create an API router with /api prefix
-# All routes will be accessible under /api/*
+app = FastAPI(title="Text2trade API", version="0.3.0")
 api_router = APIRouter(prefix="/api")
 
-
-# =============================================================================
-# IN-MEMORY USER STORAGE
-# =============================================================================
-
-# Simple dictionary to store users
-# Format: { "email@example.com": "password123" }
-# WARNING: This is lost when server restarts - MVP only!
+# In-memory storage
 users_db: Dict[str, str] = {}
+strategies_db: List[dict] = []
 
 
 # =============================================================================
-# REQUEST/RESPONSE MODELS
+# AUTH MODELS
 # =============================================================================
 
 class HealthResponse(BaseModel):
-    """Response model for health check endpoint"""
-    status: str           # "healthy" or "unhealthy"
-    timestamp: str        # ISO format timestamp
-    version: str          # API version
-
+    status: str
+    timestamp: str
+    version: str
 
 class RootResponse(BaseModel):
-    """Response model for root endpoint"""
     message: str
     app_name: str
 
-
 class AuthRequest(BaseModel):
-    """
-    Request model for signup and login.
-    Both endpoints use the same format: email + password.
-    """
-    email: EmailStr       # Valid email format required
-    password: str         # Any string, no complexity requirements
-
+    email: EmailStr
+    password: str
 
 class AuthResponse(BaseModel):
-    """
-    Response model for successful authentication.
-    Returns the user's email to confirm who logged in.
-    """
     success: bool
     message: str
     email: str
 
 
-class ErrorResponse(BaseModel):
-    """Response model for error messages"""
+# =============================================================================
+# STRATEGY MODELS
+# =============================================================================
+
+class Metadata(BaseModel):
+    name: str
+    description: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+class Market(BaseModel):
+    type: str  # crypto, forex, stocks
+    exchange: Optional[str] = None
+
+class Instrument(BaseModel):
+    symbol: str
+    base: Optional[str] = None
+    quote: Optional[str] = None
+
+class Timeframe(BaseModel):
+    interval: str  # 1m, 5m, 1h, 1d
+    candle_count: Optional[int] = None
+
+class EntryRule(BaseModel):
+    condition: str
+    indicator: Optional[str] = None
+    value: Optional[float] = None
+    operator: Optional[str] = None  # >, <, ==, >=, <=
+
+class RiskManagement(BaseModel):
+    max_position_size: Optional[float] = None
+    max_daily_loss: Optional[float] = None
+    risk_per_trade: Optional[float] = None
+
+class ExitRules(BaseModel):
+    take_profit: Optional[float] = None
+    stop_loss: Optional[float] = None
+    trailing_stop: Optional[float] = None
+    time_exit: Optional[str] = None
+
+class Strategy(BaseModel):
+    id: Optional[str] = None
+    metadata: Metadata
+    market: Market
+    instrument: Instrument
+    timeframe: Timeframe
+    entry_rules: List[EntryRule]
+    risk_management: RiskManagement
+    exit_rules: ExitRules
+
+class StrategyResponse(BaseModel):
     success: bool
-    message: str
+    strategy: Strategy
+
+class StrategiesListResponse(BaseModel):
+    success: bool
+    strategies: List[Strategy]
+    count: int
 
 
 # =============================================================================
-# API ROUTES - GENERAL
+# GENERAL ROUTES
 # =============================================================================
 
 @api_router.get("/", response_model=RootResponse)
 async def root():
-    """
-    Root endpoint - returns basic API info.
-    Used to verify API is accessible.
-    """
-    return {
-        "message": "Welcome to Text2trade API",
-        "app_name": "Text2trade"
-    }
-
+    return {"message": "Welcome to Text2trade API", "app_name": "Text2trade"}
 
 @api_router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """
-    Health check endpoint.
-    Returns current server status and timestamp.
-    Used by monitoring systems and load balancers.
-    """
     return {
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "0.2.0"
+        "version": "0.3.0"
     }
 
 
 # =============================================================================
-# API ROUTES - AUTHENTICATION
+# AUTH ROUTES
 # =============================================================================
 
 @api_router.post("/signup", response_model=AuthResponse)
 async def signup(request: AuthRequest):
-    """
-    SIGNUP ENDPOINT
-    ---------------
-    Creates a new user account.
-    
-    How it works:
-    1. Check if email already exists in our users dictionary
-    2. If exists → return error (can't have duplicate accounts)
-    3. If new → store email:password in dictionary → return success
-    
-    No password hashing - this is MVP only!
-    """
-    email = request.email.lower()  # Normalize email to lowercase
-    password = request.password
-    
-    # Check if user already exists
+    email = request.email.lower()
     if email in users_db:
-        raise HTTPException(
-            status_code=400,
-            detail="Email already registered"
-        )
-    
-    # Check password is not empty
-    if not password or len(password) < 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Password cannot be empty"
-        )
-    
-    # Store the new user (plain text password - MVP only!)
-    users_db[email] = password
-    
-    # Log the signup (don't log password!)
+        raise HTTPException(status_code=400, detail="Email already registered")
+    if not request.password:
+        raise HTTPException(status_code=400, detail="Password cannot be empty")
+    users_db[email] = request.password
     logger.info(f"New user signed up: {email}")
-    
-    return {
-        "success": True,
-        "message": "Account created successfully",
-        "email": email
-    }
-
+    return {"success": True, "message": "Account created successfully", "email": email}
 
 @api_router.post("/login", response_model=AuthResponse)
 async def login(request: AuthRequest):
-    """
-    LOGIN ENDPOINT
-    --------------
-    Authenticates an existing user.
-    
-    How it works:
-    1. Look up email in our users dictionary
-    2. If not found → return error (user doesn't exist)
-    3. If found → compare passwords
-    4. If passwords match → return success
-    5. If passwords don't match → return error
-    
-    No tokens or sessions - frontend handles state!
-    """
-    email = request.email.lower()  # Normalize email to lowercase
-    password = request.password
-    
-    # Check if user exists
+    email = request.email.lower()
     if email not in users_db:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
-    
-    # Check password matches
-    if users_db[email] != password:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
-    
-    # Log the login (don't log password!)
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if users_db[email] != request.password:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
     logger.info(f"User logged in: {email}")
-    
+    return {"success": True, "message": "Login successful", "email": email}
+
+
+# =============================================================================
+# STRATEGY ROUTES
+# =============================================================================
+
+@api_router.post("/strategy", response_model=StrategyResponse)
+async def create_strategy(strategy: Strategy):
+    strategy.id = str(uuid.uuid4())
+    strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
+    strategy.metadata.updated_at = strategy.metadata.created_at
+    strategies_db.append(strategy.model_dump())
+    logger.info(f"Strategy created: {strategy.id}")
+    return {"success": True, "strategy": strategy}
+
+@api_router.get("/strategies", response_model=StrategiesListResponse)
+async def get_strategies():
     return {
         "success": True,
-        "message": "Login successful",
-        "email": email
+        "strategies": strategies_db,
+        "count": len(strategies_db)
     }
 
 
@@ -221,11 +173,8 @@ async def login(request: AuthRequest):
 # APP SETUP
 # =============================================================================
 
-# Include the API router in the main app
 app.include_router(api_router)
 
-# Configure CORS middleware
-# Allows frontend to make requests to this backend
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -234,13 +183,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
-# Logs will show timestamp, logger name, level, and message
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# Log startup message
-logger.info("Text2trade API server initialized with authentication")
+logger.info("Text2trade API initialized")
