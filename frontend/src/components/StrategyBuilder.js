@@ -94,6 +94,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
     if (indType === "rsi") return `${ind.type}(${ind.period})`;
     if (indType === "ma") return `${ind.type}(${ind.short}/${ind.long})`;
     if (indType === "macd") return `MACD(${ind.fast}/${ind.slow}/${ind.signal})`;
+    if (indType === "stoch") return `Stoch(%K${ind.k_period}/%D${ind.d_period})`;
     return ind.type;
   };
 
