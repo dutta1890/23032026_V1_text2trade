@@ -231,7 +231,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                     </SelectContent>
                   </Select>
                 </div>
-                {entryIndicator.type === "RSI" ? (
+                {getIndicatorType(entryIndicator.type) === "rsi" && (
                   <div className="space-y-2">
                     <label className="mono-label">Period</label>
                     <Input
@@ -242,7 +242,8 @@ export default function StrategyBuilder({ onClose, onSave }) {
                       data-testid="input-entry-period"
                     />
                   </div>
-                ) : (
+                )}
+                {getIndicatorType(entryIndicator.type) === "ma" && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="mono-label">Short Period</label>
@@ -266,6 +267,40 @@ export default function StrategyBuilder({ onClose, onSave }) {
                     </div>
                   </div>
                 )}
+                {getIndicatorType(entryIndicator.type) === "macd" && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <label className="mono-label">Fast</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.fast}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, fast: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-fast"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="mono-label">Slow</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.slow}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, slow: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-slow"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="mono-label">Signal</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.signal}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, signal: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-signal"
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="mono-label">Operator</label>
@@ -276,7 +311,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                       </SelectContent>
                     </Select>
                   </div>
-                  {entryIndicator.type === "RSI" && (
+                  {getIndicatorType(entryIndicator.type) === "rsi" && (
                     <div className="space-y-2">
                       <label className="mono-label">Value</label>
                       <Input
