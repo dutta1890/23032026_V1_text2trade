@@ -211,6 +211,53 @@ const HelpContent = () => (
   </div>
 );
 
+const FeedbackForm = () => {
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+    setSending(true);
+    try {
+      await axios.post(`${API_URL}/feedback`, { message });
+      setSent(true);
+      setMessage("");
+    } catch (err) {
+      console.error("Feedback failed:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (sent) return <p className="text-sm text-primary">Thank you for your feedback!</p>;
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2">
+      <input
+        type="text"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Send feedback..."
+        className="flex-1 px-3 py-1.5 text-sm bg-background border border-border font-mono"
+        disabled={sending}
+        data-testid="feedback-input"
+      />
+      <Button type="submit" size="sm" disabled={sending || !message.trim()} data-testid="feedback-submit">
+        {sending ? "..." : "Send"}
+      </Button>
+    </form>
+  );
+};
+
+const Disclaimer = () => (
+  <div className="p-4 bg-secondary/30 border border-border text-xs text-muted-foreground" data-testid="disclaimer">
+    <p className="font-mono uppercase tracking-wider mb-2">Disclaimer</p>
+    <p>Text2trade is for educational purposes only. This is not financial advice. Trading involves risk. Past performance does not guarantee future results. Always do your own research.</p>
+  </div>
+);
+
 export default function DashboardPage() {
   const [activePage, setActivePage] = useState("create");
   const [userEmail, setUserEmail] = useState(null);
@@ -227,7 +274,7 @@ export default function DashboardPage() {
       const res = await axios.get(`${API_URL}/strategies`);
       setStrategies(res.data.strategies || []);
     } catch (err) {
-      console.error("Fetch failed:", err);
+      console.error("Fetch strategies failed:", err);
     }
   };
 
