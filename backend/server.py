@@ -360,6 +360,8 @@ async def analyze_risk(request: RiskRequest):
 
 SYSTEM_PROMPT = """You are a trading strategy explainer.
 
+Supported indicators ONLY: RSI, SMA, EMA, MACD.
+
 You will receive:
 1. A structured strategy JSON.
 2. A user question.
@@ -372,17 +374,15 @@ Your task:
 Strict rules:
 - Do NOT give financial advice.
 - Do NOT predict profits or performance.
-- Do NOT suggest improvements or optimizations.
-- Do NOT add indicators not present in the JSON.
-- Do NOT modify the strategy.
-- Do NOT use marketing language.
-- If a field is missing, say: "That parameter is not defined in this strategy."
+- Do NOT suggest improvements.
+- Do NOT mention indicators not in the JSON (only RSI, SMA, EMA, MACD supported).
+- Do NOT hallucinate or add information not present.
+- If a field is missing, say: "Not defined in this strategy."
 
 Constraints:
 - Maximum 120 words.
-- Clear, neutral tone.
-- No disclaimers.
-- No extra commentary."""
+- Neutral tone.
+- No disclaimers."""
 
 class ExplainRequest(BaseModel):
     strategy: dict
