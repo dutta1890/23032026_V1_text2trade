@@ -80,7 +80,7 @@ const PlaceholderCard = ({ icon: Icon, title, description, actionLabel, onClick,
   </Card>
 );
 
-const CreateStrategyContent = ({ onStartBuilder }) => (
+const CreateStrategyContent = ({ onStartBuilder, onStartNL }) => (
   <div className="space-y-8">
     <div>
       <h1 className="text-3xl font-bold tracking-tight text-foreground">Create Strategy</h1>
@@ -88,7 +88,7 @@ const CreateStrategyContent = ({ onStartBuilder }) => (
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <PlaceholderCard icon={PlusCircle} title="Blank Strategy" description="Start from scratch with a blank canvas. Full control over every parameter." actionLabel="Create Blank" onClick={onStartBuilder} testId="card-blank-strategy" />
-      <PlaceholderCard icon={Lightbulb} title="Use Template" description="Choose from pre-built strategy templates to get started quickly." actionLabel="Browse Templates" testId="card-use-template" />
+      <PlaceholderCard icon={Sparkles} title="Describe in Words" description="Describe your strategy in plain English. AI will extract the parameters." actionLabel="Use AI Parser" onClick={onStartNL} testId="card-nl-strategy" />
       <PlaceholderCard icon={FileText} title="Import Strategy" description="Import an existing strategy from a file or another platform." actionLabel="Import" testId="card-import-strategy" />
     </div>
     <Card className="border-border bg-secondary/30" data-testid="card-info">
@@ -99,7 +99,7 @@ const CreateStrategyContent = ({ onStartBuilder }) => (
           </div>
           <div>
             <h3 className="font-mono font-bold text-foreground mb-1">Quick Tip</h3>
-            <p className="text-sm text-muted-foreground">New to strategy creation? Start with a template and customize it to learn how different parameters affect trading behavior.</p>
+            <p className="text-sm text-muted-foreground">New to strategy creation? Try "Describe in Words" to quickly set up your strategy using natural language.</p>
           </div>
         </div>
       </CardContent>
