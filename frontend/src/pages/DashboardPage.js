@@ -199,6 +199,7 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [strategies, setStrategies] = useState([]);
+  const [chatStrategy, setChatStrategy] = useState(null);
   const navigate = useNavigate();
 
   const fetchStrategies = async () => {
