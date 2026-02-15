@@ -217,7 +217,7 @@ export default function DashboardPage() {
   }, [navigate]);
 
   const handleLogout = () => { localStorage.removeItem("userEmail"); navigate("/login"); };
-  const handlePageChange = (pageId) => { setActivePage(pageId); setShowBuilder(false); };
+  const handlePageChange = (pageId) => { setActivePage(pageId); setShowBuilder(false); setChatStrategy(null); };
   const handleStartBuilder = () => setShowBuilder(true);
   const handleCloseBuilder = () => setShowBuilder(false);
   const handleSaveStrategy = (strategy) => {
@@ -225,6 +225,8 @@ export default function DashboardPage() {
     setShowBuilder(false);
     setActivePage("strategies");
   };
+  const handleOpenChat = (s) => setChatStrategy(s);
+  const handleCloseChat = () => setChatStrategy(null);
 
   const renderContent = () => {
     if (showBuilder) {
