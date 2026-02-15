@@ -53,8 +53,8 @@ const initialStrategy = {
 export default function StrategyBuilder({ onClose, onSave }) {
   const [step, setStep] = useState(0);
   const [strategy, setStrategy] = useState(initialStrategy);
-  const [entryRSI, setEntryRSI] = useState({ period: "14", operator: "<", value: "30" });
-  const [exitRSI, setExitRSI] = useState({ enabled: false, period: "14", operator: ">", value: "70" });
+  const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", operator: "<", value: "30" });
+  const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", operator: ">", value: "70" });
   const [saving, setSaving] = useState(false);
 
   const updateStrategy = (section, field, value) => {
@@ -67,20 +67,19 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const nextStep = () => step < STEPS.length - 1 && setStep(step + 1);
   const prevStep = () => step > 0 && setStep(step - 1);
 
-  const handleSave = async () => {
-    const entry_conditions = [{
-      name: "RSI",
-      params: { period: parseInt(entryRSI.period) },
-      operator: entryRSI.operator,
-      value: parseFloat(entryRSI.value)
-    }];
+  const buildCondition = (ind) => {
+    const cond = {
+      name: ind.type,
+      params: { period: parseInt(ind.period) },
+      operator: ind.operator,
+      value: ind.type === "RSI" ? parseFloat(ind.value) : "price"
+    };
+    return cond;
+  };
 
-    const exit_conditions = exitRSI.enabled ? [{
-      name: "RSI",
-      params: { period: parseInt(exitRSI.period) },
-      operator: exitRSI.operator,
-      value: parseFloat(exitRSI.value)
-    }] : [];
+  const handleSave = async () => {
+    const entry_conditions = [buildCondition(entryIndicator)];
+    const exit_conditions = exitIndicator.enabled ? [buildCondition(exitIndicator)] : [];
 
     const finalStrategy = {
       version: "1.0",
