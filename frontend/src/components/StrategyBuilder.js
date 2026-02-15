@@ -35,9 +35,9 @@ const OPERATORS = [
 ];
 
 const INDICATORS = [
-  { value: "RSI", label: "RSI", hasValue: true, defaultParams: { period: 14 } },
-  { value: "SMA", label: "SMA", hasValue: false, defaultParams: { period: 20 } },
-  { value: "EMA", label: "EMA", hasValue: false, defaultParams: { period: 20 } },
+  { value: "RSI", label: "RSI", hasPeriod: true, hasValue: true },
+  { value: "SMA", label: "SMA", hasPeriod: false, hasShortLong: true },
+  { value: "EMA", label: "EMA", hasPeriod: false, hasShortLong: true },
 ];
 
 const initialStrategy = {
@@ -53,8 +53,8 @@ const initialStrategy = {
 export default function StrategyBuilder({ onClose, onSave }) {
   const [step, setStep] = useState(0);
   const [strategy, setStrategy] = useState(initialStrategy);
-  const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", operator: "<", value: "30" });
-  const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", operator: ">", value: "70" });
+  const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", short: "9", long: "21", operator: "<", value: "30" });
+  const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", short: "9", long: "21", operator: ">", value: "70" });
   const [saving, setSaving] = useState(false);
 
   const updateStrategy = (section, field, value) => {
