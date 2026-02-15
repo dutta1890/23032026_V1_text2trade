@@ -378,10 +378,14 @@ export default function DashboardPage() {
             <StrategyChat strategy={chatStrategy} onClose={handleCloseChat} />
           </div>
         )}
-        <div className="max-w-5xl mt-12 pt-8 border-t border-border">
+        <div className="max-w-5xl mt-8">
+          <Disclaimer />
+        </div>
+        <div className="max-w-5xl mt-8 pt-8 border-t border-border space-y-4">
+          <FeedbackForm />
           <div className="flex items-center justify-between">
-            <span className="mono-label">// TEXT2TRADE v0.5.0</span>
-            <span className="mono-label">AI EXPLAINER ENABLED</span>
+            <span className="mono-label">// TEXT2TRADE v0.6.0</span>
+            <span className="mono-label">MVP BUILD</span>
           </div>
         </div>
       </main>
