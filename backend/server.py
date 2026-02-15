@@ -237,35 +237,32 @@ async def submit_feedback(request: FeedbackRequest):
 
 PARSER_PROMPT = """You extract structured trading strategy data.
 
-Supported indicators:
-RSI, SMA, EMA, MACD, Bollinger, Stochastic, ADX, ATR, SAR, OBV, Ichimoku.
+Supported indicators ONLY:
+- RSI: params { "period": int }, value is number (0-100)
+- SMA: params { "short": int, "long": int }
+- EMA: params { "short": int, "long": int }
+- MACD: params { "fast": int, "slow": int, "signal": int }, operators: bullish_cross, bearish_cross
 
 Common patterns:
-- "Golden cross" = SMA short crosses_above SMA long (e.g., SMA 50 crosses above SMA 200)
-- "Death cross" = SMA short crosses_below SMA long (e.g., SMA 50 crosses below SMA 200)
-- For SMA/EMA crossovers, use params: { "short": X, "long": Y }
+- "Golden cross" = SMA with operator crosses_above
+- "Death cross" = SMA with operator crosses_below
+- "MACD bullish" = MACD with operator bullish_cross
+- "MACD bearish" = MACD with operator bearish_cross
 
-Return ONLY valid JSON in this format:
+Return ONLY valid JSON:
 
 {
   "entry_conditions": [],
   "exit_conditions": [],
   "filters": [],
-  "risk_management": {
-    "stop_loss": null,
-    "take_profit": null
-  }
+  "risk_management": { "stop_loss": null, "take_profit": null }
 }
 
 Rules:
+- Only use RSI, SMA, EMA, MACD. Ignore other indicators.
 - Extract only explicitly mentioned values.
 - Do not guess missing numbers.
-- If a value is not specified, set it to null.
-- Do not explain.
-- Do not include text outside JSON.
-- Do not optimize or improve the strategy.
-- Do not calculate formulas.
-- For golden/death cross, default to short=50, long=200 if not specified."""
+- Do not explain or add text outside JSON."""
 
 class ParseRequest(BaseModel):
     text: str
