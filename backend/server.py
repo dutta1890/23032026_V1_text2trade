@@ -240,6 +240,11 @@ PARSER_PROMPT = """You extract structured trading strategy data.
 Supported indicators:
 RSI, SMA, EMA, MACD, Bollinger, Stochastic, ADX, ATR, SAR, OBV, Ichimoku.
 
+Common patterns:
+- "Golden cross" = SMA short crosses_above SMA long (e.g., SMA 50 crosses above SMA 200)
+- "Death cross" = SMA short crosses_below SMA long (e.g., SMA 50 crosses below SMA 200)
+- For SMA/EMA crossovers, use params: { "short": X, "long": Y }
+
 Return ONLY valid JSON in this format:
 
 {
@@ -259,7 +264,8 @@ Rules:
 - Do not explain.
 - Do not include text outside JSON.
 - Do not optimize or improve the strategy.
-- Do not calculate formulas."""
+- Do not calculate formulas.
+- For golden/death cross, default to short=50, long=200 if not specified."""
 
 class ParseRequest(BaseModel):
     text: str
