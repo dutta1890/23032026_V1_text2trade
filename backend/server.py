@@ -280,6 +280,55 @@ async def parse_strategy(request: ParseRequest):
 
 
 # =============================================================================
+# RISK ANALYZER ROUTE
+# =============================================================================
+
+RISK_PROMPT = """You analyze a structured trading strategy.
+
+Output:
+- Maximum 3 concise risk observations.
+- Bullet points only.
+- Under 120 words total.
+
+Rules:
+- Do not give advice.
+- Do not predict profitability.
+- Do not suggest alternative indicators.
+- Only comment on structural risk (e.g., no stop loss, high trade frequency).
+- If insufficient data, say: "Risk cannot be assessed fully."
+
+Be neutral and concise."""
+
+class RiskRequest(BaseModel):
+    strategy: dict
+
+class RiskResponse(BaseModel):
+    success: bool
+    warnings: list
+
+@api_router.post("/analyze-risk", response_model=RiskResponse)
+async def analyze_risk(request: RiskRequest):
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=str(uuid.uuid4()),
+        system_message=RISK_PROMPT
+    ).with_model("openai", "gpt-5.2")
+    
+    user_message = UserMessage(text=json.dumps(request.strategy, indent=2))
+    response = await chat.send_message(user_message)
+    
+    # Parse bullet points
+    lines = [l.strip().lstrip("•-*").strip() for l in response.split("\n") if l.strip() and l.strip()[0] in "•-*"]
+    warnings = lines[:3] if lines else [response.strip()]
+    
+    return {"success": True, "warnings": warnings}
+
+
+# =============================================================================
 # AI EXPLAINER ROUTE
 # =============================================================================
 
