@@ -15,11 +15,12 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-app = FastAPI(title="Text2trade API", version="0.4.0")
+app = FastAPI(title="Text2trade API", version="0.6.0")
 api_router = APIRouter(prefix="/api")
 
 users_db: Dict[str, str] = {}
 strategies_db: List[dict] = []
+feedback_db: List[dict] = []
 
 
 # =============================================================================
