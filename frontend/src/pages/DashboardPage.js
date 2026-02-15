@@ -218,6 +218,8 @@ export default function DashboardPage() {
   const [showNL, setShowNL] = useState(false);
   const [strategies, setStrategies] = useState([]);
   const [chatStrategy, setChatStrategy] = useState(null);
+  const [riskWarnings, setRiskWarnings] = useState({});
+  const [analyzingRisk, setAnalyzingRisk] = useState(null);
   const navigate = useNavigate();
 
   const fetchStrategies = async () => {
@@ -244,6 +246,17 @@ export default function DashboardPage() {
     setStrategies(prev => [...prev, strategy]);
     setShowBuilder(false);
     setActivePage("strategies");
+  };
+  const handleAnalyzeRisk = async (id, strategy) => {
+    setAnalyzingRisk(id);
+    try {
+      const res = await axios.post(`${API_URL}/analyze-risk`, { strategy });
+      setRiskWarnings(prev => ({ ...prev, [id]: res.data.warnings }));
+    } catch (err) {
+      console.error("Risk analysis failed:", err);
+    } finally {
+      setAnalyzingRisk(null);
+    }
   };
   const handleNLConfirm = (parsed) => {
     // Show parsed data in console, user can then use builder to complete
