@@ -68,13 +68,18 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const prevStep = () => step > 0 && setStep(step - 1);
 
   const buildCondition = (ind) => {
-    const cond = {
+    const isMA = ind.type === "SMA" || ind.type === "EMA";
+    return {
       name: ind.type,
-      params: { period: parseInt(ind.period) },
+      params: isMA ? { short: parseInt(ind.short), long: parseInt(ind.long) } : { period: parseInt(ind.period) },
       operator: ind.operator,
       value: ind.type === "RSI" ? parseFloat(ind.value) : "price"
     };
-    return cond;
+  };
+
+  const formatIndicator = (ind) => {
+    const isMA = ind.type === "SMA" || ind.type === "EMA";
+    return isMA ? `${ind.type}(${ind.short}/${ind.long})` : `${ind.type}(${ind.period})`;
   };
 
   const handleSave = async () => {
