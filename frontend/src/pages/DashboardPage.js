@@ -251,7 +251,7 @@ export default function DashboardPage() {
     }
     switch (activePage) {
       case "create": return <CreateStrategyContent onStartBuilder={handleStartBuilder} />;
-      case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} />;
+      case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} onOpenChat={handleOpenChat} />;
       case "help": return <HelpContent />;
       default: return <CreateStrategyContent onStartBuilder={handleStartBuilder} />;
     }
@@ -264,10 +264,15 @@ export default function DashboardPage() {
       <Sidebar activePage={activePage} onPageChange={handlePageChange} userEmail={userEmail} onLogout={handleLogout} />
       <main className="ml-64 min-h-screen p-8" data-testid="dashboard-main-content">
         <div className="max-w-5xl">{renderContent()}</div>
+        {chatStrategy && (
+          <div className="max-w-5xl mt-6">
+            <StrategyChat strategy={chatStrategy} onClose={handleCloseChat} />
+          </div>
+        )}
         <div className="max-w-5xl mt-12 pt-8 border-t border-border">
           <div className="flex items-center justify-between">
-            <span className="mono-label">// TEXT2TRADE v0.4.0</span>
-            <span className="mono-label">UI ONLY - NO BACKEND</span>
+            <span className="mono-label">// TEXT2TRADE v0.5.0</span>
+            <span className="mono-label">AI EXPLAINER ENABLED</span>
           </div>
         </div>
       </main>
