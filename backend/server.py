@@ -8,6 +8,8 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Union
 import uuid
+import json
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 
 ROOT_DIR = Path(__file__).parent
