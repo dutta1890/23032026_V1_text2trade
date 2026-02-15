@@ -56,9 +56,11 @@ const initialStrategy = {
 export default function StrategyBuilder({ onClose, onSave }) {
   const [step, setStep] = useState(0);
   const [strategy, setStrategy] = useState(initialStrategy);
-  const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", short: "9", long: "21", operator: "<", value: "30" });
-  const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", short: "9", long: "21", operator: ">", value: "70" });
+  const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", operator: "<", value: "30" });
+  const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", operator: ">", value: "70" });
   const [saving, setSaving] = useState(false);
+
+  const getIndicatorType = (name) => INDICATORS.find(i => i.value === name)?.type || "rsi";
 
   const updateStrategy = (section, field, value) => {
     setStrategy(prev => ({
@@ -71,18 +73,26 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const prevStep = () => step > 0 && setStep(step - 1);
 
   const buildCondition = (ind) => {
-    const isMA = ind.type === "SMA" || ind.type === "EMA";
+    const indType = getIndicatorType(ind.type);
+    let params = {};
+    if (indType === "rsi") params = { period: parseInt(ind.period) };
+    else if (indType === "ma") params = { short: parseInt(ind.short), long: parseInt(ind.long) };
+    else if (indType === "macd") params = { fast: parseInt(ind.fast), slow: parseInt(ind.slow), signal: parseInt(ind.signal) };
+    
     return {
       name: ind.type,
-      params: isMA ? { short: parseInt(ind.short), long: parseInt(ind.long) } : { period: parseInt(ind.period) },
+      params,
       operator: ind.operator,
-      value: ind.type === "RSI" ? parseFloat(ind.value) : "price"
+      value: ind.type === "RSI" ? parseFloat(ind.value) : null
     };
   };
 
   const formatIndicator = (ind) => {
-    const isMA = ind.type === "SMA" || ind.type === "EMA";
-    return isMA ? `${ind.type}(${ind.short}/${ind.long})` : `${ind.type}(${ind.period})`;
+    const indType = getIndicatorType(ind.type);
+    if (indType === "rsi") return `${ind.type}(${ind.period})`;
+    if (indType === "ma") return `${ind.type}(${ind.short}/${ind.long})`;
+    if (indType === "macd") return `MACD(${ind.fast}/${ind.slow}/${ind.signal})`;
+    return ind.type;
   };
 
   const handleSave = async () => {
