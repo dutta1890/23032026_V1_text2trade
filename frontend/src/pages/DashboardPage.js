@@ -145,12 +145,28 @@ const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRis
                   <p className="text-sm text-muted-foreground mt-2">{explainStrategy(s)}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onAnalyzeRisk(s.id, s)} disabled={analyzingRisk === s.id} data-testid={`risk-btn-${i}`}>
+                    {analyzingRisk === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4 mr-1" />}
+                    {analyzingRisk === s.id ? "" : "Risk"}
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => onOpenChat(s)} data-testid={`chat-btn-${i}`}>
                     <MessageCircle className="w-4 h-4 mr-1" /> Ask AI
                   </Button>
-                  <span className="mono-label text-primary">DRAFT</span>
+                  <span className="mono-label text-primary">v{s.version || "1.0"}</span>
                 </div>
               </div>
+              {riskWarnings[s.id] && (
+                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30" data-testid={`risk-warnings-${i}`}>
+                  <p className="mono-label text-destructive mb-2">Risk Warnings</p>
+                  <ul className="space-y-1">
+                    {riskWarnings[s.id].map((w, wi) => (
+                      <li key={wi} className="text-xs text-destructive flex gap-2">
+                        <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" /> {w}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
