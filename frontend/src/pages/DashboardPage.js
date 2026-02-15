@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, PlusCircle, FolderOpen, HelpCircle, LogOut, User, ChevronRight, Lightbulb, FileText, Settings, BarChart3, Zap, X, MessageCircle } from "lucide-react";
+import { TrendingUp, PlusCircle, FolderOpen, HelpCircle, LogOut, User, ChevronRight, Lightbulb, FileText, Settings, BarChart3, Zap, X, MessageCircle, Sparkles } from "lucide-react";
 import StrategyBuilder from "@/components/StrategyBuilder";
 import StrategyChat from "@/components/StrategyChat";
+import NLStrategyInput from "@/components/NLStrategyInput";
 import { explainStrategy } from "@/utils/explainStrategy";
 import axios from "axios";
 
