@@ -51,7 +51,9 @@ function formatOperator(op) {
     "<=": "at or below",
     "==": "equal to",
     "crosses_above": "crossing above",
-    "crosses_below": "crossing below"
+    "crosses_below": "crossing below",
+    "bullish_cross": "bullish cross",
+    "bearish_cross": "bearish cross"
   };
   return map[op] || op;
 }
