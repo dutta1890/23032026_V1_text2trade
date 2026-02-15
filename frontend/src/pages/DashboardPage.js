@@ -298,15 +298,17 @@ export default function DashboardPage() {
     setAnalyzingRisk(id);
     try {
       const res = await axios.post(`${API_URL}/analyze-risk`, { strategy });
-      setRiskWarnings(prev => ({ ...prev, [id]: res.data.warnings }));
+      if (res.data?.warnings) {
+        setRiskWarnings(prev => ({ ...prev, [id]: res.data.warnings }));
+      }
     } catch (err) {
       console.error("Risk analysis failed:", err);
+      setRiskWarnings(prev => ({ ...prev, [id]: ["Unable to analyze risk at this time."] }));
     } finally {
       setAnalyzingRisk(null);
     }
   };
   const handleNLConfirm = (parsed) => {
-    // Show parsed data in console, user can then use builder to complete
     console.log("Parsed strategy:", parsed);
     setShowNL(false);
     // Could pre-fill builder here in future
