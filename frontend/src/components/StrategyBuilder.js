@@ -304,6 +304,30 @@ export default function StrategyBuilder({ onClose, onSave }) {
                     </div>
                   </div>
                 )}
+                {getIndicatorType(entryIndicator.type) === "stoch" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="mono-label">%K Period</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.k_period}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, k_period: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-k"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="mono-label">%D Period</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.d_period}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, d_period: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-d"
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="mono-label">Operator</label>
