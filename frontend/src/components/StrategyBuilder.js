@@ -361,7 +361,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                       </SelectContent>
                     </Select>
                   </div>
-                  {exitIndicator.type === "RSI" ? (
+                  {getIndicatorType(exitIndicator.type) === "rsi" && (
                     <div className="space-y-2">
                       <label className="mono-label">Period</label>
                       <Input
@@ -372,7 +372,8 @@ export default function StrategyBuilder({ onClose, onSave }) {
                         data-testid="input-exit-period"
                       />
                     </div>
-                  ) : (
+                  )}
+                  {getIndicatorType(exitIndicator.type) === "ma" && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="mono-label">Short Period</label>
@@ -392,6 +393,40 @@ export default function StrategyBuilder({ onClose, onSave }) {
                           onChange={(e) => setExitIndicator(p => ({ ...p, long: e.target.value }))}
                           className="font-mono"
                           data-testid="input-exit-long"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {getIndicatorType(exitIndicator.type) === "macd" && (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-2">
+                        <label className="mono-label">Fast</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.fast}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, fast: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-fast"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="mono-label">Slow</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.slow}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, slow: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-slow"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="mono-label">Signal</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.signal}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, signal: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-signal"
                         />
                       </div>
                     </div>
