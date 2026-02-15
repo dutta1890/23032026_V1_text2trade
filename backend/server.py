@@ -154,8 +154,36 @@ async def login(request: AuthRequest):
 # STRATEGY ROUTES
 # =============================================================================
 
+def validate_strategy(strategy: Strategy):
+    errors = []
+    
+    # At least one entry condition required
+    if not strategy.entry_conditions:
+        errors.append("At least one entry condition is required")
+    
+    # Timeframe required
+    if not strategy.timeframe or not strategy.timeframe.interval:
+        errors.append("Timeframe is required")
+    
+    # stop_loss > 0
+    sl = strategy.risk_management.stop_loss if strategy.risk_management else None
+    tp = strategy.risk_management.take_profit if strategy.risk_management else None
+    
+    if sl is not None and sl <= 0:
+        errors.append("stop_loss must be greater than 0")
+    
+    # target > stop_loss if both defined
+    if sl is not None and tp is not None and tp <= sl:
+        errors.append("take_profit must be greater than stop_loss")
+    
+    return errors
+
 @api_router.post("/strategy", response_model=StrategyResponse)
 async def create_strategy(strategy: Strategy):
+    errors = validate_strategy(strategy)
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+    
     strategy.id = str(uuid.uuid4())
     strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
     strategy.metadata.updated_at = strategy.metadata.created_at
