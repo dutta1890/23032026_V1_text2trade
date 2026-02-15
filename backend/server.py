@@ -178,6 +178,13 @@ def validate_strategy(strategy: Strategy):
     
     return errors
 
+def get_next_version(name: str) -> str:
+    existing = [s for s in strategies_db if s.get("metadata", {}).get("name") == name]
+    if not existing:
+        return "1.0"
+    versions = [float(s.get("version", "1.0")) for s in existing]
+    return str(max(versions) + 1.0)
+
 @api_router.post("/strategy", response_model=StrategyResponse)
 async def create_strategy(strategy: Strategy):
     errors = validate_strategy(strategy)
@@ -185,10 +192,11 @@ async def create_strategy(strategy: Strategy):
         raise HTTPException(status_code=400, detail="; ".join(errors))
     
     strategy.id = str(uuid.uuid4())
+    strategy.version = get_next_version(strategy.metadata.name)
     strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
     strategy.metadata.updated_at = strategy.metadata.created_at
     strategies_db.append(strategy.model_dump())
-    logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name}")
+    logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name} v{strategy.version}")
     return {"success": True, "strategy": strategy}
 
 @api_router.get("/strategies", response_model=StrategiesListResponse)
