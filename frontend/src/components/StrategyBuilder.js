@@ -34,6 +34,12 @@ const OPERATORS = [
   { value: "crosses_below", label: "Crosses below" },
 ];
 
+const INDICATORS = [
+  { value: "RSI", label: "RSI", hasValue: true, defaultParams: { period: 14 } },
+  { value: "SMA", label: "SMA", hasValue: false, defaultParams: { period: 20 } },
+  { value: "EMA", label: "EMA", hasValue: false, defaultParams: { period: 20 } },
+];
+
 const initialStrategy = {
   metadata: { name: "", description: "" },
   market: { type: "", exchange: "" },
