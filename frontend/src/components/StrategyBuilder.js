@@ -41,6 +41,7 @@ const INDICATORS = [
   { value: "SMA", label: "SMA", type: "ma" },
   { value: "EMA", label: "EMA", type: "ma" },
   { value: "MACD", label: "MACD", type: "macd" },
+  { value: "Stochastic", label: "Stochastic", type: "stoch" },
 ];
 
 const initialStrategy = {
