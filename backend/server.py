@@ -173,6 +173,64 @@ async def get_strategies():
 
 
 # =============================================================================
+# AI EXPLAINER ROUTE
+# =============================================================================
+
+SYSTEM_PROMPT = """You are a trading strategy explainer.
+
+You will receive:
+1. A structured strategy JSON.
+2. A user question.
+
+Your task:
+- Explain the strategy logic clearly and concisely.
+- Describe how entry and exit conditions work.
+- Describe risk structure if defined.
+
+Strict rules:
+- Do NOT give financial advice.
+- Do NOT predict profits or performance.
+- Do NOT suggest improvements or optimizations.
+- Do NOT add indicators not present in the JSON.
+- Do NOT modify the strategy.
+- Do NOT use marketing language.
+- If a field is missing, say: "That parameter is not defined in this strategy."
+
+Constraints:
+- Maximum 120 words.
+- Clear, neutral tone.
+- No disclaimers.
+- No extra commentary."""
+
+class ExplainRequest(BaseModel):
+    strategy: dict
+    question: str
+
+class ExplainResponse(BaseModel):
+    success: bool
+    answer: str
+
+@api_router.post("/explain", response_model=ExplainResponse)
+async def explain_strategy(request: ExplainRequest):
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=str(uuid.uuid4()),
+        system_message=SYSTEM_PROMPT
+    ).with_model("openai", "gpt-5.2")
+    
+    prompt = f"Strategy JSON:\n{json.dumps(request.strategy, indent=2)}\n\nUser question: {request.question}"
+    
+    user_message = UserMessage(text=prompt)
+    response = await chat.send_message(user_message)
+    
+    return {"success": True, "answer": response}
+
+
+# =============================================================================
 # APP SETUP
 # =============================================================================
 
