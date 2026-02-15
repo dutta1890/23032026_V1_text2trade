@@ -57,8 +57,8 @@ const initialStrategy = {
 export default function StrategyBuilder({ onClose, onSave }) {
   const [step, setStep] = useState(0);
   const [strategy, setStrategy] = useState(initialStrategy);
-  const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", operator: "<", value: "30" });
-  const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", operator: ">", value: "70" });
+  const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", k_period: "14", d_period: "3", operator: "<", value: "30" });
+  const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", k_period: "14", d_period: "3", operator: ">", value: "70" });
   const [saving, setSaving] = useState(false);
 
   const getIndicatorType = (name) => INDICATORS.find(i => i.value === name)?.type || "rsi";
@@ -79,6 +79,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
     if (indType === "rsi") params = { period: parseInt(ind.period) };
     else if (indType === "ma") params = { short: parseInt(ind.short), long: parseInt(ind.long) };
     else if (indType === "macd") params = { fast: parseInt(ind.fast), slow: parseInt(ind.slow), signal: parseInt(ind.signal) };
+    else if (indType === "stoch") params = { k_period: parseInt(ind.k_period), d_period: parseInt(ind.d_period) };
     
     return {
       name: ind.type,
