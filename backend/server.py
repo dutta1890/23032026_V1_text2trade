@@ -311,16 +311,19 @@ async def parse_strategy(request: ParseRequest):
 
 RISK_PROMPT = """You analyze a structured trading strategy.
 
+Supported indicators ONLY: RSI, SMA, EMA, MACD.
+
 Output:
 - Maximum 3 concise risk observations.
 - Bullet points only.
-- Under 120 words total.
+- Under 100 words total.
 
 Rules:
 - Do not give advice.
 - Do not predict profitability.
 - Do not suggest alternative indicators.
-- Only comment on structural risk (e.g., no stop loss, high trade frequency).
+- Do not mention indicators not supported (only RSI, SMA, EMA, MACD).
+- Only comment on structural risk (e.g., no stop loss, missing exit).
 - If insufficient data, say: "Risk cannot be assessed fully."
 
 Be neutral and concise."""
