@@ -313,16 +313,41 @@ export default function StrategyBuilder({ onClose, onSave }) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="mono-label">Period</label>
-                    <Input
-                      type="number"
-                      value={exitIndicator.period}
-                      onChange={(e) => setExitIndicator(p => ({ ...p, period: e.target.value }))}
-                      className="font-mono"
-                      data-testid="input-exit-period"
-                    />
-                  </div>
+                  {exitIndicator.type === "RSI" ? (
+                    <div className="space-y-2">
+                      <label className="mono-label">Period</label>
+                      <Input
+                        type="number"
+                        value={exitIndicator.period}
+                        onChange={(e) => setExitIndicator(p => ({ ...p, period: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-exit-period"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="mono-label">Short Period</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.short}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, short: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-short"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="mono-label">Long Period</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.long}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, long: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-long"
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="mono-label">Operator</label>
@@ -347,7 +372,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Exit when {exitIndicator.type}({exitIndicator.period}) {exitIndicator.operator} {exitIndicator.type === "RSI" ? exitIndicator.value : "price"}
+                    Exit when {formatIndicator(exitIndicator)} {exitIndicator.operator} {exitIndicator.type === "RSI" ? exitIndicator.value : "price"}
                   </p>
                 </CardContent>
               </Card>
