@@ -271,15 +271,24 @@ export default function StrategyBuilder({ onClose, onSave }) {
             {exitIndicator.enabled && (
               <Card className="border-destructive/50 bg-destructive/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-mono">RSI Exit Condition</CardTitle>
+                  <CardTitle className="text-sm font-mono">Exit Condition</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="mono-label">RSI Period</label>
+                    <label className="mono-label">Indicator</label>
+                    <Select value={exitIndicator.type} onValueChange={(v) => setExitIndicator(p => ({ ...p, type: v }))}>
+                      <SelectTrigger data-testid="select-exit-indicator"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {INDICATORS.map(ind => <SelectItem key={ind.value} value={ind.value}>{ind.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="mono-label">Period</label>
                     <Input
                       type="number"
-                      value={exitRSI.period}
-                      onChange={(e) => setExitRSI(p => ({ ...p, period: e.target.value }))}
+                      value={exitIndicator.period}
+                      onChange={(e) => setExitIndicator(p => ({ ...p, period: e.target.value }))}
                       className="font-mono"
                       data-testid="input-exit-period"
                     />
@@ -287,31 +296,33 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="mono-label">Operator</label>
-                      <Select value={exitRSI.operator} onValueChange={(v) => setExitRSI(p => ({ ...p, operator: v }))}>
+                      <Select value={exitIndicator.operator} onValueChange={(v) => setExitIndicator(p => ({ ...p, operator: v }))}>
                         <SelectTrigger data-testid="select-exit-operator"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {OPERATORS.map(op => <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <label className="mono-label">Value</label>
-                      <Input
-                        type="number"
-                        value={exitRSI.value}
-                        onChange={(e) => setExitRSI(p => ({ ...p, value: e.target.value }))}
-                        className="font-mono"
-                        data-testid="input-exit-value"
-                      />
-                    </div>
+                    {exitIndicator.type === "RSI" && (
+                      <div className="space-y-2">
+                        <label className="mono-label">Value</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.value}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, value: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-value"
+                        />
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Exit when RSI({exitRSI.period}) {exitRSI.operator} {exitRSI.value}
+                    Exit when {exitIndicator.type}({exitIndicator.period}) {exitIndicator.operator} {exitIndicator.type === "RSI" ? exitIndicator.value : "price"}
                   </p>
                 </CardContent>
               </Card>
             )}
-            {!exitRSI.enabled && (
+            {!exitIndicator.enabled && (
               <p className="text-sm text-muted-foreground">Exit will be based on risk management (stop loss / target) only.</p>
             )}
           </div>
