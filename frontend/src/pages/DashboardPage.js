@@ -106,7 +106,7 @@ const CreateStrategyContent = ({ onStartBuilder }) => (
   </div>
 );
 
-const MyStrategiesContent = ({ strategies, onCreateNew }) => (
+const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat }) => (
   <div className="space-y-8">
     <div className="flex items-center justify-between">
       <div>
@@ -143,7 +143,10 @@ const MyStrategiesContent = ({ strategies, onCreateNew }) => (
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">{explainStrategy(s)}</p>
                 </div>
-                <div className="text-right">
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onOpenChat(s)} data-testid={`chat-btn-${i}`}>
+                    <MessageCircle className="w-4 h-4 mr-1" /> Ask AI
+                  </Button>
                   <span className="mono-label text-primary">DRAFT</span>
                 </div>
               </div>
