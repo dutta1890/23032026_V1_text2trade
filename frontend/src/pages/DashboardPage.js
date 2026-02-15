@@ -199,6 +199,7 @@ export default function DashboardPage() {
   const [activePage, setActivePage] = useState("create");
   const [userEmail, setUserEmail] = useState(null);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [showNL, setShowNL] = useState(false);
   const [strategies, setStrategies] = useState([]);
   const [chatStrategy, setChatStrategy] = useState(null);
   const navigate = useNavigate();
@@ -218,18 +219,47 @@ export default function DashboardPage() {
   }, [navigate]);
 
   const handleLogout = () => { localStorage.removeItem("userEmail"); navigate("/login"); };
-  const handlePageChange = (pageId) => { setActivePage(pageId); setShowBuilder(false); setChatStrategy(null); };
-  const handleStartBuilder = () => setShowBuilder(true);
+  const handlePageChange = (pageId) => { setActivePage(pageId); setShowBuilder(false); setShowNL(false); setChatStrategy(null); };
+  const handleStartBuilder = () => { setShowBuilder(true); setShowNL(false); };
+  const handleStartNL = () => { setShowNL(true); setShowBuilder(false); };
   const handleCloseBuilder = () => setShowBuilder(false);
+  const handleCloseNL = () => setShowNL(false);
   const handleSaveStrategy = (strategy) => {
     setStrategies(prev => [...prev, strategy]);
     setShowBuilder(false);
     setActivePage("strategies");
   };
+  const handleNLConfirm = (parsed) => {
+    // Show parsed data in console, user can then use builder to complete
+    console.log("Parsed strategy:", parsed);
+    setShowNL(false);
+    // Could pre-fill builder here in future
+    alert("Strategy parsed! Entry: " + (parsed.entry_conditions?.length || 0) + " conditions. Check console for details.");
+  };
   const handleOpenChat = (s) => setChatStrategy(s);
   const handleCloseChat = () => setChatStrategy(null);
 
   const renderContent = () => {
+    if (showNL) {
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">Describe Your Strategy</h1>
+              <p className="text-muted-foreground mt-2">Use natural language to define your trading rules.</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={handleCloseNL} data-testid="btn-close-nl">
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+          <Card className="border-border bg-card">
+            <CardContent className="p-6">
+              <NLStrategyInput onConfirm={handleNLConfirm} onCancel={handleCloseNL} />
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
     if (showBuilder) {
       return (
         <div className="space-y-6">
@@ -251,10 +281,10 @@ export default function DashboardPage() {
       );
     }
     switch (activePage) {
-      case "create": return <CreateStrategyContent onStartBuilder={handleStartBuilder} />;
+      case "create": return <CreateStrategyContent onStartBuilder={handleStartBuilder} onStartNL={handleStartNL} />;
       case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} onOpenChat={handleOpenChat} />;
       case "help": return <HelpContent />;
-      default: return <CreateStrategyContent onStartBuilder={handleStartBuilder} />;
+      default: return <CreateStrategyContent onStartBuilder={handleStartBuilder} onStartNL={handleStartNL} />;
     }
   };
 
