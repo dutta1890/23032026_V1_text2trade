@@ -363,8 +363,8 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   <p>Market: {strategy.market.type} / {strategy.market.exchange}</p>
                   <p>Symbol: {strategy.instrument.symbol}</p>
                   <p>Timeframe: {strategy.timeframe.interval}</p>
-                  <p>Entry: RSI({entryRSI.period}) {entryRSI.operator} {entryRSI.value}</p>
-                  {exitRSI.enabled && <p>Exit: RSI({exitRSI.period}) {exitRSI.operator} {exitRSI.value}</p>}
+                  <p>Entry: {entryIndicator.type}({entryIndicator.period}) {entryIndicator.operator} {entryIndicator.type === "RSI" ? entryIndicator.value : "price"}</p>
+                  {exitIndicator.enabled && <p>Exit: {exitIndicator.type}({exitIndicator.period}) {exitIndicator.operator} {exitIndicator.type === "RSI" ? exitIndicator.value : "price"}</p>}
                   <p>SL: {strategy.risk_management.stop_loss || "-"}% / TP: {strategy.risk_management.take_profit || "-"}%</p>
                 </div>
               </CardContent>
