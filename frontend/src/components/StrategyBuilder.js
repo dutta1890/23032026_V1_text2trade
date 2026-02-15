@@ -32,12 +32,15 @@ const OPERATORS = [
   { value: "==", label: "Equal (==)" },
   { value: "crosses_above", label: "Crosses above" },
   { value: "crosses_below", label: "Crosses below" },
+  { value: "bullish_cross", label: "Bullish cross" },
+  { value: "bearish_cross", label: "Bearish cross" },
 ];
 
 const INDICATORS = [
-  { value: "RSI", label: "RSI", hasPeriod: true, hasValue: true },
-  { value: "SMA", label: "SMA", hasPeriod: false, hasShortLong: true },
-  { value: "EMA", label: "EMA", hasPeriod: false, hasShortLong: true },
+  { value: "RSI", label: "RSI", type: "rsi" },
+  { value: "SMA", label: "SMA", type: "ma" },
+  { value: "EMA", label: "EMA", type: "ma" },
+  { value: "MACD", label: "MACD", type: "macd" },
 ];
 
 const initialStrategy = {
