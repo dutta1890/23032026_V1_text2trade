@@ -441,7 +441,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                         </SelectContent>
                       </Select>
                     </div>
-                    {exitIndicator.type === "RSI" && (
+                    {getIndicatorType(exitIndicator.type) === "rsi" && (
                       <div className="space-y-2">
                         <label className="mono-label">Value</label>
                         <Input
