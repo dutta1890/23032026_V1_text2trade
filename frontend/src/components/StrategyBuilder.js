@@ -194,22 +194,31 @@ export default function StrategyBuilder({ onClose, onSave }) {
           </div>
         );
 
-      case 3: // Entry (RSI)
+      case 3: // Entry
         return (
           <div className="space-y-4">
             <Card className="border-primary/50 bg-primary/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-mono flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-primary" /> RSI Entry Condition
+                  <TrendingUp className="w-4 h-4 text-primary" /> Entry Condition
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <label className="mono-label">RSI Period</label>
+                  <label className="mono-label">Indicator</label>
+                  <Select value={entryIndicator.type} onValueChange={(v) => setEntryIndicator(p => ({ ...p, type: v }))}>
+                    <SelectTrigger data-testid="select-entry-indicator"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {INDICATORS.map(ind => <SelectItem key={ind.value} value={ind.value}>{ind.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="mono-label">Period</label>
                   <Input
                     type="number"
-                    value={entryRSI.period}
-                    onChange={(e) => setEntryRSI(p => ({ ...p, period: e.target.value }))}
+                    value={entryIndicator.period}
+                    onChange={(e) => setEntryIndicator(p => ({ ...p, period: e.target.value }))}
                     className="font-mono"
                     data-testid="input-entry-period"
                   />
@@ -217,47 +226,49 @@ export default function StrategyBuilder({ onClose, onSave }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="mono-label">Operator</label>
-                    <Select value={entryRSI.operator} onValueChange={(v) => setEntryRSI(p => ({ ...p, operator: v }))}>
+                    <Select value={entryIndicator.operator} onValueChange={(v) => setEntryIndicator(p => ({ ...p, operator: v }))}>
                       <SelectTrigger data-testid="select-entry-operator"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {OPERATORS.map(op => <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="mono-label">Value</label>
-                    <Input
-                      type="number"
-                      value={entryRSI.value}
-                      onChange={(e) => setEntryRSI(p => ({ ...p, value: e.target.value }))}
-                      className="font-mono"
-                      data-testid="input-entry-value"
-                    />
-                  </div>
+                  {entryIndicator.type === "RSI" && (
+                    <div className="space-y-2">
+                      <label className="mono-label">Value</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.value}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, value: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-value"
+                      />
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Entry when RSI({entryRSI.period}) {entryRSI.operator} {entryRSI.value}
+                  Entry when {entryIndicator.type}({entryIndicator.period}) {entryIndicator.operator} {entryIndicator.type === "RSI" ? entryIndicator.value : "price"}
                 </p>
               </CardContent>
             </Card>
           </div>
         );
 
-      case 4: // Exit (RSI optional)
+      case 4: // Exit
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
-                id="exit-rsi-enabled"
-                checked={exitRSI.enabled}
-                onChange={(e) => setExitRSI(p => ({ ...p, enabled: e.target.checked }))}
+                id="exit-enabled"
+                checked={exitIndicator.enabled}
+                onChange={(e) => setExitIndicator(p => ({ ...p, enabled: e.target.checked }))}
                 className="w-4 h-4 accent-primary"
                 data-testid="checkbox-exit-enabled"
               />
-              <label htmlFor="exit-rsi-enabled" className="mono-label cursor-pointer">Enable RSI Exit</label>
+              <label htmlFor="exit-enabled" className="mono-label cursor-pointer">Enable Indicator Exit</label>
             </div>
-            {exitRSI.enabled && (
+            {exitIndicator.enabled && (
               <Card className="border-destructive/50 bg-destructive/5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-mono">RSI Exit Condition</CardTitle>
