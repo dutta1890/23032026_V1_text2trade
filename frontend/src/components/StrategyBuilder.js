@@ -218,16 +218,41 @@ export default function StrategyBuilder({ onClose, onSave }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <label className="mono-label">Period</label>
-                  <Input
-                    type="number"
-                    value={entryIndicator.period}
-                    onChange={(e) => setEntryIndicator(p => ({ ...p, period: e.target.value }))}
-                    className="font-mono"
-                    data-testid="input-entry-period"
-                  />
-                </div>
+                {entryIndicator.type === "RSI" ? (
+                  <div className="space-y-2">
+                    <label className="mono-label">Period</label>
+                    <Input
+                      type="number"
+                      value={entryIndicator.period}
+                      onChange={(e) => setEntryIndicator(p => ({ ...p, period: e.target.value }))}
+                      className="font-mono"
+                      data-testid="input-entry-period"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="mono-label">Short Period</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.short}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, short: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-short"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="mono-label">Long Period</label>
+                      <Input
+                        type="number"
+                        value={entryIndicator.long}
+                        onChange={(e) => setEntryIndicator(p => ({ ...p, long: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-entry-long"
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="mono-label">Operator</label>
@@ -252,7 +277,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Entry when {entryIndicator.type}({entryIndicator.period}) {entryIndicator.operator} {entryIndicator.type === "RSI" ? entryIndicator.value : "price"}
+                  Entry when {formatIndicator(entryIndicator)} {entryIndicator.operator} {entryIndicator.type === "RSI" ? entryIndicator.value : "price"}
                 </p>
               </CardContent>
             </Card>
