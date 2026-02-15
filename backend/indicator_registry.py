@@ -14,6 +14,10 @@ INDICATORS = {
     "MACD": {
         "params": ["fast", "slow", "signal"],
         "operators": ["bullish_cross", "bearish_cross"]
+    },
+    "Stochastic": {
+        "params": ["k_period", "d_period", "overbought", "oversold"],
+        "operators": ["cross_above", "cross_below"]
     }
 }
 
