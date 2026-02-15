@@ -209,6 +209,77 @@ async def get_strategies():
 
 
 # =============================================================================
+# NL PARSER ROUTE
+# =============================================================================
+
+PARSER_PROMPT = """You extract structured trading strategy data.
+
+Supported indicators:
+RSI, SMA, EMA, MACD, Bollinger, Stochastic, ADX, ATR, SAR, OBV, Ichimoku.
+
+Return ONLY valid JSON in this format:
+
+{
+  "entry_conditions": [],
+  "exit_conditions": [],
+  "filters": [],
+  "risk_management": {
+    "stop_loss": null,
+    "take_profit": null
+  }
+}
+
+Rules:
+- Extract only explicitly mentioned values.
+- Do not guess missing numbers.
+- If a value is not specified, set it to null.
+- Do not explain.
+- Do not include text outside JSON.
+- Do not optimize or improve the strategy.
+- Do not calculate formulas."""
+
+class ParseRequest(BaseModel):
+    text: str
+
+class ParseResponse(BaseModel):
+    success: bool
+    parsed: Optional[dict] = None
+    error: Optional[str] = None
+
+@api_router.post("/parse-strategy", response_model=ParseResponse)
+async def parse_strategy(request: ParseRequest):
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=str(uuid.uuid4()),
+        system_message=PARSER_PROMPT
+    ).with_model("openai", "gpt-5.2")
+    
+    user_message = UserMessage(text=request.text)
+    response = await chat.send_message(user_message)
+    
+    # Extract JSON from response
+    try:
+        # Try to parse directly
+        parsed = json.loads(response)
+        return {"success": True, "parsed": parsed}
+    except json.JSONDecodeError:
+        # Try to find JSON in response
+        import re
+        match = re.search(r'\{[\s\S]*\}', response)
+        if match:
+            try:
+                parsed = json.loads(match.group())
+                return {"success": True, "parsed": parsed}
+            except json.JSONDecodeError:
+                pass
+        return {"success": False, "error": "Invalid JSON response", "parsed": None}
+
+
+# =============================================================================
 # AI EXPLAINER ROUTE
 # =============================================================================
 
