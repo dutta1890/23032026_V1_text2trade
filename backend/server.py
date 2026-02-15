@@ -210,6 +210,28 @@ async def get_strategies():
 
 
 # =============================================================================
+# FEEDBACK ROUTE
+# =============================================================================
+
+class FeedbackRequest(BaseModel):
+    message: str
+    email: Optional[str] = None
+
+class FeedbackResponse(BaseModel):
+    success: bool
+
+@api_router.post("/feedback", response_model=FeedbackResponse)
+async def submit_feedback(request: FeedbackRequest):
+    feedback_db.append({
+        "message": request.message,
+        "email": request.email,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    logger.info(f"Feedback received: {request.message[:50]}...")
+    return {"success": True}
+
+
+# =============================================================================
 # NL PARSER ROUTE
 # =============================================================================
 
