@@ -714,9 +714,8 @@ def create_test_user():
     test_email = "test@internal.dev"
     test_password = "test123"
     
-    existing = next((u for u in users_db if u["email"] == test_email), None)
-    if not existing:
-        users_db.append({"email": test_email, "password": test_password})
+    if test_email not in users_db:
+        users_db[test_email] = test_password
         logger.info(f"[TEST] Created test user: {test_email}")
     else:
         logger.info(f"[TEST] Test user exists: {test_email}")
