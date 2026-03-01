@@ -272,6 +272,33 @@ async def submit_feedback(request: FeedbackRequest):
 
 
 # =============================================================================
+# ANALYTICS ROUTE
+# =============================================================================
+
+@api_router.get("/analytics")
+async def get_analytics():
+    """Get product usage analytics."""
+    # Sort indicators by usage
+    sorted_indicators = dict(sorted(
+        analytics_db["indicator_usage"].items(),
+        key=lambda x: x[1],
+        reverse=True
+    ))
+    
+    return {
+        "success": True,
+        "stats": {
+            "strategies_created": analytics_db["strategies_created"],
+            "backtests_run": analytics_db["backtests_run"],
+            "backtest_types": analytics_db["backtest_types"],
+            "indicator_usage": sorted_indicators,
+            "total_users": len(users_db),
+            "total_feedback": len(feedback_db)
+        }
+    }
+
+
+# =============================================================================
 # NL PARSER ROUTE
 # =============================================================================
 
