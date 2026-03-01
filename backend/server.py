@@ -432,6 +432,185 @@ async def explain_strategy(request: ExplainRequest):
 
 
 # =============================================================================
+# BACKTEST ROUTE
+# =============================================================================
+
+import yfinance as yf
+import pandas as pd
+
+class BacktestRequest(BaseModel):
+    strategy: dict
+
+class BacktestResponse(BaseModel):
+    success: bool
+    label: str
+    trades: list
+    win_rate: float
+    pnl: float
+    total_trades: int
+    wins: int
+    losses: int
+    data_source: str
+
+def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candles: int = 200):
+    """Run simple SMA crossover backtest using yfinance data."""
+    try:
+        # Map common crypto symbols to Yahoo Finance format
+        yf_symbol = symbol
+        if symbol in ["BTCUSDT", "BTC"]:
+            yf_symbol = "BTC-USD"
+        elif symbol in ["ETHUSDT", "ETH"]:
+            yf_symbol = "ETH-USD"
+        elif not "-" in symbol and not "." in symbol:
+            # Try as stock symbol
+            yf_symbol = symbol
+        
+        # Fetch data
+        ticker = yf.Ticker(yf_symbol)
+        df = ticker.history(period="1y", interval="1d")
+        
+        if df.empty or len(df) < long_period + 10:
+            return None
+        
+        # Limit to max candles
+        df = df.tail(max_candles)
+        
+        # Calculate SMAs
+        df['SMA_short'] = df['Close'].rolling(window=short_period).mean()
+        df['SMA_long'] = df['Close'].rolling(window=long_period).mean()
+        
+        # Drop NaN rows
+        df = df.dropna()
+        
+        if len(df) < 20:
+            return None
+        
+        # Generate signals
+        df['signal'] = 0
+        df.loc[df['SMA_short'] > df['SMA_long'], 'signal'] = 1
+        df.loc[df['SMA_short'] < df['SMA_long'], 'signal'] = -1
+        
+        # Find crossovers (signal changes)
+        df['crossover'] = df['signal'].diff()
+        
+        trades = []
+        position = None
+        entry_price = 0
+        entry_date = None
+        
+        for idx, row in df.iterrows():
+            if row['crossover'] == 2:  # Buy signal (cross above)
+                if position is None:
+                    position = 'long'
+                    entry_price = row['Close']
+                    entry_date = idx.strftime('%Y-%m-%d')
+            elif row['crossover'] == -2:  # Sell signal (cross below)
+                if position == 'long':
+                    exit_price = row['Close']
+                    pnl_pct = ((exit_price - entry_price) / entry_price) * 100
+                    trades.append({
+                        'id': len(trades) + 1,
+                        'symbol': symbol,
+                        'entry': round(entry_price, 2),
+                        'exit': round(exit_price, 2),
+                        'pnl': round(pnl_pct, 2),
+                        'result': 'WIN' if pnl_pct > 0 else 'LOSS',
+                        'date': entry_date
+                    })
+                    position = None
+        
+        if not trades:
+            return None
+        
+        wins = sum(1 for t in trades if t['result'] == 'WIN')
+        total_pnl = sum(t['pnl'] for t in trades)
+        
+        return {
+            'label': 'Historical',
+            'trades': trades,
+            'win_rate': round((wins / len(trades)) * 100, 1),
+            'pnl': round(total_pnl, 2),
+            'total_trades': len(trades),
+            'wins': wins,
+            'losses': len(trades) - wins,
+            'data_source': f'yfinance ({yf_symbol})'
+        }
+    except Exception as e:
+        logger.error(f"Backtest error: {e}")
+        return None
+
+def run_simulated_backtest(symbol: str, sl: float, tp: float):
+    """Fallback simulated backtest."""
+    import random
+    num_trades = 10 + random.randint(0, 20)
+    trades = []
+    wins = 0
+    total_pnl = 0
+    
+    for i in range(num_trades):
+        is_win = random.random() > 0.45
+        pnl = random.random() * tp if is_win else -(random.random() * sl)
+        entry = 100 + random.random() * 50
+        exit_price = entry * (1 + pnl / 100)
+        
+        if is_win:
+            wins += 1
+        total_pnl += pnl
+        
+        trades.append({
+            'id': i + 1,
+            'symbol': symbol,
+            'entry': round(entry, 2),
+            'exit': round(exit_price, 2),
+            'pnl': round(pnl, 2),
+            'result': 'WIN' if is_win else 'LOSS',
+            'date': f'2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}'
+        })
+    
+    return {
+        'label': 'Simulated',
+        'trades': trades,
+        'win_rate': round((wins / num_trades) * 100, 1),
+        'pnl': round(total_pnl, 2),
+        'total_trades': num_trades,
+        'wins': wins,
+        'losses': num_trades - wins,
+        'data_source': 'simulated'
+    }
+
+@api_router.post("/backtest", response_model=BacktestResponse)
+async def run_backtest(request: BacktestRequest):
+    strategy = request.strategy
+    symbol = strategy.get('instrument', {}).get('symbol', 'BTCUSDT')
+    entry_conditions = strategy.get('entry_conditions', [])
+    sl = strategy.get('risk_management', {}).get('stop_loss') or 2
+    tp = strategy.get('risk_management', {}).get('take_profit') or 5
+    
+    # Check if strategy uses SMA or EMA
+    uses_ma = False
+    short_period = 9
+    long_period = 21
+    
+    for cond in entry_conditions:
+        if cond.get('name') in ['SMA', 'EMA']:
+            uses_ma = True
+            params = cond.get('params', {})
+            short_period = params.get('short', 9)
+            long_period = params.get('long', 21)
+            break
+    
+    result = None
+    if uses_ma:
+        result = run_sma_backtest(symbol, short_period, long_period, max_candles=200)
+    
+    # Fallback to simulated if historical fails or not MA strategy
+    if result is None:
+        result = run_simulated_backtest(symbol, sl, tp)
+    
+    return {"success": True, **result}
+
+
+# =============================================================================
 # APP SETUP
 # =============================================================================
 
