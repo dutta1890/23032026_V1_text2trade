@@ -22,6 +22,10 @@ INDICATORS = {
     "ADX": {
         "params": ["period"],
         "operators": [">", "<"]
+    },
+    "ATR": {
+        "params": ["period"],
+        "operators": ["atr_multiple"]
     }
 }
 
