@@ -25,6 +25,20 @@ users_db: Dict[str, str] = {}
 strategies_db: List[dict] = []
 feedback_db: List[dict] = []
 
+# Analytics tracking
+analytics_db = {
+    "strategies_created": 0,
+    "backtests_run": 0,
+    "indicator_usage": {},
+    "backtest_types": {"historical": 0, "simulated": 0}
+}
+
+def track_indicator(indicator_name: str):
+    """Track indicator usage."""
+    if indicator_name not in analytics_db["indicator_usage"]:
+        analytics_db["indicator_usage"][indicator_name] = 0
+    analytics_db["indicator_usage"][indicator_name] += 1
+
 
 # =============================================================================
 # AUTH MODELS
