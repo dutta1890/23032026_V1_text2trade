@@ -267,6 +267,8 @@ export default function DashboardPage() {
   const [chatStrategy, setChatStrategy] = useState(null);
   const [riskWarnings, setRiskWarnings] = useState({});
   const [analyzingRisk, setAnalyzingRisk] = useState(null);
+  const [backtestResults, setBacktestResults] = useState({});
+  const [runningBacktest, setRunningBacktest] = useState(null);
   const navigate = useNavigate();
 
   const fetchStrategies = async () => {
