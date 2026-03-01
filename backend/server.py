@@ -24,6 +24,7 @@ api_router = APIRouter(prefix="/api")
 users_db: Dict[str, str] = {}
 strategies_db: List[dict] = []
 feedback_db: List[dict] = []
+waitlist_db: List[str] = []
 
 # Analytics tracking
 analytics_db = {
