@@ -1,0 +1,59 @@
+{
+  "summary": "Completed comprehensive testing of historical backtest feature using yfinance. All core functionality working correctly - Backend /api/backtest endpoint responds correctly, SMA/EMA strategies use yfinance historical data, RSI/MACD strategies fall back to simulated backtest, Frontend My Strategies page shows Backtest button on each strategy card, clicking Backtest shows results panel with Trades, Win Rate, PnL, W/L stats, and data source (yfinance or simulated).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/strategy", "issue": "Operator mismatch between frontend (crosses_above) and backend (cross_above) - FIXED by adding both variants to indicator_registry.py"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend /api/backtest endpoint exists and responds (200 OK)",
+    "SMA strategy with AAPL uses yfinance historical data (data_source: yfinance (AAPL))",
+    "SMA strategy with BTCUSDT maps to BTC-USD and uses yfinance historical data",
+    "SMA strategy with ETHUSDT maps to ETH-USD and uses yfinance historical data",
+    "EMA strategy with MSFT uses yfinance historical data",
+    "RSI strategy falls back to simulated backtest (data_source: simulated)",
+    "MACD strategy falls back to simulated backtest",
+    "Backtest response contains all required fields: success, label, trades, win_rate, pnl, total_trades, wins, losses, data_source",
+    "Win rate calculation is correct (wins/total_trades * 100)",
+    "Total PnL matches sum of individual trade PnLs",
+    "Frontend My Strategies page shows Backtest button on each strategy card",
+    "Clicking Backtest button shows loading spinner",
+    "Backtest results panel displays after API call completes",
+    "Results panel shows 'Historical Backtest Results' label for SMA/EMA strategies",
+    "Results panel shows 'Simulated Backtest Results' label for RSI/MACD strategies",
+    "Results panel shows data source (yfinance or simulated)",
+    "Results panel shows Trades count",
+    "Results panel shows Win Rate percentage",
+    "Results panel shows P&L percentage with color coding (green for positive)",
+    "Results panel shows W/L (Wins/Losses) ratio",
+    "E2E: Created SMA strategy and verified backtest uses yfinance (AAPL)",
+    "E2E: Created RSI strategy and verified backtest uses simulated data"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_backtest.py",
+    "/app/test_reports/pytest/pytest_results_backtest.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_backtest.py",
+    "/app/backend/indicator_registry.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Created multiple test strategies via UI with SMA and RSI indicators for backtest testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Historical backtest feature fully implemented and tested. Backend uses yfinance for SMA/EMA strategies (real historical data) and falls back to simulated backtest for other indicators (RSI, MACD, etc.). Frontend shows Backtest button on strategy cards, clicking it displays results panel with Trades, Win Rate, PnL, W/L stats and data source. Crypto symbols mapped: BTCUSDT->BTC-USD, ETHUSDT->ETH-USD. Max 200 candles. In-memory storage - data resets on restart. Fixed operator mismatch (crosses_above vs cross_above) in indicator_registry.py.",
+  "mocked_apis": {
+    "run_simulated_backtest()": "Fallback for non-SMA/EMA indicators - generates random trades (MOCKED)"
+  }
+}
