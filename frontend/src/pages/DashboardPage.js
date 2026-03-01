@@ -310,6 +310,20 @@ export default function DashboardPage() {
       setAnalyzingRisk(null);
     }
   };
+  const handleRunBacktest = async (id, strategy) => {
+    setRunningBacktest(id);
+    try {
+      const res = await axios.post(`${API_URL}/backtest`, { strategy });
+      if (res.data?.success) {
+        setBacktestResults(prev => ({ ...prev, [id]: res.data }));
+      }
+    } catch (err) {
+      console.error("Backtest failed:", err);
+      setBacktestResults(prev => ({ ...prev, [id]: { error: "Backtest failed" } }));
+    } finally {
+      setRunningBacktest(null);
+    }
+  };
   const handleNLConfirm = (parsed) => {
     console.log("Parsed strategy:", parsed);
     setShowNL(false);
