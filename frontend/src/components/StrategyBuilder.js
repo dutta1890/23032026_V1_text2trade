@@ -66,7 +66,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const [filterIndicator, setFilterIndicator] = useState({ enabled: false, type: "ADX", period: "14", operator: ">", value: "25" });
   const [saving, setSaving] = useState(false);
 
-  const getIndicatorType = (name) => INDICATORS.find(i => i.value === name)?.type || "rsi";
+  const getIndicatorType = (name) => INDICATORS.find(i => i.value === name)?.type || FILTER_INDICATORS.find(i => i.value === name)?.type || "rsi";
 
   const updateStrategy = (section, field, value) => {
     setStrategy(prev => ({
