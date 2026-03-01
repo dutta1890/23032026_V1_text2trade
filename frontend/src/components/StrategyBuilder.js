@@ -8,7 +8,7 @@ import axios from "axios";
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const STEPS = ["Market", "Instrument", "Timeframe", "Entry", "Exit", "Risk"];
+const STEPS = ["Market", "Instrument", "Timeframe", "Entry", "Exit", "Filters", "Risk"];
 
 const MARKETS = [
   { value: "crypto", label: "Crypto" },
@@ -44,6 +44,10 @@ const INDICATORS = [
   { value: "Stochastic", label: "Stochastic", type: "stoch" },
 ];
 
+const FILTER_INDICATORS = [
+  { value: "ADX", label: "ADX (Trend Strength)", type: "adx" },
+];
+
 const initialStrategy = {
   metadata: { name: "", description: "" },
   market: { type: "", exchange: "" },
@@ -59,6 +63,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const [strategy, setStrategy] = useState(initialStrategy);
   const [entryIndicator, setEntryIndicator] = useState({ type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", k_period: "14", d_period: "3", operator: "<", value: "30" });
   const [exitIndicator, setExitIndicator] = useState({ enabled: false, type: "RSI", period: "14", short: "9", long: "21", fast: "12", slow: "26", signal: "9", k_period: "14", d_period: "3", operator: ">", value: "70" });
+  const [filterIndicator, setFilterIndicator] = useState({ enabled: false, type: "ADX", period: "14", operator: ">", value: "25" });
   const [saving, setSaving] = useState(false);
 
   const getIndicatorType = (name) => INDICATORS.find(i => i.value === name)?.type || "rsi";
@@ -80,6 +85,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
     else if (indType === "ma") params = { short: parseInt(ind.short), long: parseInt(ind.long) };
     else if (indType === "macd") params = { fast: parseInt(ind.fast), slow: parseInt(ind.slow), signal: parseInt(ind.signal) };
     else if (indType === "stoch") params = { k_period: parseInt(ind.k_period), d_period: parseInt(ind.d_period) };
+    else if (indType === "adx") params = { period: parseInt(ind.period) };
     
     return {
       name: ind.type,
@@ -95,19 +101,30 @@ export default function StrategyBuilder({ onClose, onSave }) {
     if (indType === "ma") return `${ind.type}(${ind.short}/${ind.long})`;
     if (indType === "macd") return `MACD(${ind.fast}/${ind.slow}/${ind.signal})`;
     if (indType === "stoch") return `Stoch(%K${ind.k_period}/%D${ind.d_period})`;
+    if (indType === "adx") return `ADX(${ind.period})`;
     return ind.type;
+  };
+
+  const buildFilterCondition = (ind) => {
+    return {
+      name: ind.type,
+      params: { period: parseInt(ind.period) },
+      operator: ind.operator,
+      value: parseFloat(ind.value)
+    };
   };
 
   const handleSave = async () => {
     const entry_conditions = [buildCondition(entryIndicator)];
     const exit_conditions = exitIndicator.enabled ? [buildCondition(exitIndicator)] : [];
+    const filters = filterIndicator.enabled ? [buildFilterCondition(filterIndicator)] : [];
 
     const finalStrategy = {
       version: "1.0",
       ...strategy,
       entry_conditions,
       exit_conditions,
-      filters: [],
+      filters,
       risk_management: {
         stop_loss: parseFloat(strategy.risk_management.stop_loss) || null,
         take_profit: parseFloat(strategy.risk_management.take_profit) || null
