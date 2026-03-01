@@ -30,8 +30,18 @@ export function explainStrategy(strategy) {
     return `${action} on ${c.name} ${op}.`;
   };
 
+  const formatFilter = (c) => {
+    const op = formatOperator(c.operator);
+    if (c.name === "ADX") {
+      const period = c.params?.period || 14;
+      return `Filter: ADX(${period}) ${op} ${c.value}.`;
+    }
+    return `Filter: ${c.name} ${op} ${c.value}.`;
+  };
+
   entry_conditions?.forEach(c => lines.push(formatCondition(c, "Enter")));
   exit_conditions?.forEach(c => lines.push(formatCondition(c, "Exit")));
+  strategy.filters?.forEach(c => lines.push(formatFilter(c)));
 
   if (risk_management?.stop_loss) {
     lines.push(`Stop loss at ${risk_management.stop_loss}%.`);
