@@ -227,6 +227,16 @@ async def create_strategy(strategy: Strategy):
     strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
     strategy.metadata.updated_at = strategy.metadata.created_at
     strategies_db.append(strategy.model_dump())
+    
+    # Track analytics
+    analytics_db["strategies_created"] += 1
+    for cond in strategy.entry_conditions:
+        track_indicator(cond.name)
+    for cond in strategy.exit_conditions:
+        track_indicator(cond.name)
+    for f in strategy.filters:
+        track_indicator(f.name)
+    
     logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name} v{strategy.version}")
     return {"success": True, "strategy": strategy}
 
