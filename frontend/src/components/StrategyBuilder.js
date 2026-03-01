@@ -55,7 +55,7 @@ const initialStrategy = {
   timeframe: { interval: "" },
   entry_conditions: [],
   exit_conditions: [],
-  risk_management: { stop_loss: "", take_profit: "" },
+  risk_management: { stop_loss: "", take_profit: "", stop_loss_type: "fixed", stop_loss_atr_period: "14" },
 };
 
 export default function StrategyBuilder({ onClose, onSave }) {
