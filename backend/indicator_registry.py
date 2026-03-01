@@ -17,7 +17,7 @@ INDICATORS = {
     },
     "Stochastic": {
         "params": ["k_period", "d_period", "overbought", "oversold"],
-        "operators": ["cross_above", "cross_below"]
+        "operators": ["cross_above", "cross_below", "crosses_above", "crosses_below"]
     },
     "ADX": {
         "params": ["period"],
