@@ -40,6 +40,15 @@ Build a full-stack web app called Text2trade with:
 
 ## What's Been Implemented
 
+**Date: 2026-03-01 - Historical Backtest Feature**
+- Installed yfinance for historical price data
+- Added `/api/backtest` endpoint with SMA crossover logic
+- For SMA/EMA strategies: Uses real yfinance data (max 200 candles)
+- For other indicators (RSI, MACD, etc.): Falls back to simulated backtest
+- Returns: trades, win_rate, pnl, total_trades, wins, losses, data_source
+- Symbol mapping: BTCUSDT→BTC-USD, ETHUSDT→ETH-USD
+- Frontend: Backtest button on strategy cards with results panel
+
 **Date: 2026-03-01 - ATR Stop Loss Feature**
 - Added ATR indicator to `indicator_registry.py` with operator `atr_multiple`
 - Added `stop_loss_type` (fixed/atr_multiple) and `stop_loss_atr_period` to RiskManagement schema
@@ -98,6 +107,7 @@ Build a full-stack web app called Text2trade with:
 | /api/login | POST | Authenticate user |
 | /api/strategy | POST | Create strategy |
 | /api/strategies | GET | List all strategies |
+| /api/backtest | POST | Run backtest (yfinance for SMA/EMA, simulated for others) |
 | /api/parse-strategy | POST | NL to JSON parser |
 | /api/explain | POST | AI strategy explainer |
 | /api/analyze-risk | POST | AI risk analyzer |
@@ -126,8 +136,8 @@ Build a full-stack web app called Text2trade with:
 
 ## Known Limitations
 - **In-memory storage**: All data resets on server restart
-- **Mocked simulation**: `simulate.js` generates random data
+- **Historical backtest**: Only SMA/EMA use real data; others are simulated
 - **No user ownership**: All users see all strategies
 
 ## Test Reports
-- `/app/test_reports/iteration_4.json` - ADX feature tests (100% pass)
+- `/app/test_reports/iteration_6.json` - Backtest feature tests (100% pass)
