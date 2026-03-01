@@ -674,11 +674,15 @@ async def run_backtest(request: BacktestRequest):
         result = None
         if uses_ma:
             result = run_sma_backtest(symbol, short_period, long_period, max_candles=MAX_LOOKBACK)
+            if result:
+                analytics_db["backtest_types"]["historical"] += 1
         
         # Fallback to simulated if historical fails or not MA strategy
         if result is None:
             result = run_simulated_backtest(symbol, sl, tp)
+            analytics_db["backtest_types"]["simulated"] += 1
         
+        analytics_db["backtests_run"] += 1
         return {"success": True, **result}
     except Exception as e:
         logger.error(f"Backtest endpoint error: {e}")
