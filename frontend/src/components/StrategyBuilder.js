@@ -127,7 +127,11 @@ export default function StrategyBuilder({ onClose, onSave }) {
       filters,
       risk_management: {
         stop_loss: parseFloat(strategy.risk_management.stop_loss) || null,
-        take_profit: parseFloat(strategy.risk_management.take_profit) || null
+        take_profit: parseFloat(strategy.risk_management.take_profit) || null,
+        stop_loss_type: strategy.risk_management.stop_loss_type || "fixed",
+        stop_loss_atr_period: strategy.risk_management.stop_loss_type === "atr_multiple" 
+          ? parseInt(strategy.risk_management.stop_loss_atr_period) || 14 
+          : null
       }
     };
 
