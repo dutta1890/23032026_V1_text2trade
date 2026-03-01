@@ -161,10 +161,13 @@ const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRis
               </div>
               {backtestResults[s.id] && !backtestResults[s.id].error && (
                 <div className="mt-4 p-3 bg-primary/10 border border-primary/30" data-testid={`backtest-results-${i}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="mono-label text-primary">{backtestResults[s.id].label} Backtest Results</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="mono-label text-primary">{backtestResults[s.id].label}</p>
                     <span className="text-xs text-muted-foreground">Data: {backtestResults[s.id].data_source}</span>
                   </div>
+                  {backtestResults[s.id].disclaimer && (
+                    <p className="text-xs text-yellow-500 mb-2 italic">{backtestResults[s.id].disclaimer}</p>
+                  )}
                   <div className="grid grid-cols-4 gap-4 text-center">
                     <div>
                       <p className="text-2xl font-mono font-bold text-foreground">{backtestResults[s.id].total_trades}</p>
