@@ -800,3 +800,9 @@ def run_internal_tests():
 if os.environ.get("TEST_MODE") == "1":
     run_internal_tests()
 
+@api_router.post("/internal/run-tests")
+async def trigger_internal_tests():
+    """Manually trigger internal tests (dev only)."""
+    result = run_internal_tests()
+    return {"success": True, "result": result}
+
