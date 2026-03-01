@@ -554,7 +554,8 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
         total_pnl = sum(t['pnl'] for t in trades)
         
         return {
-            'label': 'Historical',
+            'label': 'Basic Historical Backtest (Limited Accuracy)',
+            'disclaimer': 'Simplified SMA crossover only. Does not account for fees, slippage, or market conditions.',
             'trades': trades,
             'win_rate': round((wins / len(trades)) * 100, 1),
             'pnl': round(total_pnl, 2),
@@ -563,6 +564,9 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
             'losses': len(trades) - wins,
             'data_source': f'yfinance ({yf_symbol})'
         }
+    except BacktestTimeoutError as e:
+        logger.error(f"Backtest timeout: {e}")
+        return None
     except Exception as e:
         logger.error(f"Backtest error: {e}")
         return None
