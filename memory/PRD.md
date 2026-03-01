@@ -30,8 +30,23 @@ Build a full-stack web app called Text2trade with:
 | MACD | Entry/Exit | fast, slow, signal | bullish_cross, bearish_cross |
 | Stochastic | Entry/Exit | k_period, d_period, overbought, oversold | cross_above, cross_below |
 | ADX | Filter only | period | >, < |
+| ATR | Stop Loss | period | atr_multiple |
+
+## Risk Management Options
+| Stop Loss Type | Description |
+|----------------|-------------|
+| Fixed Percentage | Stop loss at X% from entry |
+| ATR Multiple | Stop loss at Xx ATR(period) from entry |
 
 ## What's Been Implemented
+
+**Date: 2026-03-01 - ATR Stop Loss Feature**
+- Added ATR indicator to `indicator_registry.py` with operator `atr_multiple`
+- Added `stop_loss_type` (fixed/atr_multiple) and `stop_loss_atr_period` to RiskManagement schema
+- Updated Risk step UI with Stop Loss Type dropdown
+- ATR Multiple mode shows: ATR Multiple input, ATR Period input, helper text
+- Strategy summary shows format like "SL: 2x ATR(14)"
+- `explainStrategy.js` formats ATR-based SL correctly
 
 **Date: 2026-03-01 - ADX Filter Feature**
 - Added ADX indicator as filter-only in `indicator_registry.py`
