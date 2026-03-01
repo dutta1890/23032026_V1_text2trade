@@ -476,9 +476,12 @@ class BacktestResponse(BaseModel):
     losses: int
     data_source: str
 
-def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candles: int = 200):
+def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candles: int = MAX_LOOKBACK):
     """Run simple SMA crossover backtest using yfinance data."""
     try:
+        # Enforce max lookback limit
+        max_candles = min(max_candles, MAX_LOOKBACK)
+        
         # Map common crypto symbols to Yahoo Finance format
         yf_symbol = symbol
         if symbol in ["BTCUSDT", "BTC"]:
@@ -489,9 +492,10 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
             # Try as stock symbol
             yf_symbol = symbol
         
-        # Fetch data
-        ticker = yf.Ticker(yf_symbol)
-        df = ticker.history(period="1y", interval="1d")
+        # Fetch data with timeout protection
+        with timeout_handler(MAX_EXECUTION_SECONDS):
+            ticker = yf.Ticker(yf_symbol)
+            df = ticker.history(period="1y", interval="1d")
         
         if df.empty or len(df) < long_period + 10:
             return None
