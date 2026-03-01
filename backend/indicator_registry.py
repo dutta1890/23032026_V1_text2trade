@@ -4,11 +4,11 @@ INDICATORS = {
         "operators": ["<", ">", "cross"]
     },
     "SMA": {
-        "params": ["period"],
+        "params": ["period", "short", "long"],
         "operators": ["cross_above", "cross_below"]
     },
     "EMA": {
-        "params": ["period"],
+        "params": ["period", "short", "long"],
         "operators": ["cross_above", "cross_below"]
     },
     "MACD": {
