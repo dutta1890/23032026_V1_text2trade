@@ -408,7 +408,7 @@ export default function DashboardPage() {
     }
     switch (activePage) {
       case "create": return <CreateStrategyContent onStartBuilder={handleStartBuilder} onStartNL={handleStartNL} />;
-      case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} onOpenChat={handleOpenChat} onAnalyzeRisk={handleAnalyzeRisk} riskWarnings={riskWarnings} analyzingRisk={analyzingRisk} />;
+      case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} onOpenChat={handleOpenChat} onAnalyzeRisk={handleAnalyzeRisk} riskWarnings={riskWarnings} analyzingRisk={analyzingRisk} onRunBacktest={handleRunBacktest} backtestResults={backtestResults} runningBacktest={runningBacktest} />;
       case "help": return <HelpContent />;
       default: return <CreateStrategyContent onStartBuilder={handleStartBuilder} onStartNL={handleStartNL} />;
     }
