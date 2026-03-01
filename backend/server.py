@@ -87,6 +87,8 @@ class RiskManagement(BaseModel):
     risk_per_trade: Optional[float] = None
     take_profit: Optional[float] = None
     stop_loss: Optional[float] = None
+    stop_loss_type: Optional[str] = "fixed"  # fixed, atr_multiple
+    stop_loss_atr_period: Optional[int] = 14
     trailing_stop: Optional[float] = None
 
 class Strategy(BaseModel):
