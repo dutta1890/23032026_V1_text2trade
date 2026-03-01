@@ -612,6 +612,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   <p>Timeframe: {strategy.timeframe.interval}</p>
                   <p>Entry: {formatIndicator(entryIndicator)} {entryIndicator.operator} {entryIndicator.type === "RSI" ? entryIndicator.value : "price"}</p>
                   {exitIndicator.enabled && <p>Exit: {formatIndicator(exitIndicator)} {exitIndicator.operator} {exitIndicator.type === "RSI" ? exitIndicator.value : "price"}</p>}
+                  {filterIndicator.enabled && <p>Filter: ADX({filterIndicator.period}) {filterIndicator.operator} {filterIndicator.value}</p>}
                   <p>SL: {strategy.risk_management.stop_loss || "-"}% / TP: {strategy.risk_management.take_profit || "-"}%</p>
                 </div>
               </CardContent>
