@@ -145,6 +145,10 @@ const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRis
                   <p className="text-sm text-muted-foreground mt-2">{explainStrategy(s)}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onRunBacktest(s.id, s)} disabled={runningBacktest === s.id} data-testid={`backtest-btn-${i}`}>
+                    {runningBacktest === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
+                    {runningBacktest === s.id ? "" : "Backtest"}
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => onAnalyzeRisk(s.id, s)} disabled={analyzingRisk === s.id} data-testid={`risk-btn-${i}`}>
                     {analyzingRisk === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4 mr-1" />}
                     {analyzingRisk === s.id ? "" : "Risk"}
@@ -155,6 +159,34 @@ const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRis
                   <span className="mono-label text-primary">v{s.version || "1.0"}</span>
                 </div>
               </div>
+              {backtestResults[s.id] && !backtestResults[s.id].error && (
+                <div className="mt-4 p-3 bg-primary/10 border border-primary/30" data-testid={`backtest-results-${i}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="mono-label text-primary">{backtestResults[s.id].label} Backtest Results</p>
+                    <span className="text-xs text-muted-foreground">Data: {backtestResults[s.id].data_source}</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div>
+                      <p className="text-2xl font-mono font-bold text-foreground">{backtestResults[s.id].total_trades}</p>
+                      <p className="text-xs text-muted-foreground">Trades</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-mono font-bold text-foreground">{backtestResults[s.id].win_rate}%</p>
+                      <p className="text-xs text-muted-foreground">Win Rate</p>
+                    </div>
+                    <div>
+                      <p className={`text-2xl font-mono font-bold ${backtestResults[s.id].pnl >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                        {backtestResults[s.id].pnl >= 0 ? '+' : ''}{backtestResults[s.id].pnl}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">P&L</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-mono font-bold text-foreground">{backtestResults[s.id].wins}/{backtestResults[s.id].losses}</p>
+                      <p className="text-xs text-muted-foreground">W/L</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               {riskWarnings[s.id] && (
                 <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30" data-testid={`risk-warnings-${i}`}>
                   <p className="mono-label text-destructive mb-2">Risk Warnings</p>
