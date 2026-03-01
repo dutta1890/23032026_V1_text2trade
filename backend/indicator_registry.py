@@ -5,11 +5,11 @@ INDICATORS = {
     },
     "SMA": {
         "params": ["period", "short", "long"],
-        "operators": ["cross_above", "cross_below"]
+        "operators": ["cross_above", "cross_below", "crosses_above", "crosses_below"]
     },
     "EMA": {
         "params": ["period", "short", "long"],
-        "operators": ["cross_above", "cross_below"]
+        "operators": ["cross_above", "cross_below", "crosses_above", "crosses_below"]
     },
     "MACD": {
         "params": ["fast", "slow", "signal"],
