@@ -663,7 +663,9 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   <p>Entry: {formatIndicator(entryIndicator)} {entryIndicator.operator} {entryIndicator.type === "RSI" ? entryIndicator.value : "price"}</p>
                   {exitIndicator.enabled && <p>Exit: {formatIndicator(exitIndicator)} {exitIndicator.operator} {exitIndicator.type === "RSI" ? exitIndicator.value : "price"}</p>}
                   {filterIndicator.enabled && <p>Filter: ADX({filterIndicator.period}) {filterIndicator.operator} {filterIndicator.value}</p>}
-                  <p>SL: {strategy.risk_management.stop_loss || "-"}% / TP: {strategy.risk_management.take_profit || "-"}%</p>
+                  <p>SL: {strategy.risk_management.stop_loss_type === "atr_multiple" 
+                    ? `${strategy.risk_management.stop_loss || "-"}x ATR(${strategy.risk_management.stop_loss_atr_period})` 
+                    : `${strategy.risk_management.stop_loss || "-"}%`} / TP: {strategy.risk_management.take_profit || "-"}%</p>
                 </div>
               </CardContent>
             </Card>
