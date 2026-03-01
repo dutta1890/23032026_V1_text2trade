@@ -189,7 +189,7 @@ class TestBacktestEndpoint:
         response = requests.post(f"{BASE_URL}/api/backtest", json={
             "strategy": {
                 "instrument": {"symbol": "GOOGL"},
-                "entry_conditions": [{"name": "SMA", "params": {"short": 20, "long": 50}, "operator": "cross_above"}],
+                "entry_conditions": [{"name": "SMA", "params": {"short": 9, "long": 21}, "operator": "cross_above"}],
                 "risk_management": {"stop_loss": 3, "take_profit": 8}
             }
         })
