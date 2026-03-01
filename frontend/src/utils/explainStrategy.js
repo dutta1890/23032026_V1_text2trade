@@ -44,7 +44,12 @@ export function explainStrategy(strategy) {
   strategy.filters?.forEach(c => lines.push(formatFilter(c)));
 
   if (risk_management?.stop_loss) {
-    lines.push(`Stop loss at ${risk_management.stop_loss}%.`);
+    if (risk_management.stop_loss_type === "atr_multiple") {
+      const atrPeriod = risk_management.stop_loss_atr_period || 14;
+      lines.push(`Stop loss at ${risk_management.stop_loss}x ATR(${atrPeriod}).`);
+    } else {
+      lines.push(`Stop loss at ${risk_management.stop_loss}%.`);
+    }
   }
   if (risk_management?.take_profit) {
     lines.push(`Take profit at ${risk_management.take_profit}%.`);
