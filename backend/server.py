@@ -689,3 +689,114 @@ app.add_middleware(
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 logger.info("Text2trade API initialized")
+
+
+# =============================================================================
+# INTERNAL TEST UTILITY
+# =============================================================================
+
+SAMPLE_STRATEGIES = [
+    {
+        "metadata": {"name": "AAPL SMA Crossover", "description": "Test strategy 1"},
+        "market": {"type": "stocks", "exchange": "nasdaq"},
+        "instrument": {"symbol": "AAPL"},
+        "timeframe": {"interval": "1d"},
+        "entry_conditions": [{"name": "SMA", "params": {"short": 10, "long": 30}, "operator": "cross_above"}],
+        "exit_conditions": [],
+        "filters": [],
+        "risk_management": {"stop_loss": 2, "take_profit": 5}
+    },
+    {
+        "metadata": {"name": "BTC RSI Strategy", "description": "Test strategy 2"},
+        "market": {"type": "crypto", "exchange": "binance"},
+        "instrument": {"symbol": "BTCUSDT"},
+        "timeframe": {"interval": "1h"},
+        "entry_conditions": [{"name": "RSI", "params": {"period": 14}, "operator": "<", "value": 30}],
+        "exit_conditions": [],
+        "filters": [],
+        "risk_management": {"stop_loss": 3, "take_profit": 6}
+    },
+    {
+        "metadata": {"name": "ETH EMA Crossover", "description": "Test strategy 3"},
+        "market": {"type": "crypto", "exchange": "binance"},
+        "instrument": {"symbol": "ETHUSDT"},
+        "timeframe": {"interval": "4h"},
+        "entry_conditions": [{"name": "EMA", "params": {"short": 12, "long": 26}, "operator": "cross_above"}],
+        "exit_conditions": [],
+        "filters": [{"name": "ADX", "params": {"period": 14}, "operator": ">", "value": 25}],
+        "risk_management": {"stop_loss": 2, "take_profit": 4}
+    }
+]
+
+def create_test_user():
+    """Create a test user and return credentials."""
+    test_email = "test@internal.dev"
+    test_password = "test123"
+    
+    # Check if exists
+    existing = next((u for u in users_db if u["email"] == test_email), None)
+    if not existing:
+        users_db.append({"email": test_email, "password": test_password})
+        logger.info(f"[TEST] Created test user: {test_email}")
+    else:
+        logger.info(f"[TEST] Test user exists: {test_email}")
+    
+    return {"email": test_email, "password": test_password}
+
+def run_internal_tests():
+    """Run internal tests: create user, generate strategies, run backtests."""
+    logger.info("=" * 60)
+    logger.info("[TEST] Starting internal test suite")
+    logger.info("=" * 60)
+    
+    # 1. Create test user
+    user = create_test_user()
+    logger.info(f"[TEST] User: {user['email']}")
+    
+    # 2. Create sample strategies
+    created_strategies = []
+    for strat_data in SAMPLE_STRATEGIES:
+        strat_id = str(uuid.uuid4())[:8]
+        strategy = {
+            "id": strat_id,
+            "version": "1.0",
+            **strat_data
+        }
+        strategies_db.append(strategy)
+        created_strategies.append(strategy)
+        logger.info(f"[TEST] Created strategy: {strat_data['metadata']['name']} (id: {strat_id})")
+    
+    # 3. Run backtest on each
+    logger.info("-" * 60)
+    logger.info("[TEST] Running backtests...")
+    
+    for strategy in created_strategies:
+        name = strategy["metadata"]["name"]
+        symbol = strategy["instrument"]["symbol"]
+        entry = strategy["entry_conditions"][0] if strategy["entry_conditions"] else {}
+        indicator = entry.get("name", "N/A")
+        
+        # Determine backtest type
+        if indicator in ["SMA", "EMA"]:
+            params = entry.get("params", {})
+            result = run_sma_backtest(symbol, params.get("short", 9), params.get("long", 21))
+        else:
+            sl = strategy["risk_management"].get("stop_loss", 2)
+            tp = strategy["risk_management"].get("take_profit", 5)
+            result = run_simulated_backtest(symbol, sl, tp)
+        
+        if result:
+            logger.info(f"[TEST] {name} | {result['label']} | Trades: {result['total_trades']} | Win: {result['win_rate']}% | PnL: {result['pnl']}%")
+        else:
+            logger.info(f"[TEST] {name} | FAILED")
+    
+    logger.info("=" * 60)
+    logger.info(f"[TEST] Complete. {len(created_strategies)} strategies created and tested.")
+    logger.info("=" * 60)
+    
+    return {"user": user, "strategies": len(created_strategies)}
+
+# Run tests on startup if TEST_MODE env is set
+if os.environ.get("TEST_MODE") == "1":
+    run_internal_tests()
+
