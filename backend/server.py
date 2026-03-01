@@ -437,6 +437,29 @@ async def explain_strategy(request: ExplainRequest):
 
 import yfinance as yf
 import pandas as pd
+import signal
+from contextlib import contextmanager
+
+# Safety limits
+MAX_LOOKBACK = 200
+MAX_EXECUTION_SECONDS = 30
+
+class BacktestTimeoutError(Exception):
+    pass
+
+@contextmanager
+def timeout_handler(seconds):
+    """Context manager for execution timeout."""
+    def handler(signum, frame):
+        raise BacktestTimeoutError(f"Backtest exceeded {seconds}s limit")
+    
+    old_handler = signal.signal(signal.SIGALRM, handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 class BacktestRequest(BaseModel):
     strategy: dict
@@ -444,6 +467,7 @@ class BacktestRequest(BaseModel):
 class BacktestResponse(BaseModel):
     success: bool
     label: str
+    disclaimer: str
     trades: list
     win_rate: float
     pnl: float
