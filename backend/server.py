@@ -573,42 +573,57 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
 
 def run_simulated_backtest(symbol: str, sl: float, tp: float):
     """Fallback simulated backtest."""
-    import random
-    num_trades = 10 + random.randint(0, 20)
-    trades = []
-    wins = 0
-    total_pnl = 0
-    
-    for i in range(num_trades):
-        is_win = random.random() > 0.45
-        pnl = random.random() * tp if is_win else -(random.random() * sl)
-        entry = 100 + random.random() * 50
-        exit_price = entry * (1 + pnl / 100)
+    try:
+        import random
+        num_trades = 10 + random.randint(0, 20)
+        trades = []
+        wins = 0
+        total_pnl = 0
         
-        if is_win:
-            wins += 1
-        total_pnl += pnl
+        for i in range(num_trades):
+            is_win = random.random() > 0.45
+            pnl = random.random() * tp if is_win else -(random.random() * sl)
+            entry = 100 + random.random() * 50
+            exit_price = entry * (1 + pnl / 100)
+            
+            if is_win:
+                wins += 1
+            total_pnl += pnl
+            
+            trades.append({
+                'id': i + 1,
+                'symbol': symbol,
+                'entry': round(entry, 2),
+                'exit': round(exit_price, 2),
+                'pnl': round(pnl, 2),
+                'result': 'WIN' if is_win else 'LOSS',
+                'date': f'2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}'
+            })
         
-        trades.append({
-            'id': i + 1,
-            'symbol': symbol,
-            'entry': round(entry, 2),
-            'exit': round(exit_price, 2),
-            'pnl': round(pnl, 2),
-            'result': 'WIN' if is_win else 'LOSS',
-            'date': f'2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}'
-        })
-    
-    return {
-        'label': 'Simulated',
-        'trades': trades,
-        'win_rate': round((wins / num_trades) * 100, 1),
-        'pnl': round(total_pnl, 2),
-        'total_trades': num_trades,
-        'wins': wins,
-        'losses': num_trades - wins,
-        'data_source': 'simulated'
-    }
+        return {
+            'label': 'Simulated Backtest (Not Real Data)',
+            'disclaimer': 'Random simulation only. Not based on historical data.',
+            'trades': trades,
+            'win_rate': round((wins / num_trades) * 100, 1),
+            'pnl': round(total_pnl, 2),
+            'total_trades': num_trades,
+            'wins': wins,
+            'losses': num_trades - wins,
+            'data_source': 'simulated'
+        }
+    except Exception as e:
+        logger.error(f"Simulated backtest error: {e}")
+        return {
+            'label': 'Backtest Error',
+            'disclaimer': 'An error occurred during backtest.',
+            'trades': [],
+            'win_rate': 0,
+            'pnl': 0,
+            'total_trades': 0,
+            'wins': 0,
+            'losses': 0,
+            'data_source': 'error'
+        }
 
 @api_router.post("/backtest", response_model=BacktestResponse)
 async def run_backtest(request: BacktestRequest):
