@@ -510,7 +510,72 @@ export default function StrategyBuilder({ onClose, onSave }) {
           </div>
         );
 
-      case 5: // Risk
+      case 5: // Filters
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="filter-enabled"
+                checked={filterIndicator.enabled}
+                onChange={(e) => setFilterIndicator(p => ({ ...p, enabled: e.target.checked }))}
+                className="w-4 h-4 accent-primary"
+                data-testid="checkbox-filter-enabled"
+              />
+              <label htmlFor="filter-enabled" className="mono-label cursor-pointer">Enable ADX Filter</label>
+            </div>
+            {filterIndicator.enabled && (
+              <Card className="border-yellow-500/50 bg-yellow-500/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-mono">ADX Filter (Trend Strength)</CardTitle>
+                  <CardDescription className="text-xs">Only trade when trend is strong enough</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="mono-label">Period</label>
+                    <Input
+                      type="number"
+                      value={filterIndicator.period}
+                      onChange={(e) => setFilterIndicator(p => ({ ...p, period: e.target.value }))}
+                      className="font-mono"
+                      data-testid="input-filter-period"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="mono-label">Operator</label>
+                      <Select value={filterIndicator.operator} onValueChange={(v) => setFilterIndicator(p => ({ ...p, operator: v }))}>
+                        <SelectTrigger data-testid="select-filter-operator"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value=">">Greater than (&gt;)</SelectItem>
+                          <SelectItem value="<">Less than (&lt;)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="mono-label">Value</label>
+                      <Input
+                        type="number"
+                        value={filterIndicator.value}
+                        onChange={(e) => setFilterIndicator(p => ({ ...p, value: e.target.value }))}
+                        className="font-mono"
+                        data-testid="input-filter-value"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Only enter trades when ADX({filterIndicator.period}) {filterIndicator.operator} {filterIndicator.value}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            {!filterIndicator.enabled && (
+              <p className="text-sm text-muted-foreground">No trend filter will be applied.</p>
+            )}
+          </div>
+        );
+
+      case 6: // Risk
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
