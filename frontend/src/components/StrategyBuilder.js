@@ -582,18 +582,64 @@ export default function StrategyBuilder({ onClose, onSave }) {
       case 6: // Risk
         return (
           <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="mono-label">Stop Loss Type</label>
+              <Select 
+                value={strategy.risk_management.stop_loss_type} 
+                onValueChange={(v) => updateStrategy("risk_management", "stop_loss_type", v)}
+              >
+                <SelectTrigger data-testid="select-sl-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Fixed Percentage</SelectItem>
+                  <SelectItem value="atr_multiple">ATR Multiple</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="mono-label">Stop Loss (%)</label>
+                <label className="mono-label">
+                  {strategy.risk_management.stop_loss_type === "atr_multiple" ? "ATR Multiple" : "Stop Loss (%)"}
+                </label>
                 <Input
                   type="number"
-                  placeholder="2"
+                  placeholder={strategy.risk_management.stop_loss_type === "atr_multiple" ? "2" : "2"}
                   value={strategy.risk_management.stop_loss}
                   onChange={(e) => updateStrategy("risk_management", "stop_loss", e.target.value)}
                   className="font-mono"
                   data-testid="input-stop-loss"
                 />
+                {strategy.risk_management.stop_loss_type === "atr_multiple" && (
+                  <p className="text-xs text-muted-foreground">e.g., 2 = 2x ATR distance</p>
+                )}
               </div>
+              {strategy.risk_management.stop_loss_type === "atr_multiple" && (
+                <div className="space-y-2">
+                  <label className="mono-label">ATR Period</label>
+                  <Input
+                    type="number"
+                    placeholder="14"
+                    value={strategy.risk_management.stop_loss_atr_period}
+                    onChange={(e) => updateStrategy("risk_management", "stop_loss_atr_period", e.target.value)}
+                    className="font-mono"
+                    data-testid="input-atr-period"
+                  />
+                </div>
+              )}
+              {strategy.risk_management.stop_loss_type === "fixed" && (
+                <div className="space-y-2">
+                  <label className="mono-label">Take Profit (%)</label>
+                  <Input
+                    type="number"
+                    placeholder="5"
+                    value={strategy.risk_management.take_profit}
+                    onChange={(e) => updateStrategy("risk_management", "take_profit", e.target.value)}
+                    className="font-mono"
+                    data-testid="input-take-profit"
+                  />
+                </div>
+              )}
+            </div>
+            {strategy.risk_management.stop_loss_type === "atr_multiple" && (
               <div className="space-y-2">
                 <label className="mono-label">Take Profit (%)</label>
                 <Input
@@ -605,7 +651,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   data-testid="input-take-profit"
                 />
               </div>
-            </div>
+            )}
             <Card className="border-border bg-secondary/30">
               <CardContent className="p-4">
                 <h4 className="font-mono font-bold text-sm mb-2">Strategy Summary</h4>
