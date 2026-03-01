@@ -12,6 +12,9 @@ import json
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 
+from indicator_registry import validate_condition
+
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -176,6 +179,17 @@ def validate_strategy(strategy: Strategy):
     # target > stop_loss if both defined
     if sl is not None and tp is not None and tp <= sl:
         errors.append("take_profit must be greater than stop_loss")
+    
+    # Validate conditions against indicator registry
+    for cond in strategy.entry_conditions:
+        if not validate_condition(cond.model_dump()):
+            errors.append(f"Invalid entry condition: {cond.name}")
+    for cond in strategy.exit_conditions:
+        if not validate_condition(cond.model_dump()):
+            errors.append(f"Invalid exit condition: {cond.name}")
+    for cond in strategy.filters:
+        if not validate_condition(cond.model_dump()):
+            errors.append(f"Invalid filter: {cond.name}")
     
     return errors
 
