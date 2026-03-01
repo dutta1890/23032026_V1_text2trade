@@ -627,34 +627,49 @@ def run_simulated_backtest(symbol: str, sl: float, tp: float):
 
 @api_router.post("/backtest", response_model=BacktestResponse)
 async def run_backtest(request: BacktestRequest):
-    strategy = request.strategy
-    symbol = strategy.get('instrument', {}).get('symbol', 'BTCUSDT')
-    entry_conditions = strategy.get('entry_conditions', [])
-    sl = strategy.get('risk_management', {}).get('stop_loss') or 2
-    tp = strategy.get('risk_management', {}).get('take_profit') or 5
-    
-    # Check if strategy uses SMA or EMA
-    uses_ma = False
-    short_period = 9
-    long_period = 21
-    
-    for cond in entry_conditions:
-        if cond.get('name') in ['SMA', 'EMA']:
-            uses_ma = True
-            params = cond.get('params', {})
-            short_period = params.get('short', 9)
-            long_period = params.get('long', 21)
-            break
-    
-    result = None
-    if uses_ma:
-        result = run_sma_backtest(symbol, short_period, long_period, max_candles=200)
-    
-    # Fallback to simulated if historical fails or not MA strategy
-    if result is None:
-        result = run_simulated_backtest(symbol, sl, tp)
-    
-    return {"success": True, **result}
+    try:
+        strategy = request.strategy
+        symbol = strategy.get('instrument', {}).get('symbol', 'BTCUSDT')
+        entry_conditions = strategy.get('entry_conditions', [])
+        sl = strategy.get('risk_management', {}).get('stop_loss') or 2
+        tp = strategy.get('risk_management', {}).get('take_profit') or 5
+        
+        # Check if strategy uses SMA or EMA
+        uses_ma = False
+        short_period = 9
+        long_period = 21
+        
+        for cond in entry_conditions:
+            if cond.get('name') in ['SMA', 'EMA']:
+                uses_ma = True
+                params = cond.get('params', {})
+                short_period = params.get('short', 9)
+                long_period = params.get('long', 21)
+                break
+        
+        result = None
+        if uses_ma:
+            result = run_sma_backtest(symbol, short_period, long_period, max_candles=MAX_LOOKBACK)
+        
+        # Fallback to simulated if historical fails or not MA strategy
+        if result is None:
+            result = run_simulated_backtest(symbol, sl, tp)
+        
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error(f"Backtest endpoint error: {e}")
+        return {
+            "success": False,
+            "label": "Backtest Error",
+            "disclaimer": "An unexpected error occurred.",
+            "trades": [],
+            "win_rate": 0,
+            "pnl": 0,
+            "total_trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "data_source": "error"
+        }
 
 
 # =============================================================================
