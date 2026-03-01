@@ -279,7 +279,6 @@ async def submit_feedback(request: FeedbackRequest):
 @api_router.get("/analytics")
 async def get_analytics():
     """Get product usage analytics."""
-    # Sort indicators by usage
     sorted_indicators = dict(sorted(
         analytics_db["indicator_usage"].items(),
         key=lambda x: x[1],
@@ -294,9 +293,27 @@ async def get_analytics():
             "backtest_types": analytics_db["backtest_types"],
             "indicator_usage": sorted_indicators,
             "total_users": len(users_db),
-            "total_feedback": len(feedback_db)
+            "total_feedback": len(feedback_db),
+            "waitlist_signups": len(waitlist_db)
         }
     }
+
+
+# =============================================================================
+# WAITLIST ROUTE
+# =============================================================================
+
+class WaitlistRequest(BaseModel):
+    email: str
+
+@api_router.post("/waitlist")
+async def join_waitlist(request: WaitlistRequest):
+    """Add email to waitlist."""
+    email = request.email.lower().strip()
+    if email not in waitlist_db:
+        waitlist_db.append(email)
+        logger.info(f"Waitlist signup: {email}")
+    return {"success": True, "message": "Added to waitlist"}
 
 
 # =============================================================================
