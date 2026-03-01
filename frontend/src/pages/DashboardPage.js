@@ -107,7 +107,7 @@ const CreateStrategyContent = ({ onStartBuilder, onStartNL }) => (
   </div>
 );
 
-const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRisk, riskWarnings, analyzingRisk }) => (
+const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRisk, riskWarnings, analyzingRisk, onRunBacktest, backtestResults, runningBacktest }) => (
   <div className="space-y-8">
     <div className="flex items-center justify-between">
       <div>
