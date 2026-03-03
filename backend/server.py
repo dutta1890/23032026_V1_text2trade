@@ -253,6 +253,57 @@ async def get_strategies(x_user_id: Optional[str] = Header(None)):
         "count": len(user_strategies)
     }
 
+@api_router.get("/strategy/{strategy_id}")
+async def get_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
+    strategy = next((s for s in strategies_db if s.get("id") == strategy_id), None)
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if strategy.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return {"success": True, "strategy": strategy}
+
+@api_router.put("/strategy/{strategy_id}")
+async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optional[str] = Header(None)):
+    idx = next((i for i, s in enumerate(strategies_db) if s.get("id") == strategy_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if strategies_db[idx].get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    errors = validate_strategy(strategy)
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+    
+    # Increment version
+    old_version = strategies_db[idx].get("version", "1.0")
+    try:
+        major, minor = old_version.split(".")
+        new_version = f"{major}.{int(minor) + 1}"
+    except:
+        new_version = "1.1"
+    
+    strategy.id = strategy_id
+    strategy.user_id = x_user_id
+    strategy.version = new_version
+    strategy.metadata.updated_at = datetime.now(timezone.utc).isoformat()
+    strategy.metadata.created_at = strategies_db[idx].get("metadata", {}).get("created_at")
+    
+    strategies_db[idx] = strategy.model_dump()
+    logger.info(f"Strategy updated: {strategy_id} v{new_version} (user: {x_user_id})")
+    return {"success": True, "strategy": strategy}
+
+@api_router.delete("/strategy/{strategy_id}")
+async def delete_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
+    idx = next((i for i, s in enumerate(strategies_db) if s.get("id") == strategy_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if strategies_db[idx].get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    deleted = strategies_db.pop(idx)
+    logger.info(f"Strategy deleted: {strategy_id} (user: {x_user_id})")
+    return {"success": True, "message": "Strategy deleted"}
+
 
 # =============================================================================
 # FEEDBACK ROUTE
