@@ -380,24 +380,28 @@ async def submit_feedback(request: FeedbackRequest):
 @api_router.get("/analytics")
 async def get_analytics():
     """Get product usage analytics."""
-    sorted_indicators = dict(sorted(
-        analytics_db["indicator_usage"].items(),
-        key=lambda x: x[1],
-        reverse=True
-    ))
-    
-    return {
-        "success": True,
-        "stats": {
-            "strategies_created": strategies_collection.count_documents({}),
-            "backtests_run": analytics_db["backtests_run"],
-            "backtest_types": analytics_db["backtest_types"],
-            "indicator_usage": sorted_indicators,
-            "total_users": len(users_db),
-            "total_feedback": len(feedback_db),
-            "waitlist_signups": len(waitlist_db)
+    try:
+        sorted_indicators = dict(sorted(
+            analytics_db["indicator_usage"].items(),
+            key=lambda x: x[1],
+            reverse=True
+        ))
+        
+        return {
+            "success": True,
+            "stats": {
+                "strategies_created": strategies_collection.count_documents({}),
+                "backtests_run": analytics_db["backtests_run"],
+                "backtest_types": analytics_db["backtest_types"],
+                "indicator_usage": sorted_indicators,
+                "total_users": len(users_db),
+                "total_feedback": len(feedback_db),
+                "waitlist_signups": len(waitlist_db)
+            }
         }
-    }
+    except Exception as e:
+        logger.error(f"DB error fetching analytics: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
 
 # =============================================================================
