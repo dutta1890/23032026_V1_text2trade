@@ -26,6 +26,10 @@ export function explainStrategy(strategy) {
       const slow = c.params?.slow || 26;
       const signal = c.params?.signal || 9;
       return `${action} on MACD(${fast}/${slow}/${signal}) ${op}.`;
+    } else if (c.name === "Stochastic") {
+      const k = c.params?.k_period || 14;
+      const d = c.params?.d_period || 3;
+      return `${action} when Stoch(%K${k}/%D${d}) ${op} ${c.value || ""}.`;
     }
     return `${action} on ${c.name} ${op}.`;
   };
