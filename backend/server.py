@@ -24,7 +24,14 @@ mongo_client = MongoClient(os.environ.get("MONGO_URL"))
 db = mongo_client[os.environ.get("DB_NAME", "text2trade")]
 strategies_collection = db["strategies"]
 
-app = FastAPI(title="Text2trade API", version="0.7.0")
+# Create indexes
+try:
+    strategies_collection.create_index("user_id")
+    strategies_collection.create_index("metadata.created_at")
+except Exception as e:
+    print(f"Warning: Could not create indexes: {e}")
+
+app = FastAPI(title="Text2trade API", version="0.8.0")
 api_router = APIRouter(prefix="/api")
 
 users_db: Dict[str, str] = {}
