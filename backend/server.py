@@ -239,38 +239,46 @@ async def create_strategy(strategy: Strategy, x_user_id: Optional[str] = Header(
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
     
-    strategy.id = str(uuid.uuid4())
-    strategy.user_id = x_user_id
-    strategy.version = get_next_version(strategy.metadata.name, x_user_id)
-    strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
-    strategy.metadata.updated_at = strategy.metadata.created_at
-    
-    doc = strategy.model_dump()
-    strategies_collection.insert_one(doc)
-    
-    # Track analytics
-    analytics_db["strategies_created"] += 1
-    for cond in strategy.entry_conditions:
-        track_indicator(cond.name)
-    for cond in strategy.exit_conditions:
-        track_indicator(cond.name)
-    for f in strategy.filters:
-        track_indicator(f.name)
-    
-    logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name} v{strategy.version} (user: {x_user_id})")
-    return {"success": True, "strategy": strategy}
+    try:
+        strategy.id = str(uuid.uuid4())
+        strategy.user_id = x_user_id
+        strategy.version = get_next_version(strategy.metadata.name, x_user_id)
+        strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
+        strategy.metadata.updated_at = strategy.metadata.created_at
+        
+        doc = strategy.model_dump()
+        strategies_collection.insert_one(doc)
+        
+        # Track analytics
+        analytics_db["strategies_created"] += 1
+        for cond in strategy.entry_conditions:
+            track_indicator(cond.name)
+        for cond in strategy.exit_conditions:
+            track_indicator(cond.name)
+        for f in strategy.filters:
+            track_indicator(f.name)
+        
+        logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name} v{strategy.version} (user: {x_user_id})")
+        return {"success": True, "strategy": strategy}
+    except Exception as e:
+        logger.error(f"DB error creating strategy: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.get("/strategies", response_model=StrategiesListResponse)
 async def get_strategies(x_user_id: Optional[str] = Header(None)):
-    user_strategies = list(strategies_collection.find(
-        {"user_id": x_user_id},
-        {"_id": 0}
-    ))
-    return {
-        "success": True,
-        "strategies": user_strategies,
-        "count": len(user_strategies)
-    }
+    try:
+        user_strategies = list(strategies_collection.find(
+            {"user_id": x_user_id},
+            {"_id": 0}
+        ))
+        return {
+            "success": True,
+            "strategies": user_strategies,
+            "count": len(user_strategies)
+        }
+    except Exception as e:
+        logger.error(f"DB error fetching strategies: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.get("/strategy/{strategy_id}")
 async def get_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
