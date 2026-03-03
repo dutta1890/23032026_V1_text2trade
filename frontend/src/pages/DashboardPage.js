@@ -306,9 +306,11 @@ export default function DashboardPage() {
   const [runningBacktest, setRunningBacktest] = useState(null);
   const navigate = useNavigate();
 
+  const getAuthHeaders = () => ({ headers: { "X-User-Id": userEmail } });
+
   const fetchStrategies = async () => {
     try {
-      const res = await axios.get(`${API_URL}/strategies`);
+      const res = await axios.get(`${API_URL}/strategies`, getAuthHeaders());
       setStrategies(res.data.strategies || []);
     } catch (err) {
       console.error("Fetch strategies failed:", err);
