@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any, Union
 import uuid
 import json
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from pymongo import MongoClient
 
 
 from indicator_registry import validate_condition
@@ -18,11 +19,15 @@ from indicator_registry import validate_condition
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-app = FastAPI(title="Text2trade API", version="0.6.0")
+# MongoDB connection
+mongo_client = MongoClient(os.environ.get("MONGO_URL"))
+db = mongo_client[os.environ.get("DB_NAME", "text2trade")]
+strategies_collection = db["strategies"]
+
+app = FastAPI(title="Text2trade API", version="0.7.0")
 api_router = APIRouter(prefix="/api")
 
 users_db: Dict[str, str] = {}
-strategies_db: List[dict] = []
 feedback_db: List[dict] = []
 waitlist_db: List[str] = []
 
