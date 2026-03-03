@@ -519,7 +519,7 @@ async def analyze_risk(request: RiskRequest):
 
 SYSTEM_PROMPT = """You are a trading strategy explainer.
 
-Supported indicators ONLY: RSI, SMA, EMA, MACD.
+Supported indicators ONLY: RSI, SMA, EMA, MACD, Stochastic.
 
 You will receive:
 1. A structured strategy JSON.
@@ -534,7 +534,7 @@ Strict rules:
 - Do NOT give financial advice.
 - Do NOT predict profits or performance.
 - Do NOT suggest improvements.
-- Do NOT mention indicators not in the JSON (only RSI, SMA, EMA, MACD supported).
+- Do NOT mention indicators not in the JSON (only RSI, SMA, EMA, MACD, Stochastic supported).
 - Do NOT hallucinate or add information not present.
 - If a field is missing, say: "Not defined in this strategy."
 
