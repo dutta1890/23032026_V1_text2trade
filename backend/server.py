@@ -267,7 +267,7 @@ async def get_strategies(x_user_id: Optional[str] = Header(None)):
 
 @api_router.get("/strategy/{strategy_id}")
 async def get_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
-    strategy = next((s for s in strategies_db if s.get("id") == strategy_id), None)
+    strategy = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
     if strategy.get("user_id") != x_user_id:
@@ -276,10 +276,10 @@ async def get_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)
 
 @api_router.put("/strategy/{strategy_id}")
 async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optional[str] = Header(None)):
-    idx = next((i for i, s in enumerate(strategies_db) if s.get("id") == strategy_id), None)
-    if idx is None:
+    existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
+    if not existing:
         raise HTTPException(status_code=404, detail="Strategy not found")
-    if strategies_db[idx].get("user_id") != x_user_id:
+    if existing.get("user_id") != x_user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
     errors = validate_strategy(strategy)
@@ -287,7 +287,7 @@ async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optio
         raise HTTPException(status_code=400, detail="; ".join(errors))
     
     # Increment version
-    old_version = strategies_db[idx].get("version", "1.0")
+    old_version = existing.get("version", "1.0")
     try:
         major, minor = old_version.split(".")
         new_version = f"{major}.{int(minor) + 1}"
@@ -298,21 +298,22 @@ async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optio
     strategy.user_id = x_user_id
     strategy.version = new_version
     strategy.metadata.updated_at = datetime.now(timezone.utc).isoformat()
-    strategy.metadata.created_at = strategies_db[idx].get("metadata", {}).get("created_at")
+    strategy.metadata.created_at = existing.get("metadata", {}).get("created_at")
     
-    strategies_db[idx] = strategy.model_dump()
+    doc = strategy.model_dump()
+    strategies_collection.replace_one({"id": strategy_id}, doc)
     logger.info(f"Strategy updated: {strategy_id} v{new_version} (user: {x_user_id})")
     return {"success": True, "strategy": strategy}
 
 @api_router.delete("/strategy/{strategy_id}")
 async def delete_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
-    idx = next((i for i, s in enumerate(strategies_db) if s.get("id") == strategy_id), None)
-    if idx is None:
+    existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
+    if not existing:
         raise HTTPException(status_code=404, detail="Strategy not found")
-    if strategies_db[idx].get("user_id") != x_user_id:
+    if existing.get("user_id") != x_user_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    deleted = strategies_db.pop(idx)
+    strategies_collection.delete_one({"id": strategy_id})
     logger.info(f"Strategy deleted: {strategy_id} (user: {x_user_id})")
     return {"success": True, "message": "Strategy deleted"}
 
