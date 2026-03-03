@@ -216,8 +216,11 @@ def validate_strategy(strategy: Strategy):
     
     return errors
 
-def get_next_version(name: str) -> str:
-    existing = [s for s in strategies_db if s.get("metadata", {}).get("name") == name]
+def get_next_version(name: str, user_id: str) -> str:
+    existing = list(strategies_collection.find(
+        {"metadata.name": name, "user_id": user_id},
+        {"version": 1, "_id": 0}
+    ))
     if not existing:
         return "1.0"
     versions = [float(s.get("version", "1.0")) for s in existing]
@@ -231,10 +234,12 @@ async def create_strategy(strategy: Strategy, x_user_id: Optional[str] = Header(
     
     strategy.id = str(uuid.uuid4())
     strategy.user_id = x_user_id
-    strategy.version = get_next_version(strategy.metadata.name)
+    strategy.version = get_next_version(strategy.metadata.name, x_user_id)
     strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
     strategy.metadata.updated_at = strategy.metadata.created_at
-    strategies_db.append(strategy.model_dump())
+    
+    doc = strategy.model_dump()
+    strategies_collection.insert_one(doc)
     
     # Track analytics
     analytics_db["strategies_created"] += 1
@@ -250,8 +255,10 @@ async def create_strategy(strategy: Strategy, x_user_id: Optional[str] = Header(
 
 @api_router.get("/strategies", response_model=StrategiesListResponse)
 async def get_strategies(x_user_id: Optional[str] = Header(None)):
-    # Filter strategies by user_id
-    user_strategies = [s for s in strategies_db if s.get("user_id") == x_user_id]
+    user_strategies = list(strategies_collection.find(
+        {"user_id": x_user_id},
+        {"_id": 0}
+    ))
     return {
         "success": True,
         "strategies": user_strategies,
