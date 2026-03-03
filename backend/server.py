@@ -282,55 +282,73 @@ async def get_strategies(x_user_id: Optional[str] = Header(None)):
 
 @api_router.get("/strategy/{strategy_id}")
 async def get_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
-    strategy = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
-    if not strategy:
-        raise HTTPException(status_code=404, detail="Strategy not found")
-    if strategy.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    return {"success": True, "strategy": strategy}
+    try:
+        strategy = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
+        if not strategy:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        if strategy.get("user_id") != x_user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        return {"success": True, "strategy": strategy}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"DB error fetching strategy: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.put("/strategy/{strategy_id}")
 async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optional[str] = Header(None)):
-    existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Strategy not found")
-    if existing.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    errors = validate_strategy(strategy)
-    if errors:
-        raise HTTPException(status_code=400, detail="; ".join(errors))
-    
-    # Increment version
-    old_version = existing.get("version", "1.0")
     try:
-        major, minor = old_version.split(".")
-        new_version = f"{major}.{int(minor) + 1}"
-    except:
-        new_version = "1.1"
-    
-    strategy.id = strategy_id
-    strategy.user_id = x_user_id
-    strategy.version = new_version
-    strategy.metadata.updated_at = datetime.now(timezone.utc).isoformat()
-    strategy.metadata.created_at = existing.get("metadata", {}).get("created_at")
-    
-    doc = strategy.model_dump()
-    strategies_collection.replace_one({"id": strategy_id}, doc)
-    logger.info(f"Strategy updated: {strategy_id} v{new_version} (user: {x_user_id})")
-    return {"success": True, "strategy": strategy}
+        existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        if existing.get("user_id") != x_user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        errors = validate_strategy(strategy)
+        if errors:
+            raise HTTPException(status_code=400, detail="; ".join(errors))
+        
+        # Increment version
+        old_version = existing.get("version", "1.0")
+        try:
+            major, minor = old_version.split(".")
+            new_version = f"{major}.{int(minor) + 1}"
+        except:
+            new_version = "1.1"
+        
+        strategy.id = strategy_id
+        strategy.user_id = x_user_id
+        strategy.version = new_version
+        strategy.metadata.updated_at = datetime.now(timezone.utc).isoformat()
+        strategy.metadata.created_at = existing.get("metadata", {}).get("created_at")
+        
+        doc = strategy.model_dump()
+        strategies_collection.replace_one({"id": strategy_id}, doc)
+        logger.info(f"Strategy updated: {strategy_id} v{new_version} (user: {x_user_id})")
+        return {"success": True, "strategy": strategy}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"DB error updating strategy: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.delete("/strategy/{strategy_id}")
 async def delete_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
-    existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Strategy not found")
-    if existing.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    strategies_collection.delete_one({"id": strategy_id})
-    logger.info(f"Strategy deleted: {strategy_id} (user: {x_user_id})")
-    return {"success": True, "message": "Strategy deleted"}
+    try:
+        existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        if existing.get("user_id") != x_user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        strategies_collection.delete_one({"id": strategy_id})
+        logger.info(f"Strategy deleted: {strategy_id} (user: {x_user_id})")
+        return {"success": True, "message": "Strategy deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"DB error deleting strategy: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
 
 # =============================================================================
