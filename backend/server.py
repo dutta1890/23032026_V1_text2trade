@@ -956,6 +956,156 @@ async def trigger_internal_tests():
 
 
 # =============================================================================
+# SYSTEM CHECK ENDPOINT
+# =============================================================================
+
+@api_router.get("/run-system-check")
+async def run_system_check():
+    """Run structured system health check."""
+    results = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "checks": [],
+        "passed": 0,
+        "failed": 0
+    }
+    
+    test_user_id = f"syscheck_{uuid.uuid4().hex[:8]}@test.internal"
+    
+    # Check 1: Create temp user
+    try:
+        users_db[test_user_id] = "syscheck123"
+        results["checks"].append({"name": "create_user", "status": "PASS"})
+        results["passed"] += 1
+        logger.info(f"[SYSCHECK] create_user: PASS")
+    except Exception as e:
+        results["checks"].append({"name": "create_user", "status": "FAIL", "error": str(e)})
+        results["failed"] += 1
+        logger.error(f"[SYSCHECK] create_user: FAIL - {e}")
+    
+    # Check 2: Create RSI strategy (for simulated backtest)
+    strat1_id = None
+    try:
+        strat1_id = str(uuid.uuid4())
+        doc1 = {
+            "id": strat1_id,
+            "user_id": test_user_id,
+            "version": "1.0",
+            "metadata": {"name": "SysCheck RSI", "created_at": datetime.now(timezone.utc).isoformat()},
+            "market": {"type": "crypto"},
+            "instrument": {"symbol": "BTCUSDT"},
+            "timeframe": {"interval": "1h"},
+            "entry_conditions": [{"name": "RSI", "params": {"period": 14}, "operator": "<", "value": 30}],
+            "exit_conditions": [],
+            "filters": [],
+            "risk_management": {"stop_loss": 2, "take_profit": 5}
+        }
+        strategies_collection.insert_one(doc1)
+        results["checks"].append({"name": "create_strategy_rsi", "status": "PASS", "id": strat1_id})
+        results["passed"] += 1
+        logger.info(f"[SYSCHECK] create_strategy_rsi: PASS")
+    except Exception as e:
+        results["checks"].append({"name": "create_strategy_rsi", "status": "FAIL", "error": str(e)})
+        results["failed"] += 1
+        logger.error(f"[SYSCHECK] create_strategy_rsi: FAIL - {e}")
+    
+    # Check 3: Create SMA strategy (for historical backtest)
+    strat2_id = None
+    try:
+        strat2_id = str(uuid.uuid4())
+        doc2 = {
+            "id": strat2_id,
+            "user_id": test_user_id,
+            "version": "1.0",
+            "metadata": {"name": "SysCheck SMA", "created_at": datetime.now(timezone.utc).isoformat()},
+            "market": {"type": "stocks"},
+            "instrument": {"symbol": "AAPL"},
+            "timeframe": {"interval": "1d"},
+            "entry_conditions": [{"name": "SMA", "params": {"short": 10, "long": 30}, "operator": "cross_above"}],
+            "exit_conditions": [],
+            "filters": [],
+            "risk_management": {"stop_loss": 2, "take_profit": 5}
+        }
+        strategies_collection.insert_one(doc2)
+        results["checks"].append({"name": "create_strategy_sma", "status": "PASS", "id": strat2_id})
+        results["passed"] += 1
+        logger.info(f"[SYSCHECK] create_strategy_sma: PASS")
+    except Exception as e:
+        results["checks"].append({"name": "create_strategy_sma", "status": "FAIL", "error": str(e)})
+        results["failed"] += 1
+        logger.error(f"[SYSCHECK] create_strategy_sma: FAIL - {e}")
+    
+    # Check 4: Run simulated backtest
+    try:
+        result = run_simulated_backtest("BTCUSDT", 2, 5)
+        if result and result.get("total_trades", 0) > 0:
+            results["checks"].append({"name": "backtest_simulated", "status": "PASS", "trades": result["total_trades"]})
+            results["passed"] += 1
+            logger.info(f"[SYSCHECK] backtest_simulated: PASS ({result['total_trades']} trades)")
+        else:
+            raise Exception("No trades generated")
+    except Exception as e:
+        results["checks"].append({"name": "backtest_simulated", "status": "FAIL", "error": str(e)})
+        results["failed"] += 1
+        logger.error(f"[SYSCHECK] backtest_simulated: FAIL - {e}")
+    
+    # Check 5: Run historical SMA backtest
+    try:
+        result = run_sma_backtest("AAPL", 10, 30, max_candles=100)
+        if result and result.get("total_trades", 0) >= 0:
+            results["checks"].append({"name": "backtest_historical", "status": "PASS", "trades": result["total_trades"]})
+            results["passed"] += 1
+            logger.info(f"[SYSCHECK] backtest_historical: PASS ({result['total_trades']} trades)")
+        else:
+            raise Exception("Backtest returned None")
+    except Exception as e:
+        results["checks"].append({"name": "backtest_historical", "status": "FAIL", "error": str(e)})
+        results["failed"] += 1
+        logger.error(f"[SYSCHECK] backtest_historical: FAIL - {e}")
+    
+    # Check 6: Call AI explainer
+    try:
+        api_key = os.environ.get("EMERGENT_LLM_KEY")
+        if not api_key:
+            raise Exception("LLM key not configured")
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=str(uuid.uuid4()),
+            system_message="You are a test responder. Reply with 'OK' only."
+        ).with_model("openai", "gpt-5.2")
+        
+        response = await chat.send_message(UserMessage(text="Test"))
+        if response and len(response) > 0:
+            results["checks"].append({"name": "ai_explainer", "status": "PASS"})
+            results["passed"] += 1
+            logger.info(f"[SYSCHECK] ai_explainer: PASS")
+        else:
+            raise Exception("Empty response")
+    except Exception as e:
+        results["checks"].append({"name": "ai_explainer", "status": "FAIL", "error": str(e)})
+        results["failed"] += 1
+        logger.error(f"[SYSCHECK] ai_explainer: FAIL - {e}")
+    
+    # Cleanup: Delete test strategies
+    try:
+        if strat1_id:
+            strategies_collection.delete_one({"id": strat1_id})
+        if strat2_id:
+            strategies_collection.delete_one({"id": strat2_id})
+        if test_user_id in users_db:
+            del users_db[test_user_id]
+        logger.info(f"[SYSCHECK] Cleanup complete")
+    except Exception as e:
+        logger.warning(f"[SYSCHECK] Cleanup warning: {e}")
+    
+    # Summary
+    results["summary"] = "ALL_PASS" if results["failed"] == 0 else "SOME_FAILED"
+    logger.info(f"[SYSCHECK] Complete: {results['passed']}/{results['passed']+results['failed']} passed")
+    
+    return results
+
+
+# =============================================================================
 # APP SETUP
 # =============================================================================
 
