@@ -71,6 +71,8 @@ function formatOperator(op) {
     "==": "equal to",
     "crosses_above": "crossing above",
     "crosses_below": "crossing below",
+    "cross_above": "crossing above",
+    "cross_below": "crossing below",
     "bullish_cross": "bullish cross",
     "bearish_cross": "bearish cross"
   };
