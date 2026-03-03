@@ -219,12 +219,13 @@ def get_next_version(name: str) -> str:
     return str(max(versions) + 1.0)
 
 @api_router.post("/strategy", response_model=StrategyResponse)
-async def create_strategy(strategy: Strategy):
+async def create_strategy(strategy: Strategy, x_user_id: Optional[str] = Header(None)):
     errors = validate_strategy(strategy)
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
     
     strategy.id = str(uuid.uuid4())
+    strategy.user_id = x_user_id
     strategy.version = get_next_version(strategy.metadata.name)
     strategy.metadata.created_at = datetime.now(timezone.utc).isoformat()
     strategy.metadata.updated_at = strategy.metadata.created_at
@@ -239,15 +240,17 @@ async def create_strategy(strategy: Strategy):
     for f in strategy.filters:
         track_indicator(f.name)
     
-    logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name} v{strategy.version}")
+    logger.info(f"Strategy created: {strategy.id} - {strategy.metadata.name} v{strategy.version} (user: {x_user_id})")
     return {"success": True, "strategy": strategy}
 
 @api_router.get("/strategies", response_model=StrategiesListResponse)
-async def get_strategies():
+async def get_strategies(x_user_id: Optional[str] = Header(None)):
+    # Filter strategies by user_id
+    user_strategies = [s for s in strategies_db if s.get("user_id") == x_user_id]
     return {
         "success": True,
-        "strategies": strategies_db,
-        "count": len(strategies_db)
+        "strategies": user_strategies,
+        "count": len(user_strategies)
     }
 
 
