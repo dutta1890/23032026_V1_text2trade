@@ -395,12 +395,15 @@ Supported indicators ONLY:
 - SMA: params { "short": int, "long": int }
 - EMA: params { "short": int, "long": int }
 - MACD: params { "fast": int, "slow": int, "signal": int }, operators: bullish_cross, bearish_cross
+- Stochastic: params { "k_period": int, "d_period": int }, operators: cross_above, cross_below
 
 Common patterns:
 - "Golden cross" = SMA with operator crosses_above
 - "Death cross" = SMA with operator crosses_below
 - "MACD bullish" = MACD with operator bullish_cross
 - "MACD bearish" = MACD with operator bearish_cross
+- "Stochastic oversold" = Stochastic cross_above with value 20
+- "Stochastic overbought" = Stochastic cross_below with value 80
 
 Return ONLY valid JSON:
 
@@ -412,7 +415,7 @@ Return ONLY valid JSON:
 }
 
 Rules:
-- Only use RSI, SMA, EMA, MACD. Ignore other indicators.
+- Only use RSI, SMA, EMA, MACD, Stochastic. Ignore other indicators.
 - Extract only explicitly mentioned values.
 - Do not guess missing numbers.
 - Do not explain or add text outside JSON."""
