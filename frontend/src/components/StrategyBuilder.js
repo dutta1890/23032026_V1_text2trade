@@ -139,7 +139,9 @@ export default function StrategyBuilder({ onClose, onSave }) {
 
     setSaving(true);
     try {
-      const res = await axios.post(`${API_URL}/strategy`, finalStrategy);
+      const res = await axios.post(`${API_URL}/strategy`, finalStrategy, {
+        headers: { "X-User-Id": userEmail }
+      });
       onSave?.(res.data.strategy);
     } catch (err) {
       console.error("Save failed:", err);
