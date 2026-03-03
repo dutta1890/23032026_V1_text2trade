@@ -356,7 +356,7 @@ async def get_analytics():
     return {
         "success": True,
         "stats": {
-            "strategies_created": analytics_db["strategies_created"],
+            "strategies_created": strategies_collection.count_documents({}),
             "backtests_run": analytics_db["backtests_run"],
             "backtest_types": analytics_db["backtest_types"],
             "indicator_usage": sorted_indicators,
