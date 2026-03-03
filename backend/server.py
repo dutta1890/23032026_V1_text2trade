@@ -109,6 +109,7 @@ class RiskManagement(BaseModel):
 class Strategy(BaseModel):
     id: Optional[str] = None
     version: str = "1.0"
+    user_id: Optional[str] = None
     metadata: Metadata
     market: Market
     instrument: Instrument
