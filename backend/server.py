@@ -250,12 +250,33 @@ class StrategiesListResponse(BaseModel):
 async def root():
     return {"message": "Welcome to Text2trade API", "app_name": "Text2trade"}
 
-@api_router.get("/health", response_model=HealthResponse)
+@api_router.get("/health")
 async def health_check():
+    """Health check endpoint with MongoDB status."""
+    mongodb_healthy = False
+    status = "unhealthy"
+    
+    try:
+        # Ping MongoDB
+        mongo_client.admin.command('ping')
+        mongodb_healthy = True
+        status = "healthy"
+    except ServerSelectionTimeoutError:
+        logger.error("MongoDB health check failed: timeout")
+    except Exception as e:
+        logger.error(f"MongoDB health check failed: {e}")
+    
+    # Check circuit breakers for degraded state
+    cb_states = {name: cb.state for name, cb in circuit_breakers.items()}
+    if mongodb_healthy and any(state != "closed" for state in cb_states.values()):
+        status = "degraded"
+    
     return {
-        "status": "healthy",
+        "status": status,
+        "mongodb": mongodb_healthy,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "1.0.0"
+        "version": "1.1.0",
+        "circuit_breakers": cb_states
     }
 
 
