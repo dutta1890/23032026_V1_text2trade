@@ -1,6 +1,11 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends, Request
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
@@ -9,8 +14,10 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Union
 import uuid
 import json
+import time
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from pymongo import MongoClient
+from pymongo.errors import ServerSelectionTimeoutError
 
 from indicator_registry import validate_condition
 from auth import (
@@ -19,13 +26,28 @@ from auth import (
     register_user, login_user, refresh_access_token,
     get_current_user, users_collection
 )
+from resilience import (
+    sanitize_user_input, resilient_call, resilient_call_sync,
+    circuit_breakers, ServiceTimeoutError, ServiceUnavailableError
+)
+from logging_config import (
+    setup_logging, generate_request_id, set_request_id, set_user_id, set_endpoint,
+    get_request_id, log_auth_attempt, log_ai_call
+)
 
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Setup structured logging
+setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
+logger = logging.getLogger(__name__)
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # MongoDB connection
-mongo_client = MongoClient(os.environ.get("MONGO_URL"))
+mongo_client = MongoClient(os.environ.get("MONGO_URL"), serverSelectionTimeoutMS=5000)
 db = mongo_client[os.environ.get("DB_NAME", "text2trade")]
 strategies_collection = db["strategies"]
 
@@ -34,9 +56,11 @@ try:
     strategies_collection.create_index("user_id")
     strategies_collection.create_index("metadata.created_at")
 except Exception as e:
-    print(f"Warning: Could not create indexes: {e}")
+    logger.warning(f"Could not create indexes: {e}")
 
-app = FastAPI(title="Text2trade API", version="1.0.0")
+app = FastAPI(title="Text2trade API", version="1.1.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Routers
 api_router = APIRouter(prefix="/api/v1")
@@ -44,6 +68,26 @@ auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 feedback_db: List[dict] = []
 waitlist_db: List[str] = []
+
+
+# =============================================================================
+# REQUEST ID MIDDLEWARE
+# =============================================================================
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request_id = generate_request_id()
+        set_request_id(request_id)
+        set_endpoint(f"{request.method} {request.url.path}")
+        
+        start_time = time.time()
+        response = await call_next(request)
+        duration_ms = (time.time() - start_time) * 1000
+        
+        response.headers["X-Request-ID"] = request_id
+        logger.info(f"Request completed", extra={"duration_ms": round(duration_ms, 2), "status_code": response.status_code})
+        
+        return response
 
 # Analytics tracking
 analytics_db = {
