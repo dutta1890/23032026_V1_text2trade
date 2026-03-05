@@ -61,7 +61,7 @@ def track_indicator(indicator_name: str):
 
 
 # =============================================================================
-# AUTH MODELS
+# RESPONSE MODELS
 # =============================================================================
 
 class HealthResponse(BaseModel):
@@ -72,15 +72,6 @@ class HealthResponse(BaseModel):
 class RootResponse(BaseModel):
     message: str
     app_name: str
-
-class AuthRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-class AuthResponse(BaseModel):
-    success: bool
-    message: str
-    email: str
 
 
 # =============================================================================
