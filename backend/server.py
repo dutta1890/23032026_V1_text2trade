@@ -1099,14 +1099,13 @@ async def run_system_check():
         results["failed"] += 1
         logger.error(f"[SYSCHECK] ai_explainer: FAIL - {e}")
     
-    # Cleanup: Delete test strategies
+    # Cleanup: Delete test strategies and user
     try:
         if strat1_id:
             strategies_collection.delete_one({"id": strat1_id})
         if strat2_id:
             strategies_collection.delete_one({"id": strat2_id})
-        if test_user_id in users_db:
-            del users_db[test_user_id]
+        users_collection.delete_one({"user_id": test_user_id})
         logger.info(f"[SYSCHECK] Cleanup complete")
     except Exception as e:
         logger.warning(f"[SYSCHECK] Cleanup warning: {e}")
