@@ -75,65 +75,124 @@ class RootResponse(BaseModel):
 
 
 # =============================================================================
-# STRATEGY MODELS
+# STRATEGY MODELS (with strict validation)
 # =============================================================================
 
+from pydantic import Field, field_validator, ConfigDict
+from typing import Literal
+
+# Valid operators from indicator registry
+VALID_OPERATORS = Literal[
+    "<", ">", ">=", "<=", "==",
+    "cross_above", "cross_below", "crosses_above", "crosses_below",
+    "bullish_cross", "bearish_cross",
+    "atr_multiple"
+]
+
 class IndicatorCondition(BaseModel):
-    name: str  # RSI, SMA, EMA, MACD, BB, VOLUME, PRICE, etc.
-    params: Dict[str, Any] = {}  # {"period": 14, "source": "close"}
-    operator: str  # >, <, ==, >=, <=, crosses_above, crosses_below
-    value: Optional[Union[float, str]] = None  # 70, "SMA_50", etc.
+    model_config = ConfigDict(extra="forbid")
+    
+    name: str = Field(max_length=50)
+    params: Dict[str, Any] = Field(default_factory=dict)
+    operator: str = Field(max_length=20)
+    value: Optional[Union[float, str]] = Field(default=None)
+    
+    @field_validator("name", "operator", mode="before")
+    @classmethod
+    def strip_strings(cls, v):
+        return v.strip() if isinstance(v, str) else v
+    
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, v):
+        if isinstance(v, (int, float)) and (v < -10000 or v > 10000):
+            raise ValueError("Value must be between -10000 and 10000")
+        return v
 
 class Metadata(BaseModel):
-    name: str
-    description: Optional[str] = None
-    tags: List[str] = []
+    model_config = ConfigDict(extra="forbid")
+    
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    tags: List[str] = Field(default_factory=list, max_length=10)
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def strip_strings(cls, v):
+        return v.strip() if isinstance(v, str) else v
 
 class Market(BaseModel):
-    type: str  # crypto, forex, stocks, futures
-    exchange: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    
+    type: str = Field(max_length=50)
+    exchange: Optional[str] = Field(default=None, max_length=50)
+    
+    @field_validator("type", "exchange", mode="before")
+    @classmethod
+    def strip_strings(cls, v):
+        return v.strip() if isinstance(v, str) else v
 
 class Instrument(BaseModel):
-    symbol: str
-    base: Optional[str] = None
-    quote: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    
+    symbol: str = Field(min_length=1, max_length=20)
+    base: Optional[str] = Field(default=None, max_length=10)
+    quote: Optional[str] = Field(default=None, max_length=10)
+    
+    @field_validator("symbol", "base", "quote", mode="before")
+    @classmethod
+    def strip_and_upper(cls, v):
+        return v.strip().upper() if isinstance(v, str) else v
 
 class Timeframe(BaseModel):
-    interval: str  # 1m, 5m, 15m, 1h, 4h, 1d
-    candle_count: Optional[int] = None
+    model_config = ConfigDict(extra="forbid")
+    
+    interval: str = Field(max_length=10)
+    candle_count: Optional[int] = Field(default=None, ge=1, le=1000)
+    
+    @field_validator("interval", mode="before")
+    @classmethod
+    def strip_strings(cls, v):
+        return v.strip() if isinstance(v, str) else v
 
 class RiskManagement(BaseModel):
-    position_size: Optional[float] = None
-    position_size_type: Optional[str] = None  # fixed, percent, risk_based
-    max_daily_loss: Optional[float] = None
-    max_drawdown: Optional[float] = None
-    risk_per_trade: Optional[float] = None
-    take_profit: Optional[float] = None
-    stop_loss: Optional[float] = None
-    stop_loss_type: Optional[str] = "fixed"  # fixed, atr_multiple
-    stop_loss_atr_period: Optional[int] = 14
-    trailing_stop: Optional[float] = None
+    model_config = ConfigDict(extra="forbid")
+    
+    position_size: Optional[float] = Field(default=None, ge=0.01, le=1000000)
+    position_size_type: Optional[str] = Field(default=None, max_length=20)
+    max_daily_loss: Optional[float] = Field(default=None, ge=0.1, le=100)
+    max_drawdown: Optional[float] = Field(default=None, ge=0.1, le=100)
+    risk_per_trade: Optional[float] = Field(default=None, ge=0.1, le=100)
+    take_profit: Optional[float] = Field(default=None, ge=0.1, le=1000)
+    stop_loss: Optional[float] = Field(default=None, ge=0.1, le=100)
+    stop_loss_type: Optional[str] = Field(default="fixed", max_length=20)
+    stop_loss_atr_period: Optional[int] = Field(default=14, ge=1, le=500)
+    trailing_stop: Optional[float] = Field(default=None, ge=0.1, le=100)
 
 class Strategy(BaseModel):
-    id: Optional[str] = None
-    version: str = "1.0"
-    user_id: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    
+    id: Optional[str] = Field(default=None, max_length=50)
+    version: str = Field(default="1.0", max_length=10)
+    user_id: Optional[str] = Field(default=None, max_length=50)
     metadata: Metadata
     market: Market
     instrument: Instrument
     timeframe: Timeframe
-    entry_conditions: List[IndicatorCondition] = []
-    exit_conditions: List[IndicatorCondition] = []
-    filters: List[IndicatorCondition] = []
+    entry_conditions: List[IndicatorCondition] = Field(default_factory=list, max_length=10)
+    exit_conditions: List[IndicatorCondition] = Field(default_factory=list, max_length=10)
+    filters: List[IndicatorCondition] = Field(default_factory=list, max_length=5)
     risk_management: RiskManagement
 
 class StrategyResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     success: bool
     strategy: Strategy
 
 class StrategiesListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     success: bool
     strategies: List[Strategy]
     count: int
