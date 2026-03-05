@@ -972,9 +972,15 @@ async def run_system_check():
     
     test_user_id = f"syscheck_{uuid.uuid4().hex[:8]}@test.internal"
     
-    # Check 1: Create temp user
+    # Check 1: Create temp user in MongoDB
     try:
-        users_db[test_user_id] = "syscheck123"
+        users_collection.insert_one({
+            "user_id": test_user_id,
+            "email": f"{test_user_id}",
+            "password_hash": "syscheck_temp",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "is_active": True
+        })
         results["checks"].append({"name": "create_user", "status": "PASS"})
         results["passed"] += 1
         logger.info(f"[SYSCHECK] create_user: PASS")
