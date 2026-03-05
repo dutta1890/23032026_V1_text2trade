@@ -58,21 +58,15 @@ Build a full-stack web app called Text2trade with:
 ## What's Been Implemented
 
 ### Date: 2026-03-05 - API Hardening & Auth Fix (Current Session)
-- Applied @limiter.limit() decorators to ALL endpoints with appropriate limits
-- Applied sanitize_user_input() to all AI text inputs (parse, explain, risk)
-- Wired CircuitBreaker + resilient_call for AI service calls with retry/timeout
-- Added RequestIdMiddleware for request tracing
-- Fixed structured JSON logging (removed duplicate logging.basicConfig)
-- Set user_id in logging context for authenticated endpoints
-- Fixed critical crash: analytics endpoint referenced non-existent users_db
-- Fixed internal test utility to use MongoDB instead of removed in-memory stores
+- **Task 1 - Input Sanitization**: `extra="forbid"` on ALL 16 Pydantic models, `max_length` on all strings, `ge/le` bounds on all numerics, `VALID_OPERATORS` Literal type on operator fields, strip_whitespace validators, `sanitize_user_input()` on all AI inputs
+- **Task 2 - CORS**: CORSMiddleware with `ALLOWED_ORIGINS` env var, specific methods `[GET, POST, PUT, DELETE]`, specific headers `[Authorization, Content-Type]`, credentials enabled
+- **Task 3 - Rate Limiting**: Global 60/min per IP, AI=10/min, CRUD=20-30/min, Auth=5-10/min, custom 429 message, X-Forwarded-For proxy support
+- **Task 4 - Resilience**: `resilient_call` with retries/exponential backoff/timeout, `CircuitBreaker` (5 failures→open 60s→half-open), applied to AI calls AND yfinance calls, `/api/v1/health` with MongoDB ping + CB states
+- **Task 5 - Structured Logging**: JSON formatter, `{timestamp, level, request_id, user_id, endpoint, message}` on every log, RequestIdMiddleware, auth success/failure logging, AI call logging with latency
 - Fixed ALL frontend API paths from /api/ to /api/v1/
-- Fixed frontend auth: LoginPage now calls /api/v1/auth/register and /api/v1/auth/login
-- Frontend now stores JWT tokens (accessToken, refreshToken) in localStorage
-- DashboardPage uses Authorization: Bearer header for all API calls
-- Added Stochastic indicator fields in exit conditions (was missing)
-- Value field now shows for both RSI and Stochastic indicators
-- Password validation on signup matches backend (8+ chars, 1 number, 1 special char)
+- Fixed frontend JWT auth flow (stores tokens in localStorage, sends Bearer headers)
+- Added Stochastic indicator fields in exit conditions
+- Fixed analytics crash (`users_db` → `users_collection`)
 
 ### Earlier Features
 - Full scaffold with 3 pages (Home, Login, Dashboard)

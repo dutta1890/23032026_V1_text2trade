@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 
@@ -39,6 +39,7 @@ security = HTTPBearer()
 # =============================================================================
 
 class UserRegister(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: EmailStr
     password: str
     
@@ -54,6 +55,7 @@ class UserRegister(BaseModel):
         return v
 
 class UserLogin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: EmailStr
     password: str
 
@@ -67,6 +69,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 class RefreshRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     refresh_token: str
 
 class AccessTokenResponse(BaseModel):

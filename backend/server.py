@@ -43,8 +43,23 @@ load_dotenv(ROOT_DIR / '.env')
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
+# Rate limiter with global default - use X-Forwarded-For for proxied environments
+def get_client_ip(request: Request) -> str:
+    """Get real client IP from X-Forwarded-For header or fall back to remote address."""
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return get_remote_address(request)
+
+limiter = Limiter(key_func=get_client_ip, default_limits=["60/minute"])
+
+# Custom 429 handler
+def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    retry_after = exc.detail.split("per")[0].strip() if exc.detail else "later"
+    return JSONResponse(
+        status_code=429,
+        content={"detail": f"Rate limit exceeded. Try again in {retry_after}."}
+    )
 
 # MongoDB connection
 mongo_client = MongoClient(os.environ.get("MONGO_URL"), serverSelectionTimeoutMS=5000)
@@ -60,7 +75,7 @@ except Exception as e:
 
 app = FastAPI(title="Text2trade API", version="1.1.0")
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 
 # Routers
 api_router = APIRouter(prefix="/api/v1")
@@ -138,7 +153,7 @@ class IndicatorCondition(BaseModel):
     
     name: str = Field(max_length=50)
     params: Dict[str, Any] = Field(default_factory=dict)
-    operator: str = Field(max_length=20)
+    operator: VALID_OPERATORS
     value: Optional[Union[float, str]] = Field(default=None)
     
     @field_validator("name", "operator", mode="before")
@@ -297,10 +312,14 @@ async def register(request: Request, body: UserRegister):
 @limiter.limit("10/minute")
 async def login(request: Request, body: UserLogin):
     """Login and get access + refresh tokens."""
-    result = login_user(body)
-    log_auth_attempt(body.email, True)
-    logger.info(f"User logged in: {body.email}")
-    return result
+    try:
+        result = login_user(body)
+        log_auth_attempt(body.email, True)
+        logger.info(f"User logged in: {body.email}")
+        return result
+    except HTTPException as e:
+        log_auth_attempt(body.email, False, reason=e.detail)
+        raise
 
 @auth_router.post("/refresh", response_model=AccessTokenResponse)
 @limiter.limit("20/minute")
@@ -496,8 +515,9 @@ async def delete_strategy(request: Request, strategy_id: str, current_user: dict
 # =============================================================================
 
 class FeedbackRequest(BaseModel):
-    message: str
-    email: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    message: str = Field(max_length=500)
+    email: Optional[str] = Field(default=None, max_length=100)
 
 class FeedbackResponse(BaseModel):
     success: bool
@@ -551,7 +571,8 @@ async def get_analytics(request: Request):
 # =============================================================================
 
 class WaitlistRequest(BaseModel):
-    email: str
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(max_length=100)
 
 @api_router.post("/waitlist")
 @limiter.limit("5/minute")
@@ -601,7 +622,8 @@ Rules:
 - Do not explain or add text outside JSON."""
 
 class ParseRequest(BaseModel):
-    text: str
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(max_length=2000)
 
 class ParseResponse(BaseModel):
     success: bool
@@ -685,6 +707,7 @@ Rules:
 Be neutral and concise."""
 
 class RiskRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     strategy: dict
 
 class RiskResponse(BaseModel):
@@ -762,8 +785,9 @@ Constraints:
 - No disclaimers."""
 
 class ExplainRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     strategy: dict
-    question: str
+    question: str = Field(max_length=500)
 
 class ExplainResponse(BaseModel):
     success: bool
@@ -838,6 +862,7 @@ def timeout_handler(seconds):
         signal.signal(signal.SIGALRM, old_handler)
 
 class BacktestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     strategy: dict
 
 class BacktestResponse(BaseModel):
@@ -851,6 +876,11 @@ class BacktestResponse(BaseModel):
     wins: int
     losses: int
     data_source: str
+
+def _fetch_yfinance_data(yf_symbol: str):
+    """Fetch historical data from yfinance (wrapped by circuit breaker)."""
+    ticker = yf.Ticker(yf_symbol)
+    return ticker.history(period="1y", interval="1d")
 
 def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candles: int = MAX_LOOKBACK):
     """Run simple SMA crossover backtest using yfinance data."""
@@ -868,10 +898,12 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
             # Try as stock symbol
             yf_symbol = symbol
         
-        # Fetch data with timeout protection
+        # Fetch data with circuit breaker and timeout protection
         with timeout_handler(MAX_EXECUTION_SECONDS):
-            ticker = yf.Ticker(yf_symbol)
-            df = ticker.history(period="1y", interval="1d")
+            df = resilient_call_sync(
+                _fetch_yfinance_data, yf_symbol,
+                circuit_name="datasource", max_retries=2, base_delay=1.0, timeout=15.0
+            )
         
         if df.empty or len(df) < long_period + 10:
             return None
@@ -1342,9 +1374,9 @@ app.include_router(auth_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=os.environ.get('ALLOWED_ORIGINS', os.environ.get('CORS_ORIGINS', '*')).split(','),
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 logger.info("Text2trade API initialized")
