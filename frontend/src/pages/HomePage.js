@@ -51,7 +51,7 @@ const WaitlistForm = () => {
     
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/waitlist`, { email });
+      await axios.post(`${API_URL}/v1/waitlist`, { email });
       setStatus("success");
       setEmail("");
     } catch (err) {

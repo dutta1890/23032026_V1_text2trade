@@ -20,7 +20,7 @@ export default function NLStrategyInput({ onConfirm, onCancel }) {
     setParsed(null);
     
     try {
-      const res = await axios.post(`${API_URL}/parse-strategy`, { text });
+      const res = await axios.post(`${API_URL}/v1/parse-strategy`, { text });
       if (res.data.success && res.data.parsed) {
         setParsed(res.data.parsed);
       } else {

@@ -17,7 +17,7 @@ export default function StrategyChat({ strategy, onClose }) {
     setLoading(true);
     setAnswer("");
     try {
-      const res = await axios.post(`${API_URL}/explain`, { strategy, question });
+      const res = await axios.post(`${API_URL}/v1/explain`, { strategy, question });
       setAnswer(res.data.answer);
     } catch (err) {
       setAnswer("Error: Could not get response.");

@@ -66,8 +66,6 @@ export default function StrategyBuilder({ onClose, onSave }) {
   const [filterIndicator, setFilterIndicator] = useState({ enabled: false, type: "ADX", period: "14", operator: ">", value: "25" });
   const [saving, setSaving] = useState(false);
 
-  const userEmail = localStorage.getItem("userEmail");
-
   const getIndicatorType = (name) => INDICATORS.find(i => i.value === name)?.type || FILTER_INDICATORS.find(i => i.value === name)?.type || "rsi";
 
   const updateStrategy = (section, field, value) => {
@@ -93,7 +91,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
       name: ind.type,
       params,
       operator: ind.operator,
-      value: ind.type === "RSI" ? parseFloat(ind.value) : null
+      value: (indType === "rsi" || indType === "stoch") ? parseFloat(ind.value) : null
     };
   };
 
@@ -139,8 +137,9 @@ export default function StrategyBuilder({ onClose, onSave }) {
 
     setSaving(true);
     try {
-      const res = await axios.post(`${API_URL}/strategy`, finalStrategy, {
-        headers: { "X-User-Id": userEmail }
+      const token = localStorage.getItem("accessToken");
+      const res = await axios.post(`${API_URL}/v1/strategy`, finalStrategy, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       onSave?.(res.data.strategy);
     } catch (err) {
@@ -363,7 +362,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                       </SelectContent>
                     </Select>
                   </div>
-                  {getIndicatorType(entryIndicator.type) === "rsi" && (
+                  {(getIndicatorType(entryIndicator.type) === "rsi" || getIndicatorType(entryIndicator.type) === "stoch") && (
                     <div className="space-y-2">
                       <label className="mono-label">Value</label>
                       <Input
@@ -377,7 +376,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Entry when {formatIndicator(entryIndicator)} {entryIndicator.operator} {entryIndicator.type === "RSI" ? entryIndicator.value : "price"}
+                  Entry when {formatIndicator(entryIndicator)} {entryIndicator.operator} {(entryIndicator.type === "RSI" || getIndicatorType(entryIndicator.type) === "stoch") ? entryIndicator.value : "price"}
                 </p>
               </CardContent>
             </Card>
@@ -483,6 +482,30 @@ export default function StrategyBuilder({ onClose, onSave }) {
                       </div>
                     </div>
                   )}
+                  {getIndicatorType(exitIndicator.type) === "stoch" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="mono-label">%K Period</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.k_period}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, k_period: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-k"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="mono-label">%D Period</label>
+                        <Input
+                          type="number"
+                          value={exitIndicator.d_period}
+                          onChange={(e) => setExitIndicator(p => ({ ...p, d_period: e.target.value }))}
+                          className="font-mono"
+                          data-testid="input-exit-d"
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="mono-label">Operator</label>
@@ -493,7 +516,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                         </SelectContent>
                       </Select>
                     </div>
-                    {getIndicatorType(exitIndicator.type) === "rsi" && (
+                    {(getIndicatorType(exitIndicator.type) === "rsi" || getIndicatorType(exitIndicator.type) === "stoch") && (
                       <div className="space-y-2">
                         <label className="mono-label">Value</label>
                         <Input
@@ -507,7 +530,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Exit when {formatIndicator(exitIndicator)} {exitIndicator.operator} {exitIndicator.type === "RSI" ? exitIndicator.value : "price"}
+                    Exit when {formatIndicator(exitIndicator)} {exitIndicator.operator} {(exitIndicator.type === "RSI" || getIndicatorType(exitIndicator.type) === "stoch") ? exitIndicator.value : "price"}
                   </p>
                 </CardContent>
               </Card>

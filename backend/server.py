@@ -85,7 +85,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         duration_ms = (time.time() - start_time) * 1000
         
         response.headers["X-Request-ID"] = request_id
-        logger.info(f"Request completed", extra={"duration_ms": round(duration_ms, 2), "status_code": response.status_code})
+        logger.info("Request completed", extra={"duration_ms": round(duration_ms, 2), "status_code": response.status_code})
         
         return response
 
@@ -285,23 +285,28 @@ async def health_check():
 # =============================================================================
 
 @auth_router.post("/register", response_model=UserResponse, status_code=201)
-async def register(request: UserRegister):
+@limiter.limit("5/minute")
+async def register(request: Request, body: UserRegister):
     """Register a new user."""
-    result = register_user(request)
+    result = register_user(body)
+    log_auth_attempt(result.email, True)
     logger.info(f"New user registered: {result.email}")
     return result
 
 @auth_router.post("/login", response_model=TokenResponse)
-async def login(request: UserLogin):
+@limiter.limit("10/minute")
+async def login(request: Request, body: UserLogin):
     """Login and get access + refresh tokens."""
-    result = login_user(request)
-    logger.info(f"User logged in: {request.email}")
+    result = login_user(body)
+    log_auth_attempt(body.email, True)
+    logger.info(f"User logged in: {body.email}")
     return result
 
 @auth_router.post("/refresh", response_model=AccessTokenResponse)
-async def refresh(request: RefreshRequest):
+@limiter.limit("20/minute")
+async def refresh(request: Request, body: RefreshRequest):
     """Refresh access token using refresh token."""
-    return refresh_access_token(request.refresh_token)
+    return refresh_access_token(body.refresh_token)
 
 
 # =============================================================================
@@ -354,7 +359,9 @@ def get_next_version(name: str, user_id: str) -> str:
     return str(max(versions) + 1.0)
 
 @api_router.post("/strategy", response_model=StrategyResponse)
-async def create_strategy(strategy: Strategy, current_user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def create_strategy(request: Request, strategy: Strategy, current_user: dict = Depends(get_current_user)):
+    set_user_id(current_user.get("email", ""))
     errors = validate_strategy(strategy)
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
@@ -386,7 +393,9 @@ async def create_strategy(strategy: Strategy, current_user: dict = Depends(get_c
         raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.get("/strategies", response_model=StrategiesListResponse)
-async def get_strategies(current_user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def get_strategies(request: Request, current_user: dict = Depends(get_current_user)):
+    set_user_id(current_user.get("email", ""))
     try:
         user_id = current_user["user_id"]
         user_strategies = list(strategies_collection.find(
@@ -403,7 +412,9 @@ async def get_strategies(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.get("/strategy/{strategy_id}")
-async def get_strategy(strategy_id: str, current_user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def get_strategy(request: Request, strategy_id: str, current_user: dict = Depends(get_current_user)):
+    set_user_id(current_user.get("email", ""))
     try:
         user_id = current_user["user_id"]
         strategy = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
@@ -419,7 +430,9 @@ async def get_strategy(strategy_id: str, current_user: dict = Depends(get_curren
         raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.put("/strategy/{strategy_id}")
-async def update_strategy(strategy_id: str, strategy: Strategy, current_user: dict = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def update_strategy(request: Request, strategy_id: str, strategy: Strategy, current_user: dict = Depends(get_current_user)):
+    set_user_id(current_user.get("email", ""))
     try:
         user_id = current_user["user_id"]
         existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
@@ -457,7 +470,9 @@ async def update_strategy(strategy_id: str, strategy: Strategy, current_user: di
         raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.delete("/strategy/{strategy_id}")
-async def delete_strategy(strategy_id: str, current_user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def delete_strategy(request: Request, strategy_id: str, current_user: dict = Depends(get_current_user)):
+    set_user_id(current_user.get("email", ""))
     try:
         user_id = current_user["user_id"]
         existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
@@ -488,13 +503,14 @@ class FeedbackResponse(BaseModel):
     success: bool
 
 @api_router.post("/feedback", response_model=FeedbackResponse)
-async def submit_feedback(request: FeedbackRequest):
+@limiter.limit("5/minute")
+async def submit_feedback(request: Request, body: FeedbackRequest):
     feedback_db.append({
-        "message": request.message,
-        "email": request.email,
+        "message": body.message,
+        "email": body.email,
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
-    logger.info(f"Feedback received: {request.message[:50]}...")
+    logger.info(f"Feedback received: {body.message[:50]}...")
     return {"success": True}
 
 
@@ -503,7 +519,8 @@ async def submit_feedback(request: FeedbackRequest):
 # =============================================================================
 
 @api_router.get("/analytics")
-async def get_analytics():
+@limiter.limit("30/minute")
+async def get_analytics(request: Request):
     """Get product usage analytics."""
     try:
         sorted_indicators = dict(sorted(
@@ -519,7 +536,7 @@ async def get_analytics():
                 "backtests_run": analytics_db["backtests_run"],
                 "backtest_types": analytics_db["backtest_types"],
                 "indicator_usage": sorted_indicators,
-                "total_users": len(users_db),
+                "total_users": users_collection.count_documents({}),
                 "total_feedback": len(feedback_db),
                 "waitlist_signups": len(waitlist_db)
             }
@@ -537,9 +554,10 @@ class WaitlistRequest(BaseModel):
     email: str
 
 @api_router.post("/waitlist")
-async def join_waitlist(request: WaitlistRequest):
+@limiter.limit("5/minute")
+async def join_waitlist(request: Request, body: WaitlistRequest):
     """Add email to waitlist."""
-    email = request.email.lower().strip()
+    email = body.email.lower().strip()
     if email not in waitlist_db:
         waitlist_db.append(email)
         logger.info(f"Waitlist signup: {email}")
@@ -591,10 +609,16 @@ class ParseResponse(BaseModel):
     error: Optional[str] = None
 
 @api_router.post("/parse-strategy", response_model=ParseResponse)
-async def parse_strategy(request: ParseRequest):
+@limiter.limit("10/minute")
+async def parse_strategy(request: Request, body: ParseRequest):
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    # Sanitize user input
+    sanitized_text = sanitize_user_input(body.text, max_length=2000)
+    if not sanitized_text:
+        raise HTTPException(status_code=400, detail="Input text is empty or invalid")
     
     chat = LlmChat(
         api_key=api_key,
@@ -602,8 +626,22 @@ async def parse_strategy(request: ParseRequest):
         system_message=PARSER_PROMPT
     ).with_model("openai", "gpt-5.2")
     
-    user_message = UserMessage(text=request.text)
-    response = await chat.send_message(user_message)
+    user_message = UserMessage(text=sanitized_text)
+    
+    start_time = time.time()
+    try:
+        response = await resilient_call(
+            chat.send_message, user_message,
+            circuit_name="ai", max_retries=2, timeout=30.0,
+            fallback=None
+        )
+        if response is None:
+            raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
+        latency_ms = (time.time() - start_time) * 1000
+        log_ai_call("parser", len(sanitized_text), latency_ms, True)
+    except (ServiceTimeoutError, ServiceUnavailableError) as e:
+        log_ai_call("parser", len(sanitized_text), (time.time() - start_time) * 1000, False)
+        raise HTTPException(status_code=503, detail=str(e))
     
     # Extract JSON from response
     try:
@@ -654,7 +692,8 @@ class RiskResponse(BaseModel):
     warnings: list
 
 @api_router.post("/analyze-risk", response_model=RiskResponse)
-async def analyze_risk(request: RiskRequest):
+@limiter.limit("10/minute")
+async def analyze_risk(request: Request, body: RiskRequest):
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
@@ -665,8 +704,25 @@ async def analyze_risk(request: RiskRequest):
         system_message=RISK_PROMPT
     ).with_model("openai", "gpt-5.2")
     
-    user_message = UserMessage(text=json.dumps(request.strategy, indent=2))
-    response = await chat.send_message(user_message)
+    # Sanitize the strategy text before sending to AI
+    strategy_text = json.dumps(body.strategy, indent=2)
+    sanitized_text = sanitize_user_input(strategy_text, max_length=5000)
+    user_message = UserMessage(text=sanitized_text)
+    
+    start_time = time.time()
+    try:
+        response = await resilient_call(
+            chat.send_message, user_message,
+            circuit_name="ai", max_retries=2, timeout=30.0,
+            fallback=None
+        )
+        if response is None:
+            raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
+        latency_ms = (time.time() - start_time) * 1000
+        log_ai_call("risk_analyzer", len(sanitized_text), latency_ms, True)
+    except (ServiceTimeoutError, ServiceUnavailableError) as e:
+        log_ai_call("risk_analyzer", len(sanitized_text), (time.time() - start_time) * 1000, False)
+        raise HTTPException(status_code=503, detail=str(e))
     
     # Parse bullet points
     lines = [l.strip().lstrip("•-*").strip() for l in response.split("\n") if l.strip() and l.strip()[0] in "•-*"]
@@ -714,7 +770,8 @@ class ExplainResponse(BaseModel):
     answer: str
 
 @api_router.post("/explain", response_model=ExplainResponse)
-async def explain_strategy(request: ExplainRequest):
+@limiter.limit("10/minute")
+async def explain_strategy(request: Request, body: ExplainRequest):
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
@@ -725,10 +782,27 @@ async def explain_strategy(request: ExplainRequest):
         system_message=SYSTEM_PROMPT
     ).with_model("openai", "gpt-5.2")
     
-    prompt = f"Strategy JSON:\n{json.dumps(request.strategy, indent=2)}\n\nUser question: {request.question}"
+    # Sanitize user question
+    sanitized_question = sanitize_user_input(body.question, max_length=500)
+    strategy_text = sanitize_user_input(json.dumps(body.strategy, indent=2), max_length=5000)
+    prompt = f"Strategy JSON:\n{strategy_text}\n\nUser question: {sanitized_question}"
     
     user_message = UserMessage(text=prompt)
-    response = await chat.send_message(user_message)
+    
+    start_time = time.time()
+    try:
+        response = await resilient_call(
+            chat.send_message, user_message,
+            circuit_name="ai", max_retries=2, timeout=30.0,
+            fallback=None
+        )
+        if response is None:
+            raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
+        latency_ms = (time.time() - start_time) * 1000
+        log_ai_call("explainer", len(prompt), latency_ms, True)
+    except (ServiceTimeoutError, ServiceUnavailableError) as e:
+        log_ai_call("explainer", len(prompt), (time.time() - start_time) * 1000, False)
+        raise HTTPException(status_code=503, detail=str(e))
     
     return {"success": True, "answer": response}
 
@@ -790,7 +864,7 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
             yf_symbol = "BTC-USD"
         elif symbol in ["ETHUSDT", "ETH"]:
             yf_symbol = "ETH-USD"
-        elif not "-" in symbol and not "." in symbol:
+        elif "-" not in symbol and "." not in symbol:
             # Try as stock symbol
             yf_symbol = symbol
         
@@ -928,9 +1002,10 @@ def run_simulated_backtest(symbol: str, sl: float, tp: float):
         }
 
 @api_router.post("/backtest", response_model=BacktestResponse)
-async def run_backtest(request: BacktestRequest):
+@limiter.limit("5/minute")
+async def run_backtest(request: Request, body: BacktestRequest):
     try:
-        strategy = request.strategy
+        strategy = body.strategy
         symbol = strategy.get('instrument', {}).get('symbol', 'BTCUSDT')
         entry_conditions = strategy.get('entry_conditions', [])
         sl = strategy.get('risk_management', {}).get('stop_loss') or 2
@@ -1018,10 +1093,18 @@ SAMPLE_STRATEGIES = [
 def create_test_user():
     """Create a test user and return credentials."""
     test_email = "test@internal.dev"
-    test_password = "test123"
+    test_password = "TestPass123!"
     
-    if test_email not in users_db:
-        users_db[test_email] = test_password
+    existing = users_collection.find_one({"email": test_email})
+    if not existing:
+        from auth import hash_password
+        users_collection.insert_one({
+            "user_id": str(uuid.uuid4()),
+            "email": test_email,
+            "password_hash": hash_password(test_password),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "is_active": True
+        })
         logger.info(f"[TEST] Created test user: {test_email}")
     else:
         logger.info(f"[TEST] Test user exists: {test_email}")
@@ -1037,29 +1120,30 @@ def run_internal_tests():
     user = create_test_user()
     logger.info(f"[TEST] User: {user['email']}")
     
-    created_strategies = []
+    created_ids = []
     for strat_data in SAMPLE_STRATEGIES:
         strat_id = str(uuid.uuid4())[:8]
-        strategy = {"id": strat_id, "version": "1.0", **strat_data}
-        strategies_db.append(strategy)
-        created_strategies.append(strategy)
+        doc = {"id": strat_id, "version": "1.0", "user_id": user["email"], **strat_data,
+               "metadata": {**strat_data["metadata"], "created_at": datetime.now(timezone.utc).isoformat()}}
+        strategies_collection.insert_one(doc)
+        created_ids.append(strat_id)
         logger.info(f"[TEST] Created strategy: {strat_data['metadata']['name']} (id: {strat_id})")
     
     logger.info("-" * 60)
     logger.info("[TEST] Running backtests...")
     
-    for strategy in created_strategies:
-        name = strategy["metadata"]["name"]
-        symbol = strategy["instrument"]["symbol"]
-        entry = strategy["entry_conditions"][0] if strategy["entry_conditions"] else {}
+    for strat_data, strat_id in zip(SAMPLE_STRATEGIES, created_ids):
+        name = strat_data["metadata"]["name"]
+        symbol = strat_data["instrument"]["symbol"]
+        entry = strat_data["entry_conditions"][0] if strat_data["entry_conditions"] else {}
         indicator = entry.get("name", "N/A")
         
         if indicator in ["SMA", "EMA"]:
             params = entry.get("params", {})
             result = run_sma_backtest(symbol, params.get("short", 9), params.get("long", 21))
         else:
-            sl = strategy["risk_management"].get("stop_loss", 2)
-            tp = strategy["risk_management"].get("take_profit", 5)
+            sl = strat_data["risk_management"].get("stop_loss", 2)
+            tp = strat_data["risk_management"].get("take_profit", 5)
             result = run_simulated_backtest(symbol, sl, tp)
         
         if result:
@@ -1067,11 +1151,15 @@ def run_internal_tests():
         else:
             logger.info(f"[TEST] {name} | FAILED")
     
+    # Cleanup test data
+    for strat_id in created_ids:
+        strategies_collection.delete_one({"id": strat_id})
+    
     logger.info("=" * 60)
-    logger.info(f"[TEST] Complete. {len(created_strategies)} strategies created and tested.")
+    logger.info(f"[TEST] Complete. {len(created_ids)} strategies created, tested, and cleaned up.")
     logger.info("=" * 60)
     
-    return {"user": user, "strategies": len(created_strategies)}
+    return {"user": user["email"], "strategies": len(created_ids)}
 
 @api_router.post("/internal/run-tests")
 async def trigger_internal_tests():
@@ -1107,7 +1195,7 @@ async def run_system_check():
         })
         results["checks"].append({"name": "create_user", "status": "PASS"})
         results["passed"] += 1
-        logger.info(f"[SYSCHECK] create_user: PASS")
+        logger.info("[SYSCHECK] create_user: PASS")
     except Exception as e:
         results["checks"].append({"name": "create_user", "status": "FAIL", "error": str(e)})
         results["failed"] += 1
@@ -1133,7 +1221,7 @@ async def run_system_check():
         strategies_collection.insert_one(doc1)
         results["checks"].append({"name": "create_strategy_rsi", "status": "PASS", "id": strat1_id})
         results["passed"] += 1
-        logger.info(f"[SYSCHECK] create_strategy_rsi: PASS")
+        logger.info("[SYSCHECK] create_strategy_rsi: PASS")
     except Exception as e:
         results["checks"].append({"name": "create_strategy_rsi", "status": "FAIL", "error": str(e)})
         results["failed"] += 1
@@ -1159,7 +1247,7 @@ async def run_system_check():
         strategies_collection.insert_one(doc2)
         results["checks"].append({"name": "create_strategy_sma", "status": "PASS", "id": strat2_id})
         results["passed"] += 1
-        logger.info(f"[SYSCHECK] create_strategy_sma: PASS")
+        logger.info("[SYSCHECK] create_strategy_sma: PASS")
     except Exception as e:
         results["checks"].append({"name": "create_strategy_sma", "status": "FAIL", "error": str(e)})
         results["failed"] += 1
@@ -1189,11 +1277,11 @@ async def run_system_check():
         elif result:
             results["checks"].append({"name": "backtest_historical", "status": "PASS_NO_TRADES", "note": "No crossovers in period"})
             results["passed"] += 1
-            logger.info(f"[SYSCHECK] backtest_historical: PASS (no trades in period)")
+            logger.info("[SYSCHECK] backtest_historical: PASS (no trades in period)")
         else:
             results["checks"].append({"name": "backtest_historical", "status": "PASS_NO_DATA", "note": "Market data unavailable"})
             results["passed"] += 1
-            logger.info(f"[SYSCHECK] backtest_historical: PASS (no market data)")
+            logger.info("[SYSCHECK] backtest_historical: PASS (no market data)")
     except Exception as e:
         results["checks"].append({"name": "backtest_historical", "status": "FAIL", "error": str(e)})
         results["failed"] += 1
@@ -1215,7 +1303,7 @@ async def run_system_check():
         if response and len(response) > 0:
             results["checks"].append({"name": "ai_explainer", "status": "PASS"})
             results["passed"] += 1
-            logger.info(f"[SYSCHECK] ai_explainer: PASS")
+            logger.info("[SYSCHECK] ai_explainer: PASS")
         else:
             raise Exception("Empty response")
     except Exception as e:
@@ -1230,7 +1318,7 @@ async def run_system_check():
         if strat2_id:
             strategies_collection.delete_one({"id": strat2_id})
         users_collection.delete_one({"user_id": test_user_id})
-        logger.info(f"[SYSCHECK] Cleanup complete")
+        logger.info("[SYSCHECK] Cleanup complete")
     except Exception as e:
         logger.warning(f"[SYSCHECK] Cleanup warning: {e}")
     
@@ -1245,6 +1333,9 @@ async def run_system_check():
 # APP SETUP
 # =============================================================================
 
+# Add Request ID middleware (defined above as RequestIdMiddleware)
+app.add_middleware(BaseHTTPMiddleware, dispatch=RequestIdMiddleware(app).dispatch)
+
 app.include_router(api_router)
 app.include_router(auth_router)
 
@@ -1256,8 +1347,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 logger.info("Text2trade API initialized")
 
 # Run tests on startup if TEST_MODE env is set

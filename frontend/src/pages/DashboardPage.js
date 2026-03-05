@@ -256,7 +256,7 @@ const FeedbackForm = () => {
     if (!message.trim()) return;
     setSending(true);
     try {
-      await axios.post(`${API_URL}/feedback`, { message });
+      await axios.post(`${API_URL}/v1/feedback`, { message });
       setSent(true);
       setMessage("");
     } catch (err) {
@@ -306,23 +306,38 @@ export default function DashboardPage() {
   const [runningBacktest, setRunningBacktest] = useState(null);
   const navigate = useNavigate();
 
-  const getAuthHeaders = () => ({ headers: { "X-User-Id": userEmail } });
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("accessToken");
+    return { headers: { Authorization: `Bearer ${token}` } };
+  };
 
   const fetchStrategies = async () => {
     try {
-      const res = await axios.get(`${API_URL}/strategies`, getAuthHeaders());
+      const res = await axios.get(`${API_URL}/v1/strategies`, getAuthHeaders());
       setStrategies(res.data.strategies || []);
     } catch (err) {
       console.error("Fetch strategies failed:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("userEmail");
+        navigate("/login");
+      }
     }
   };
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
-    if (!email) { navigate("/login"); } else { setUserEmail(email); fetchStrategies(); }
+    const token = localStorage.getItem("accessToken");
+    if (!email || !token) { navigate("/login"); } else { setUserEmail(email); fetchStrategies(); }
   }, [navigate]);
 
-  const handleLogout = () => { localStorage.removeItem("userEmail"); navigate("/login"); };
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userEmail");
+    navigate("/login");
+  };
   const handlePageChange = (pageId) => { setActivePage(pageId); setShowBuilder(false); setShowNL(false); setChatStrategy(null); };
   const handleStartBuilder = () => { setShowBuilder(true); setShowNL(false); };
   const handleStartNL = () => { setShowNL(true); setShowBuilder(false); };
@@ -336,7 +351,7 @@ export default function DashboardPage() {
   const handleAnalyzeRisk = async (id, strategy) => {
     setAnalyzingRisk(id);
     try {
-      const res = await axios.post(`${API_URL}/analyze-risk`, { strategy });
+      const res = await axios.post(`${API_URL}/v1/analyze-risk`, { strategy }, getAuthHeaders());
       if (res.data?.warnings) {
         setRiskWarnings(prev => ({ ...prev, [id]: res.data.warnings }));
       }
@@ -350,7 +365,7 @@ export default function DashboardPage() {
   const handleRunBacktest = async (id, strategy) => {
     setRunningBacktest(id);
     try {
-      const res = await axios.post(`${API_URL}/backtest`, { strategy });
+      const res = await axios.post(`${API_URL}/v1/backtest`, { strategy }, getAuthHeaders());
       if (res.data?.success) {
         setBacktestResults(prev => ({ ...prev, [id]: res.data }));
       }

@@ -75,37 +75,26 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     
-    // Basic validation
-    if (!email.trim()) {
-      setError("Email is required");
-      return;
-    }
-    if (!email.includes("@")) {
-      setError("Please enter a valid email");
-      return;
-    }
-    if (!password.trim()) {
-      setError("Password is required");
-      return;
-    }
+    if (!email.trim()) { setError("Email is required"); return; }
+    if (!email.includes("@")) { setError("Please enter a valid email"); return; }
+    if (!password.trim()) { setError("Password is required"); return; }
     
     setLoading(true);
     
     try {
-      // Send login request to backend
-      const response = await axios.post(`${API_URL}/login`, {
+      const response = await axios.post(`${API_URL}/v1/auth/login`, {
         email: email,
         password: password
       });
       
-      // Success! Save user email to localStorage
-      localStorage.setItem("userEmail", response.data.email);
+      // Store JWT tokens and email
+      localStorage.setItem("accessToken", response.data.access_token);
+      localStorage.setItem("refreshToken", response.data.refresh_token);
+      localStorage.setItem("userEmail", email);
       
-      // Redirect to dashboard
       navigate("/dashboard");
       
     } catch (err) {
-      // Show error message from backend, or generic error
       if (err.response?.data?.detail) {
         setError(err.response.data.detail);
       } else {
@@ -129,45 +118,35 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     
-    // Basic validation
-    if (!email.trim()) {
-      setError("Email is required");
-      return;
-    }
-    if (!email.includes("@")) {
-      setError("Please enter a valid email");
-      return;
-    }
-    if (!password.trim()) {
-      setError("Password is required");
-      return;
-    }
-    if (password.length < 4) {
-      setError("Password must be at least 4 characters");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
+    if (!email.trim()) { setError("Email is required"); return; }
+    if (!email.includes("@")) { setError("Please enter a valid email"); return; }
+    if (!password.trim()) { setError("Password is required"); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (!/\d/.test(password)) { setError("Password must contain at least 1 number"); return; }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) { setError("Password must contain at least 1 special character"); return; }
+    if (password !== confirmPassword) { setError("Passwords do not match"); return; }
     
     setLoading(true);
     
     try {
-      // Send signup request to backend
-      const response = await axios.post(`${API_URL}/signup`, {
+      await axios.post(`${API_URL}/v1/auth/register`, {
         email: email,
         password: password
       });
       
-      // Success! Save user email to localStorage
-      localStorage.setItem("userEmail", response.data.email);
+      // Auto-login after registration
+      const loginRes = await axios.post(`${API_URL}/v1/auth/login`, {
+        email: email,
+        password: password
+      });
       
-      // Redirect to dashboard
+      localStorage.setItem("accessToken", loginRes.data.access_token);
+      localStorage.setItem("refreshToken", loginRes.data.refresh_token);
+      localStorage.setItem("userEmail", email);
+      
       navigate("/dashboard");
       
     } catch (err) {
-      // Show error message from backend, or generic error
       if (err.response?.data?.detail) {
         setError(err.response.data.detail);
       } else {
@@ -427,7 +406,7 @@ export default function LoginPage() {
         
         {/* Footer note */}
         <p className="text-center mt-6 mono-label">
-          // MVP AUTH - IN-MEMORY STORAGE
+          // TEXT2TRADE v1.1 - JWT AUTH
         </p>
       </div>
     </div>
