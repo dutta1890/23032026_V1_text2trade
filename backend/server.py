@@ -161,34 +161,32 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "0.4.0"
+        "version": "1.0.0"
     }
 
 
 # =============================================================================
-# AUTH ROUTES
+# AUTH ROUTES (JWT-based)
 # =============================================================================
 
-@api_router.post("/signup", response_model=AuthResponse)
-async def signup(request: AuthRequest):
-    email = request.email.lower()
-    if email in users_db:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    if not request.password:
-        raise HTTPException(status_code=400, detail="Password cannot be empty")
-    users_db[email] = request.password
-    logger.info(f"New user signed up: {email}")
-    return {"success": True, "message": "Account created successfully", "email": email}
+@auth_router.post("/register", response_model=UserResponse, status_code=201)
+async def register(request: UserRegister):
+    """Register a new user."""
+    result = register_user(request)
+    logger.info(f"New user registered: {result.email}")
+    return result
 
-@api_router.post("/login", response_model=AuthResponse)
-async def login(request: AuthRequest):
-    email = request.email.lower()
-    if email not in users_db:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    if users_db[email] != request.password:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    logger.info(f"User logged in: {email}")
-    return {"success": True, "message": "Login successful", "email": email}
+@auth_router.post("/login", response_model=TokenResponse)
+async def login(request: UserLogin):
+    """Login and get access + refresh tokens."""
+    result = login_user(request)
+    logger.info(f"User logged in: {request.email}")
+    return result
+
+@auth_router.post("/refresh", response_model=AccessTokenResponse)
+async def refresh(request: RefreshRequest):
+    """Refresh access token using refresh token."""
+    return refresh_access_token(request.refresh_token)
 
 
 # =============================================================================
