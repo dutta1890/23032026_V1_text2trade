@@ -29,3 +29,5 @@ yfinance==1.2.0
 pymongo
 bcrypt
 PyJWT
+slowapi
+python-json-logger
