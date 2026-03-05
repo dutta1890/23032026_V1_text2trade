@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
@@ -12,8 +12,13 @@ import json
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from pymongo import MongoClient
 
-
 from indicator_registry import validate_condition
+from auth import (
+    UserRegister, UserLogin, UserResponse, TokenResponse, 
+    RefreshRequest, AccessTokenResponse,
+    register_user, login_user, refresh_access_token,
+    get_current_user, users_collection
+)
 
 
 ROOT_DIR = Path(__file__).parent
@@ -31,10 +36,12 @@ try:
 except Exception as e:
     print(f"Warning: Could not create indexes: {e}")
 
-app = FastAPI(title="Text2trade API", version="0.8.0")
-api_router = APIRouter(prefix="/api")
+app = FastAPI(title="Text2trade API", version="1.0.0")
 
-users_db: Dict[str, str] = {}
+# Routers
+api_router = APIRouter(prefix="/api/v1")
+auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
 feedback_db: List[dict] = []
 waitlist_db: List[str] = []
 
