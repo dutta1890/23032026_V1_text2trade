@@ -304,12 +304,13 @@ async def get_strategy(strategy_id: str, current_user: dict = Depends(get_curren
         raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.put("/strategy/{strategy_id}")
-async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optional[str] = Header(None)):
+async def update_strategy(strategy_id: str, strategy: Strategy, current_user: dict = Depends(get_current_user)):
     try:
+        user_id = current_user["user_id"]
         existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
         if not existing:
             raise HTTPException(status_code=404, detail="Strategy not found")
-        if existing.get("user_id") != x_user_id:
+        if existing.get("user_id") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
         
         errors = validate_strategy(strategy)
@@ -325,14 +326,14 @@ async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optio
             new_version = "1.1"
         
         strategy.id = strategy_id
-        strategy.user_id = x_user_id
+        strategy.user_id = user_id
         strategy.version = new_version
         strategy.metadata.updated_at = datetime.now(timezone.utc).isoformat()
         strategy.metadata.created_at = existing.get("metadata", {}).get("created_at")
         
         doc = strategy.model_dump()
         strategies_collection.replace_one({"id": strategy_id}, doc)
-        logger.info(f"Strategy updated: {strategy_id} v{new_version} (user: {x_user_id})")
+        logger.info(f"Strategy updated: {strategy_id} v{new_version} (user: {user_id})")
         return {"success": True, "strategy": strategy}
     except HTTPException:
         raise
@@ -341,16 +342,17 @@ async def update_strategy(strategy_id: str, strategy: Strategy, x_user_id: Optio
         raise HTTPException(status_code=500, detail="Database error")
 
 @api_router.delete("/strategy/{strategy_id}")
-async def delete_strategy(strategy_id: str, x_user_id: Optional[str] = Header(None)):
+async def delete_strategy(strategy_id: str, current_user: dict = Depends(get_current_user)):
     try:
+        user_id = current_user["user_id"]
         existing = strategies_collection.find_one({"id": strategy_id}, {"_id": 0})
         if not existing:
             raise HTTPException(status_code=404, detail="Strategy not found")
-        if existing.get("user_id") != x_user_id:
+        if existing.get("user_id") != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
         
         strategies_collection.delete_one({"id": strategy_id})
-        logger.info(f"Strategy deleted: {strategy_id} (user: {x_user_id})")
+        logger.info(f"Strategy deleted: {strategy_id} (user: {user_id})")
         return {"success": True, "message": "Strategy deleted"}
     except HTTPException:
         raise
