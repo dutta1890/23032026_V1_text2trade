@@ -1,6 +1,12 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends, Request
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from pathlib import Path
+
+# CRITICAL: Load .env BEFORE any module that reads env vars
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -8,7 +14,6 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import os
 import logging
-from pathlib import Path
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Union
@@ -24,7 +29,7 @@ from auth import (
     UserRegister, UserLogin, UserResponse, TokenResponse, 
     RefreshRequest, AccessTokenResponse,
     register_user, login_user, refresh_access_token,
-    get_current_user, users_collection
+    get_current_user, get_admin_user, users_collection
 )
 from resilience import (
     sanitize_user_input, resilient_call, resilient_call_sync,
@@ -35,9 +40,6 @@ from logging_config import (
     get_request_id, log_auth_attempt, log_ai_call
 )
 
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
 
 # Setup structured logging
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -835,10 +837,10 @@ async def explain_strategy(request: Request, body: ExplainRequest):
 # BACKTEST ROUTE
 # =============================================================================
 
-import yfinance as yf
 import pandas as pd
 import signal
 from contextlib import contextmanager
+from data.service import get_ohlcv, get_available_symbols, get_data_status
 
 # Safety limits
 MAX_LOOKBACK = 200
@@ -877,45 +879,26 @@ class BacktestResponse(BaseModel):
     losses: int
     data_source: str
 
-def _fetch_yfinance_data(yf_symbol: str):
-    """Fetch historical data from yfinance (wrapped by circuit breaker)."""
-    ticker = yf.Ticker(yf_symbol)
-    return ticker.history(period="1y", interval="1d")
-
 def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candles: int = MAX_LOOKBACK):
-    """Run simple SMA crossover backtest using yfinance data."""
+    """Run SMA crossover backtest using pre-cached market data from MongoDB."""
     try:
-        # Enforce max lookback limit
         max_candles = min(max_candles, MAX_LOOKBACK)
         
-        # Map common crypto symbols to Yahoo Finance format
-        yf_symbol = symbol
-        if symbol in ["BTCUSDT", "BTC"]:
-            yf_symbol = "BTC-USD"
-        elif symbol in ["ETHUSDT", "ETH"]:
-            yf_symbol = "ETH-USD"
-        elif "-" not in symbol and "." not in symbol:
-            # Try as stock symbol
-            yf_symbol = symbol
+        from datetime import timedelta
+        end = datetime.now()
+        start = end - timedelta(days=3*365)
         
-        # Fetch data with circuit breaker and timeout protection
         with timeout_handler(MAX_EXECUTION_SECONDS):
-            df = resilient_call_sync(
-                _fetch_yfinance_data, yf_symbol,
-                circuit_name="datasource", max_retries=2, base_delay=1.0, timeout=15.0
-            )
+            df = get_ohlcv(symbol, "1d", start, end)
         
         if df.empty or len(df) < long_period + 10:
             return None
         
-        # Limit to max candles
         df = df.tail(max_candles)
         
         # Calculate SMAs
-        df['SMA_short'] = df['Close'].rolling(window=short_period).mean()
-        df['SMA_long'] = df['Close'].rolling(window=long_period).mean()
-        
-        # Drop NaN rows
+        df['SMA_short'] = df['close'].rolling(window=short_period).mean()
+        df['SMA_long'] = df['close'].rolling(window=long_period).mean()
         df = df.dropna()
         
         if len(df) < 20:
@@ -925,8 +908,6 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
         df['signal'] = 0
         df.loc[df['SMA_short'] > df['SMA_long'], 'signal'] = 1
         df.loc[df['SMA_short'] < df['SMA_long'], 'signal'] = -1
-        
-        # Find crossovers (signal changes)
         df['crossover'] = df['signal'].diff()
         
         trades = []
@@ -935,20 +916,19 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
         entry_date = None
         
         for idx, row in df.iterrows():
-            if row['crossover'] == 2:  # Buy signal (cross above)
+            ts = row['timestamp'].strftime('%Y-%m-%d') if hasattr(row['timestamp'], 'strftime') else str(row['timestamp'])[:10]
+            if row['crossover'] == 2:
                 if position is None:
                     position = 'long'
-                    entry_price = row['Close']
-                    entry_date = idx.strftime('%Y-%m-%d')
-            elif row['crossover'] == -2:  # Sell signal (cross below)
+                    entry_price = row['close']
+                    entry_date = ts
+            elif row['crossover'] == -2:
                 if position == 'long':
-                    exit_price = row['Close']
+                    exit_price = row['close']
                     pnl_pct = ((exit_price - entry_price) / entry_price) * 100
                     trades.append({
-                        'id': len(trades) + 1,
-                        'symbol': symbol,
-                        'entry': round(entry_price, 2),
-                        'exit': round(exit_price, 2),
+                        'id': len(trades) + 1, 'symbol': symbol,
+                        'entry': round(entry_price, 2), 'exit': round(exit_price, 2),
                         'pnl': round(pnl_pct, 2),
                         'result': 'WIN' if pnl_pct > 0 else 'LOSS',
                         'date': entry_date
@@ -962,25 +942,28 @@ def run_sma_backtest(symbol: str, short_period: int, long_period: int, max_candl
         total_pnl = sum(t['pnl'] for t in trades)
         
         return {
-            'label': 'Basic Historical Backtest (Limited Accuracy)',
-            'disclaimer': 'Simplified SMA crossover only. Does not account for fees, slippage, or market conditions.',
+            'label': 'Historical Backtest (MongoDB Cache)',
+            'disclaimer': 'SMA crossover on cached NSE daily data. Does not account for fees, slippage, or market conditions.',
             'trades': trades,
             'win_rate': round((wins / len(trades)) * 100, 1),
             'pnl': round(total_pnl, 2),
             'total_trades': len(trades),
             'wins': wins,
             'losses': len(trades) - wins,
-            'data_source': f'yfinance ({yf_symbol})'
+            'data_source': f'mongodb ({symbol}/1d)'
         }
     except BacktestTimeoutError as e:
         logger.error(f"Backtest timeout: {e}")
+        return None
+    except ValueError as e:
+        logger.info(f"Backtest data not available for {symbol}: {e}")
         return None
     except Exception as e:
         logger.error(f"Backtest error: {e}")
         return None
 
 def run_simulated_backtest(symbol: str, sl: float, tp: float):
-    """Fallback simulated backtest."""
+    """Fallback simulated backtest when no cached data is available."""
     try:
         import random
         num_trades = 10 + random.randint(0, 20)
@@ -999,10 +982,8 @@ def run_simulated_backtest(symbol: str, sl: float, tp: float):
             total_pnl += pnl
             
             trades.append({
-                'id': i + 1,
-                'symbol': symbol,
-                'entry': round(entry, 2),
-                'exit': round(exit_price, 2),
+                'id': i + 1, 'symbol': symbol,
+                'entry': round(entry, 2), 'exit': round(exit_price, 2),
                 'pnl': round(pnl, 2),
                 'result': 'WIN' if is_win else 'LOSS',
                 'date': f'2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}'
@@ -1010,7 +991,7 @@ def run_simulated_backtest(symbol: str, sl: float, tp: float):
         
         return {
             'label': 'Simulated Backtest (Not Real Data)',
-            'disclaimer': 'Random simulation only. Not based on historical data.',
+            'disclaimer': 'Random simulation only. Not based on historical data. Ingest market data for real backtests.',
             'trades': trades,
             'win_rate': round((wins / num_trades) * 100, 1),
             'pnl': round(total_pnl, 2),
@@ -1022,15 +1003,9 @@ def run_simulated_backtest(symbol: str, sl: float, tp: float):
     except Exception as e:
         logger.error(f"Simulated backtest error: {e}")
         return {
-            'label': 'Backtest Error',
-            'disclaimer': 'An error occurred during backtest.',
-            'trades': [],
-            'win_rate': 0,
-            'pnl': 0,
-            'total_trades': 0,
-            'wins': 0,
-            'losses': 0,
-            'data_source': 'error'
+            'label': 'Backtest Error', 'disclaimer': 'An error occurred during backtest.',
+            'trades': [], 'win_rate': 0, 'pnl': 0,
+            'total_trades': 0, 'wins': 0, 'losses': 0, 'data_source': 'error'
         }
 
 @api_router.post("/backtest", response_model=BacktestResponse)
@@ -1086,279 +1061,105 @@ async def run_backtest(request: Request, body: BacktestRequest):
 
 
 # =============================================================================
-# INTERNAL TEST UTILITY
+# ADMIN ENDPOINTS
 # =============================================================================
 
-SAMPLE_STRATEGIES = [
-    {
-        "metadata": {"name": "AAPL SMA Crossover", "description": "Test strategy 1"},
-        "market": {"type": "stocks", "exchange": "nasdaq"},
-        "instrument": {"symbol": "AAPL"},
-        "timeframe": {"interval": "1d"},
-        "entry_conditions": [{"name": "SMA", "params": {"short": 10, "long": 30}, "operator": "cross_above"}],
-        "exit_conditions": [],
-        "filters": [],
-        "risk_management": {"stop_loss": 2, "take_profit": 5}
-    },
-    {
-        "metadata": {"name": "BTC RSI Strategy", "description": "Test strategy 2"},
-        "market": {"type": "crypto", "exchange": "binance"},
-        "instrument": {"symbol": "BTCUSDT"},
-        "timeframe": {"interval": "1h"},
-        "entry_conditions": [{"name": "RSI", "params": {"period": 14}, "operator": "<", "value": 30}],
-        "exit_conditions": [],
-        "filters": [],
-        "risk_management": {"stop_loss": 3, "take_profit": 6}
-    },
-    {
-        "metadata": {"name": "ETH EMA Crossover", "description": "Test strategy 3"},
-        "market": {"type": "crypto", "exchange": "binance"},
-        "instrument": {"symbol": "ETHUSDT"},
-        "timeframe": {"interval": "4h"},
-        "entry_conditions": [{"name": "EMA", "params": {"short": 12, "long": 26}, "operator": "cross_above"}],
-        "exit_conditions": [],
-        "filters": [{"name": "ADX", "params": {"period": 14}, "operator": ">", "value": 25}],
-        "risk_management": {"stop_loss": 2, "take_profit": 4}
-    }
-]
+admin_router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
-def create_test_user():
-    """Create a test user and return credentials."""
-    test_email = "test@internal.dev"
-    test_password = "TestPass123!"
-    
-    existing = users_collection.find_one({"email": test_email})
-    if not existing:
-        from auth import hash_password
-        users_collection.insert_one({
-            "user_id": str(uuid.uuid4()),
-            "email": test_email,
-            "password_hash": hash_password(test_password),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "is_active": True
-        })
-        logger.info(f"[TEST] Created test user: {test_email}")
-    else:
-        logger.info(f"[TEST] Test user exists: {test_email}")
-    
-    return {"email": test_email, "password": test_password}
-
-def run_internal_tests():
-    """Run internal tests: create user, generate strategies, run backtests."""
-    logger.info("=" * 60)
-    logger.info("[TEST] Starting internal test suite")
-    logger.info("=" * 60)
-    
-    user = create_test_user()
-    logger.info(f"[TEST] User: {user['email']}")
-    
-    created_ids = []
-    for strat_data in SAMPLE_STRATEGIES:
-        strat_id = str(uuid.uuid4())[:8]
-        doc = {"id": strat_id, "version": "1.0", "user_id": user["email"], **strat_data,
-               "metadata": {**strat_data["metadata"], "created_at": datetime.now(timezone.utc).isoformat()}}
-        strategies_collection.insert_one(doc)
-        created_ids.append(strat_id)
-        logger.info(f"[TEST] Created strategy: {strat_data['metadata']['name']} (id: {strat_id})")
-    
-    logger.info("-" * 60)
-    logger.info("[TEST] Running backtests...")
-    
-    for strat_data, strat_id in zip(SAMPLE_STRATEGIES, created_ids):
-        name = strat_data["metadata"]["name"]
-        symbol = strat_data["instrument"]["symbol"]
-        entry = strat_data["entry_conditions"][0] if strat_data["entry_conditions"] else {}
-        indicator = entry.get("name", "N/A")
-        
-        if indicator in ["SMA", "EMA"]:
-            params = entry.get("params", {})
-            result = run_sma_backtest(symbol, params.get("short", 9), params.get("long", 21))
-        else:
-            sl = strat_data["risk_management"].get("stop_loss", 2)
-            tp = strat_data["risk_management"].get("take_profit", 5)
-            result = run_simulated_backtest(symbol, sl, tp)
-        
-        if result:
-            logger.info(f"[TEST] {name} | {result['label'][:20]}... | Trades: {result['total_trades']} | Win: {result['win_rate']}% | PnL: {result['pnl']}%")
-        else:
-            logger.info(f"[TEST] {name} | FAILED")
-    
-    # Cleanup test data
-    for strat_id in created_ids:
-        strategies_collection.delete_one({"id": strat_id})
-    
-    logger.info("=" * 60)
-    logger.info(f"[TEST] Complete. {len(created_ids)} strategies created, tested, and cleaned up.")
-    logger.info("=" * 60)
-    
-    return {"user": user["email"], "strategies": len(created_ids)}
-
-@api_router.post("/internal/run-tests")
-async def trigger_internal_tests():
-    """Manually trigger internal tests (dev only)."""
-    result = run_internal_tests()
-    return {"success": True, "result": result}
-
-
-# =============================================================================
-# SYSTEM CHECK ENDPOINT
-# =============================================================================
-
-@api_router.get("/run-system-check")
-async def run_system_check():
-    """Run structured system health check."""
-    results = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "checks": [],
-        "passed": 0,
-        "failed": 0
-    }
-    
-    test_user_id = f"syscheck_{uuid.uuid4().hex[:8]}@test.internal"
-    
-    # Check 1: Create temp user in MongoDB
+@admin_router.get("/data/status")
+@limiter.limit("10/minute")
+async def admin_data_status(request: Request, admin: dict = Depends(get_admin_user)):
+    """Full data health report — admin only."""
     try:
-        users_collection.insert_one({
-            "user_id": test_user_id,
-            "email": f"{test_user_id}",
-            "password_hash": "syscheck_temp",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "is_active": True
-        })
-        results["checks"].append({"name": "create_user", "status": "PASS"})
-        results["passed"] += 1
-        logger.info("[SYSCHECK] create_user: PASS")
+        status = get_data_status()
+        return status
     except Exception as e:
-        results["checks"].append({"name": "create_user", "status": "FAIL", "error": str(e)})
-        results["failed"] += 1
-        logger.error(f"[SYSCHECK] create_user: FAIL - {e}")
-    
-    # Check 2: Create RSI strategy (for simulated backtest)
-    strat1_id = None
+        logger.error(f"Data status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@admin_router.post("/data/refresh")
+@limiter.limit("2/minute")
+async def admin_data_refresh(request: Request, admin: dict = Depends(get_admin_user)):
+    """Trigger incremental data refresh — admin only."""
+    import subprocess, sys
     try:
-        strat1_id = str(uuid.uuid4())
-        doc1 = {
-            "id": strat1_id,
-            "user_id": test_user_id,
-            "version": "1.0",
-            "metadata": {"name": "SysCheck RSI", "created_at": datetime.now(timezone.utc).isoformat()},
-            "market": {"type": "crypto"},
-            "instrument": {"symbol": "BTCUSDT"},
-            "timeframe": {"interval": "1h"},
-            "entry_conditions": [{"name": "RSI", "params": {"period": 14}, "operator": "<", "value": 30}],
-            "exit_conditions": [],
-            "filters": [],
-            "risk_management": {"stop_loss": 2, "take_profit": 5}
+        script_path = os.path.join(os.path.dirname(__file__), "scripts", "refresh_data.py")
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True, text=True, timeout=600,
+            cwd=os.path.dirname(__file__),
+        )
+        return {
+            "success": result.returncode == 0,
+            "stdout": result.stdout[-2000:] if result.stdout else "",
+            "stderr": result.stderr[-500:] if result.stderr else "",
         }
-        strategies_collection.insert_one(doc1)
-        results["checks"].append({"name": "create_strategy_rsi", "status": "PASS", "id": strat1_id})
-        results["passed"] += 1
-        logger.info("[SYSCHECK] create_strategy_rsi: PASS")
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Refresh timed out (10 min limit)"}
     except Exception as e:
-        results["checks"].append({"name": "create_strategy_rsi", "status": "FAIL", "error": str(e)})
-        results["failed"] += 1
-        logger.error(f"[SYSCHECK] create_strategy_rsi: FAIL - {e}")
-    
-    # Check 3: Create SMA strategy (for historical backtest)
-    strat2_id = None
+        raise HTTPException(status_code=500, detail=str(e))
+
+@admin_router.get("/users")
+@limiter.limit("10/minute")
+async def admin_list_users(request: Request, admin: dict = Depends(get_admin_user)):
+    """List all users with activity stats — admin only."""
+    users = list(users_collection.find({}, {"_id": 0, "password_hash": 0}))
+    for u in users:
+        email = u.get("email", "")
+        u["strategy_count"] = strategies_collection.count_documents({"user_id": email})
+    return {"users": users, "total": len(users)}
+
+@admin_router.get("/analytics")
+@limiter.limit("10/minute")
+async def admin_analytics(request: Request, admin: dict = Depends(get_admin_user)):
+    """Platform-wide analytics — admin only."""
+    from data.service import market_data_collection
+    return {
+        "users": {
+            "total": users_collection.count_documents({}),
+            "admins": users_collection.count_documents({"role": "admin"}),
+        },
+        "strategies": {
+            "total": strategies_collection.count_documents({}),
+        },
+        "market_data": {
+            "total_candles": market_data_collection.count_documents({}),
+            "symbols": len(market_data_collection.distinct("symbol")),
+            "timeframes": market_data_collection.distinct("timeframe"),
+        },
+        "usage": analytics_db,
+    }
+
+
+# =============================================================================
+# STARTUP VALIDATION
+# =============================================================================
+
+@app.on_event("startup")
+async def startup_validation():
+    """Check market_data on startup."""
     try:
-        strat2_id = str(uuid.uuid4())
-        doc2 = {
-            "id": strat2_id,
-            "user_id": test_user_id,
-            "version": "1.0",
-            "metadata": {"name": "SysCheck SMA", "created_at": datetime.now(timezone.utc).isoformat()},
-            "market": {"type": "stocks"},
-            "instrument": {"symbol": "AAPL"},
-            "timeframe": {"interval": "1d"},
-            "entry_conditions": [{"name": "SMA", "params": {"short": 10, "long": 30}, "operator": "cross_above"}],
-            "exit_conditions": [],
-            "filters": [],
-            "risk_management": {"stop_loss": 2, "take_profit": 5}
-        }
-        strategies_collection.insert_one(doc2)
-        results["checks"].append({"name": "create_strategy_sma", "status": "PASS", "id": strat2_id})
-        results["passed"] += 1
-        logger.info("[SYSCHECK] create_strategy_sma: PASS")
-    except Exception as e:
-        results["checks"].append({"name": "create_strategy_sma", "status": "FAIL", "error": str(e)})
-        results["failed"] += 1
-        logger.error(f"[SYSCHECK] create_strategy_sma: FAIL - {e}")
-    
-    # Check 4: Run simulated backtest
-    try:
-        result = run_simulated_backtest("BTCUSDT", 2, 5)
-        if result and result.get("total_trades", 0) > 0:
-            results["checks"].append({"name": "backtest_simulated", "status": "PASS", "trades": result["total_trades"]})
-            results["passed"] += 1
-            logger.info(f"[SYSCHECK] backtest_simulated: PASS ({result['total_trades']} trades)")
+        from data.service import market_data_collection
+        count = market_data_collection.count_documents({})
+        if count == 0:
+            logger.warning(
+                "No market data found. Backtesting will not work. "
+                "Run: python scripts/setup_data_source.py && python scripts/ingest_data.py"
+            )
         else:
-            raise Exception("No trades generated")
+            symbols = len(market_data_collection.distinct("symbol"))
+            logger.info(f"Market data loaded: {count:,} candles across {symbols} symbols")
+            
+            # Check for stale data
+            from datetime import timedelta, timezone as tz
+            cutoff = datetime.now(tz.utc) - timedelta(days=7)
+            latest = market_data_collection.find_one(
+                {"timeframe": "1d"}, {"_id": 0, "timestamp": 1}, sort=[("timestamp", -1)]
+            )
+            if latest and latest["timestamp"].replace(tzinfo=tz.utc) < cutoff:
+                logger.warning("Market data is stale (>5 trading days old). Run: python scripts/refresh_data.py")
     except Exception as e:
-        results["checks"].append({"name": "backtest_simulated", "status": "FAIL", "error": str(e)})
-        results["failed"] += 1
-        logger.error(f"[SYSCHECK] backtest_simulated: FAIL - {e}")
-    
-    # Check 5: Run historical SMA backtest
-    try:
-        result = run_sma_backtest("AAPL", 10, 30, max_candles=100)
-        if result and result.get("total_trades", 0) > 0:
-            results["checks"].append({"name": "backtest_historical", "status": "PASS", "trades": result["total_trades"]})
-            results["passed"] += 1
-            logger.info(f"[SYSCHECK] backtest_historical: PASS ({result['total_trades']} trades)")
-        elif result:
-            results["checks"].append({"name": "backtest_historical", "status": "PASS_NO_TRADES", "note": "No crossovers in period"})
-            results["passed"] += 1
-            logger.info("[SYSCHECK] backtest_historical: PASS (no trades in period)")
-        else:
-            results["checks"].append({"name": "backtest_historical", "status": "PASS_NO_DATA", "note": "Market data unavailable"})
-            results["passed"] += 1
-            logger.info("[SYSCHECK] backtest_historical: PASS (no market data)")
-    except Exception as e:
-        results["checks"].append({"name": "backtest_historical", "status": "FAIL", "error": str(e)})
-        results["failed"] += 1
-        logger.error(f"[SYSCHECK] backtest_historical: FAIL - {e}")
-    
-    # Check 6: Call AI explainer
-    try:
-        api_key = os.environ.get("EMERGENT_LLM_KEY")
-        if not api_key:
-            raise Exception("LLM key not configured")
-        
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=str(uuid.uuid4()),
-            system_message="You are a test responder. Reply with 'OK' only."
-        ).with_model("openai", "gpt-5.2")
-        
-        response = await chat.send_message(UserMessage(text="Test"))
-        if response and len(response) > 0:
-            results["checks"].append({"name": "ai_explainer", "status": "PASS"})
-            results["passed"] += 1
-            logger.info("[SYSCHECK] ai_explainer: PASS")
-        else:
-            raise Exception("Empty response")
-    except Exception as e:
-        results["checks"].append({"name": "ai_explainer", "status": "FAIL", "error": str(e)})
-        results["failed"] += 1
-        logger.error(f"[SYSCHECK] ai_explainer: FAIL - {e}")
-    
-    # Cleanup: Delete test strategies and user
-    try:
-        if strat1_id:
-            strategies_collection.delete_one({"id": strat1_id})
-        if strat2_id:
-            strategies_collection.delete_one({"id": strat2_id})
-        users_collection.delete_one({"user_id": test_user_id})
-        logger.info("[SYSCHECK] Cleanup complete")
-    except Exception as e:
-        logger.warning(f"[SYSCHECK] Cleanup warning: {e}")
-    
-    # Summary
-    results["summary"] = "ALL_PASS" if results["failed"] == 0 else "SOME_FAILED"
-    logger.info(f"[SYSCHECK] Complete: {results['passed']}/{results['passed']+results['failed']} passed")
-    
-    return results
+        logger.warning(f"Startup data validation failed: {e}")
 
 
 # =============================================================================
@@ -1370,6 +1171,7 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=RequestIdMiddleware(app).dispatc
 
 app.include_router(api_router)
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 app.add_middleware(
     CORSMiddleware,

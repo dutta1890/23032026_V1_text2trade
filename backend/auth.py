@@ -34,6 +34,16 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 security = HTTPBearer()
 
 
+def validate_password_strength(password: str):
+    """Validate password meets strength requirements. Raises ValueError if not."""
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    if not re.search(r"\d", password):
+        raise ValueError("Password must contain at least 1 number")
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        raise ValueError("Password must contain at least 1 special character")
+
+
 # =============================================================================
 # PYDANTIC MODELS
 # =============================================================================
@@ -46,12 +56,7 @@ class UserRegister(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        if not re.search(r"\d", v):
-            raise ValueError("Password must contain at least 1 number")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-            raise ValueError("Password must contain at least 1 special character")
+        validate_password_strength(v)
         return v
 
 class UserLogin(BaseModel):
@@ -89,11 +94,12 @@ def verify_password(password: str, hashed: str) -> bool:
     """Verify password against hash."""
     return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 
-def create_access_token(user_id: str, email: str) -> str:
+def create_access_token(user_id: str, email: str, role: str = "user") -> str:
     """Create JWT access token (24hr expiry)."""
     payload = {
         "sub": user_id,
         "email": email,
+        "role": role,
         "type": "access",
         "exp": datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS),
         "iat": datetime.now(timezone.utc)
@@ -148,7 +154,16 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     if not user.get("is_active", True):
         raise HTTPException(status_code=401, detail="User account is disabled")
     
+    # Merge role from JWT (avoids DB lookup for role checks)
+    user["role"] = payload.get("role", user.get("role", "user"))
     return user
+
+
+async def get_admin_user(current_user: dict = Depends(get_current_user)) -> dict:
+    """Require admin role. Extends get_current_user."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
 
 
 # =============================================================================
@@ -166,6 +181,7 @@ def register_user(data: UserRegister) -> UserResponse:
         "user_id": user_id,
         "email": email,
         "password_hash": hash_password(data.password),
+        "role": "user",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_active": True
     }
@@ -196,7 +212,7 @@ def login_user(data: UserLogin) -> TokenResponse:
         raise HTTPException(status_code=401, detail="User account is disabled")
     
     # Generate tokens
-    access_token = create_access_token(user["user_id"], user["email"])
+    access_token = create_access_token(user["user_id"], user["email"], user.get("role", "user"))
     refresh_token = create_refresh_token(user["user_id"])
     
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
@@ -221,6 +237,6 @@ def refresh_access_token(refresh_token: str) -> AccessTokenResponse:
         raise HTTPException(status_code=401, detail="User account is disabled")
     
     # Generate new access token only
-    new_access_token = create_access_token(user["user_id"], user["email"])
+    new_access_token = create_access_token(user["user_id"], user["email"], user.get("role", "user"))
     
     return AccessTokenResponse(access_token=new_access_token)
