@@ -39,6 +39,11 @@ from logging_config import (
     setup_logging, generate_request_id, set_request_id, set_user_id, set_endpoint,
     get_request_id, log_auth_attempt, log_ai_call
 )
+from ai_sessions import (
+    get_ai_config, check_and_increment_usage, get_usage_stats,
+    create_session, get_session, append_message, update_strategy_draft,
+    delete_session, get_context_messages
+)
 
 
 # Setup structured logging
@@ -634,21 +639,30 @@ class ParseResponse(BaseModel):
 
 @api_router.post("/parse-strategy", response_model=ParseResponse)
 @limiter.limit("10/minute")
-async def parse_strategy(request: Request, body: ParseRequest):
+async def parse_strategy(request: Request, body: ParseRequest, current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email", "anonymous")
+    
+    # Check daily usage limit
+    if not check_and_increment_usage(user_email, "nl_parser"):
+        raise HTTPException(status_code=429, detail="Daily limit for strategy parsing reached (20/day). Try again tomorrow.")
+    
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
     
-    # Sanitize user input
     sanitized_text = sanitize_user_input(body.text, max_length=2000)
     if not sanitized_text:
         raise HTTPException(status_code=400, detail="Input text is empty or invalid")
     
+    ai_config = get_ai_config("nl_parser")
     chat = LlmChat(
         api_key=api_key,
         session_id=str(uuid.uuid4()),
         system_message=PARSER_PROMPT
-    ).with_model("openai", "gpt-5.2")
+    ).with_model("openai", "gpt-5.2").with_params(
+        max_tokens=ai_config["max_tokens"],
+        temperature=ai_config["temperature"]
+    )
     
     user_message = UserMessage(text=sanitized_text)
     
@@ -718,18 +732,26 @@ class RiskResponse(BaseModel):
 
 @api_router.post("/analyze-risk", response_model=RiskResponse)
 @limiter.limit("10/minute")
-async def analyze_risk(request: Request, body: RiskRequest):
+async def analyze_risk(request: Request, body: RiskRequest, current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email", "anonymous")
+    
+    if not check_and_increment_usage(user_email, "risk_analyzer"):
+        raise HTTPException(status_code=429, detail="Daily limit for risk analysis reached (10/day). Try again tomorrow.")
+    
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
     
+    ai_config = get_ai_config("risk_analyzer")
     chat = LlmChat(
         api_key=api_key,
         session_id=str(uuid.uuid4()),
         system_message=RISK_PROMPT
-    ).with_model("openai", "gpt-5.2")
+    ).with_model("openai", "gpt-5.2").with_params(
+        max_tokens=ai_config["max_tokens"],
+        temperature=ai_config["temperature"]
+    )
     
-    # Sanitize the strategy text before sending to AI
     strategy_text = json.dumps(body.strategy, indent=2)
     sanitized_text = sanitize_user_input(strategy_text, max_length=5000)
     user_message = UserMessage(text=sanitized_text)
@@ -797,16 +819,25 @@ class ExplainResponse(BaseModel):
 
 @api_router.post("/explain", response_model=ExplainResponse)
 @limiter.limit("10/minute")
-async def explain_strategy(request: Request, body: ExplainRequest):
+async def explain_strategy(request: Request, body: ExplainRequest, current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email", "anonymous")
+    
+    if not check_and_increment_usage(user_email, "explainer"):
+        raise HTTPException(status_code=429, detail="Daily limit for strategy explanations reached (10/day). Try again tomorrow.")
+    
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
     
+    ai_config = get_ai_config("explainer")
     chat = LlmChat(
         api_key=api_key,
         session_id=str(uuid.uuid4()),
         system_message=SYSTEM_PROMPT
-    ).with_model("openai", "gpt-5.2")
+    ).with_model("openai", "gpt-5.2").with_params(
+        max_tokens=ai_config["max_tokens"],
+        temperature=ai_config["temperature"]
+    )
     
     # Sanitize user question
     sanitized_question = sanitize_user_input(body.question, max_length=500)
@@ -1058,6 +1089,152 @@ async def run_backtest(request: Request, body: BacktestRequest):
             "losses": 0,
             "data_source": "error"
         }
+
+
+# =============================================================================
+# SESSION MANAGEMENT ENDPOINTS
+# =============================================================================
+
+SESSION_SYSTEM_PROMPT = """You are a trading strategy assistant. Help users build trading strategies step by step.
+
+You understand these indicators: RSI, SMA, EMA, MACD, Stochastic, ADX (filter only), ATR (stop loss).
+You can discuss entry/exit conditions, risk management, timeframes, and symbols.
+
+Rules:
+- Be concise and actionable
+- If the user describes a strategy, extract structured parameters
+- If asked to create a JSON strategy, output valid JSON matching the Text2trade schema
+- Do not give financial advice or predict profits
+- Maximum 200 words per response unless generating JSON output"""
+
+
+class SessionMessageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    message: str = Field(max_length=1000)
+
+
+class SessionMessageResponse(BaseModel):
+    role: str
+    content: str
+    session_id: str
+
+
+@api_router.post("/session/start")
+@limiter.limit("10/minute")
+async def start_session(request: Request, current_user: dict = Depends(get_current_user)):
+    """Create a new conversation session."""
+    user_email = current_user.get("email")
+    result = create_session(user_email)
+    return result
+
+
+@api_router.post("/session/{session_id}/message")
+@limiter.limit("20/minute")
+async def send_session_message(request: Request, session_id: str, body: SessionMessageRequest, current_user: dict = Depends(get_current_user)):
+    """Send a message in a session and get AI response."""
+    user_email = current_user.get("email")
+
+    # Verify session ownership
+    session = get_session(session_id, user_email)
+    if session == "forbidden":
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Check daily usage
+    if not check_and_increment_usage(user_email, "session_chat"):
+        raise HTTPException(status_code=429, detail="Daily session chat limit reached (30/day). Try again tomorrow.")
+
+    # Sanitize user message
+    sanitized = sanitize_user_input(body.message, max_length=1000)
+    if not sanitized:
+        raise HTTPException(status_code=400, detail="Message is empty or invalid")
+
+    # Store user message
+    append_message(session_id, user_email, "user", sanitized)
+
+    # Build context: last 6 messages, token-budgeted to 500 tokens
+    context_msgs = get_context_messages(session_id, user_email, max_messages=6, token_budget=500)
+
+    # Call AI with context
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+
+    ai_config = get_ai_config("session_chat")
+
+    # Build prompt with conversation history (exclude the latest user message — added separately)
+    context_parts = []
+    for msg in context_msgs[:-1]:
+        prefix = "User" if msg["role"] == "user" else "Assistant"
+        context_parts.append(f"{prefix}: {msg['content']}")
+
+    context_str = "\n".join(context_parts) if context_parts else ""
+    full_prompt = f"{context_str}\nUser: {sanitized}" if context_str else sanitized
+
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=session_id,
+        system_message=SESSION_SYSTEM_PROMPT,
+    ).with_model("openai", "gpt-5.2").with_params(
+        max_tokens=ai_config["max_tokens"],
+        temperature=ai_config["temperature"],
+    )
+
+    start_time = time.time()
+    try:
+        response = await resilient_call(
+            chat.send_message, UserMessage(text=full_prompt),
+            circuit_name="ai", max_retries=2, timeout=30.0, fallback=None,
+        )
+        if response is None:
+            raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
+        latency_ms = (time.time() - start_time) * 1000
+        log_ai_call("session_chat", len(full_prompt), latency_ms, True)
+    except (ServiceTimeoutError, ServiceUnavailableError) as e:
+        log_ai_call("session_chat", len(full_prompt), (time.time() - start_time) * 1000, False)
+        raise HTTPException(status_code=503, detail=str(e))
+
+    ai_text = response if isinstance(response, str) else str(response)
+
+    # Store assistant response
+    append_message(session_id, user_email, "assistant", ai_text)
+
+    return SessionMessageResponse(role="assistant", content=ai_text, session_id=session_id)
+
+
+@api_router.get("/session/{session_id}")
+@limiter.limit("30/minute")
+async def get_session_endpoint(request: Request, session_id: str, current_user: dict = Depends(get_current_user)):
+    """Get full session with all messages."""
+    user_email = current_user.get("email")
+    session = get_session(session_id, user_email)
+    if session == "forbidden":
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
+
+
+@api_router.delete("/session/{session_id}")
+@limiter.limit("10/minute")
+async def delete_session_endpoint(request: Request, session_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a session."""
+    user_email = current_user.get("email")
+    session = get_session(session_id, user_email)
+    if session == "forbidden":
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    delete_session(session_id, user_email)
+    return {"success": True, "message": "Session deleted"}
+
+
+@api_router.get("/ai/usage")
+@limiter.limit("30/minute")
+async def get_ai_usage(request: Request, current_user: dict = Depends(get_current_user)):
+    """Get current user's AI usage stats for today."""
+    return get_usage_stats(current_user.get("email"))
 
 
 # =============================================================================
