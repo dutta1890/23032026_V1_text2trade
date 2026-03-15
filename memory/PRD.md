@@ -1,145 +1,95 @@
 # Text2trade - Product Requirements Document
 
 ## Overview
-Text2trade is a trading strategy builder platform with AI-powered features for parsing, explaining, and analyzing trading strategies.
-
-## Original Problem Statement
-Build a full-stack web app called Text2trade with:
-- Home page, Login page, Dashboard with sidebar navigation
-- Strategy Builder UI with multi-step form
-- AI features: Natural Language Parser, Strategy Explainer, Risk Analyzer
-- Support for multiple indicators: RSI, SMA, EMA, MACD, Stochastic, ADX (filter)
-- JWT authentication with MongoDB persistence
-- API hardening: rate limiting, input sanitization, circuit breakers, structured logging
+Text2trade is a trading strategy builder platform with AI-powered features for parsing, explaining, and analyzing trading strategies. Uses NSE India market data for backtesting.
 
 ## Architecture
-- **Frontend**: React (CRA with Craco) + TailwindCSS + Shadcn UI
+- **Frontend**: React + TailwindCSS + Shadcn UI
 - **Backend**: FastAPI (Python)
-- **Database**: MongoDB (persistent)
+- **Database**: MongoDB
+- **Market Data**: NSE India via `nse` package (no API key, no signup)
 - **AI**: OpenAI GPT-5.2 via Emergent LLM Key
-- **Authentication**: JWT (Access + Refresh tokens) with bcrypt password hashing
-- **Theme**: "Tactical Bloomberg" - Dark mode, Signal Green (#00E599) accent
-
-## User Personas
-1. **Traders**: Need fast, functional interfaces to create and manage strategies
-2. **Developers**: Need clean scaffold to build upon
-
-## Supported Indicators
-| Indicator | Type | Parameters | Operators |
-|-----------|------|------------|-----------|
-| RSI | Entry/Exit | period, overbought, oversold | <, >, cross |
-| SMA | Entry/Exit | short, long | cross_above, cross_below |
-| EMA | Entry/Exit | short, long | cross_above, cross_below |
-| MACD | Entry/Exit | fast, slow, signal | bullish_cross, bearish_cross |
-| Stochastic | Entry/Exit | k_period, d_period | cross_above, cross_below |
-| ADX | Filter only | period | >, < |
-| ATR | Stop Loss | period | atr_multiple |
-
-## API Endpoints (All prefixed with /api/v1/)
-| Endpoint | Method | Auth | Rate Limit | Description |
-|----------|--------|------|------------|-------------|
-| /api/v1/health | GET | No | - | Health check with circuit breaker states |
-| /api/v1/auth/register | POST | No | 5/min | Register new user |
-| /api/v1/auth/login | POST | No | 10/min | Login, returns JWT tokens |
-| /api/v1/auth/refresh | POST | No | 20/min | Refresh access token |
-| /api/v1/strategy | POST | JWT | 30/min | Create strategy |
-| /api/v1/strategies | GET | JWT | 30/min | List user's strategies |
-| /api/v1/strategy/{id} | GET | JWT | 30/min | Get single strategy |
-| /api/v1/strategy/{id} | PUT | JWT | 20/min | Update strategy |
-| /api/v1/strategy/{id} | DELETE | JWT | 10/min | Delete strategy |
-| /api/v1/backtest | POST | No | 5/min | Run backtest |
-| /api/v1/parse-strategy | POST | No | 10/min | NL to JSON parser |
-| /api/v1/explain | POST | No | 10/min | AI strategy explainer |
-| /api/v1/analyze-risk | POST | No | 10/min | AI risk analyzer |
-| /api/v1/analytics | GET | No | 30/min | Usage analytics |
-| /api/v1/feedback | POST | No | 5/min | Submit feedback |
-| /api/v1/waitlist | POST | No | 5/min | Join waitlist |
+- **Auth**: JWT (Access + Refresh tokens) with admin/user roles
 
 ## What's Been Implemented
 
-### Date: 2026-03-05 - API Hardening & Auth Fix (Current Session)
-- **Task 1 - Input Sanitization**: `extra="forbid"` on ALL 16 Pydantic models, `max_length` on all strings, `ge/le` bounds on all numerics, `VALID_OPERATORS` Literal type on operator fields, strip_whitespace validators, `sanitize_user_input()` on all AI inputs
-- **Task 2 - CORS**: CORSMiddleware with `ALLOWED_ORIGINS` env var, specific methods `[GET, POST, PUT, DELETE]`, specific headers `[Authorization, Content-Type]`, credentials enabled
-- **Task 3 - Rate Limiting**: Global 60/min per IP, AI=10/min, CRUD=20-30/min, Auth=5-10/min, custom 429 message, X-Forwarded-For proxy support
-- **Task 4 - Resilience**: `resilient_call` with retries/exponential backoff/timeout, `CircuitBreaker` (5 failures→open 60s→half-open), applied to AI calls AND yfinance calls, `/api/v1/health` with MongoDB ping + CB states
-- **Task 5 - Structured Logging**: JSON formatter, `{timestamp, level, request_id, user_id, endpoint, message}` on every log, RequestIdMiddleware, auth success/failure logging, AI call logging with latency
-- Fixed ALL frontend API paths from /api/ to /api/v1/
-- Fixed frontend JWT auth flow (stores tokens in localStorage, sends Bearer headers)
-- Added Stochastic indicator fields in exit conditions
-- Fixed analytics crash (`users_db` → `users_collection`)
+### Session 3 (2026-03-15) — Market Data Pipeline + Admin Roles
+- **Admin/User Roles**: `role` field in users, `get_admin_user` dependency (403 if not admin), role in JWT payload
+- **create_admin.py**: CLI script to seed admin accounts
+- **Market Data Pipeline**: NSE India-native data sources (no yfinance):
+  - NseIndiaApiSource (PRIMARY) — `nse` package, daily OHLCV
+  - NSEPythonSource (BACKUP) — `nsepython` package (currently broken, NSE blocked endpoint)
+  - NSEBhavcopySource (FALLBACK) — official NSE CSV archives
+- **Data Ingestion**: `scripts/ingest_data.py` — 22 symbols × 4 timeframes, 1.5s rate limiting
+- **Data Service**: `data/service.py` — `get_ohlcv()`, `get_available_symbols()`, `get_data_range()` — reads MongoDB ONLY
+- **Admin Endpoints**: `/api/v1/admin/data/status`, `/api/v1/admin/data/refresh`, `/api/v1/admin/users`, `/api/v1/admin/analytics`
+- **Startup Validation**: Checks market_data on startup, warns if empty/stale
+- **yfinance completely removed**: Zero references in codebase
+- **DATA_SETUP.md**: Full setup guide
 
-### Earlier Features
-- Full scaffold with 3 pages (Home, Login, Dashboard)
-- JWT-based authentication (register, login, refresh tokens)
-- Dashboard layout with sidebar navigation
-- Multi-step Strategy Builder (7 steps)
-- AI Strategy Explainer, NL Parser, Risk Analyzer
-- Support for RSI, SMA, EMA, MACD, Stochastic, ADX, ATR indicators
-- Strategy versioning and validation via indicator_registry
-- Historical backtest with yfinance (SMA/EMA), simulated for others
-- ATR-based stop loss
-- ADX filter
-- Usage analytics
-- Landing page with waitlist
-- MongoDB persistence for users and strategies
-- User ownership enforcement on strategies
+### Session 2 (2026-03-05) — API Hardening & Auth Fix
+- Rate limiting (slowapi), input sanitization, circuit breakers, structured logging
+- Fixed frontend JWT auth flow (was using old /api/ paths and X-User-Id)
+- Stochastic indicator exit condition UI
+- Fixed analytics crash, internal test utility
+
+### Session 1 — MVP
+- Full scaffold (Home, Login, Dashboard)
+- JWT auth, strategy CRUD, AI features (parser, explainer, risk analyzer)
+- Indicators: RSI, SMA, EMA, MACD, Stochastic, ADX, ATR
+- Historical backtest, usage analytics, landing page with waitlist
 
 ## File Structure
 ```
-/app/
-├── backend/
-│   ├── .env
-│   ├── auth.py             # JWT auth, user models, password hashing
-│   ├── indicator_registry.py # Indicator definitions & validation
-│   ├── logging_config.py   # Structured JSON logging config
-│   ├── resilience.py       # CircuitBreaker, resilient_call, sanitize_user_input
-│   ├── requirements.txt
-│   ├── server.py           # FastAPI with all /api/v1/ routes
-│   └── tests/
-│       └── test_api_v1.py  # Comprehensive API tests
-├── frontend/src/
-│   ├── App.js
-│   ├── pages/
-│   │   ├── HomePage.js     # Landing page with waitlist
-│   │   ├── LoginPage.js    # JWT auth (login/signup)
-│   │   └── DashboardPage.js # Main dashboard with sidebar
-│   ├── components/
-│   │   ├── StrategyBuilder.js # 7-step strategy form (all indicators)
-│   │   ├── NLStrategyInput.js # NL parser UI
-│   │   └── StrategyChat.js    # AI explainer chat
-│   └── utils/
-│       ├── explainStrategy.js # Strategy text formatter
-│       └── simulate.js
-└── memory/
-    └── PRD.md
+/app/backend/
+├── auth.py                    # JWT auth with admin/user roles
+├── server.py                  # FastAPI with all /api/v1/ routes + admin router
+├── data/
+│   ├── service.py             # Data access layer (MongoDB ONLY)
+│   └── sources/
+│       ├── base.py            # MarketDataSource ABC
+│       ├── nseindia_api_source.py  # PRIMARY (nse package)
+│       ├── nsepython_source.py     # BACKUP (broken)
+│       └── nse_bhavcopy_source.py  # FALLBACK
+├── scripts/
+│   ├── create_admin.py        # Seed admin accounts
+│   ├── setup_data_source.py   # Interactive setup wizard
+│   ├── ingest_data.py         # Download data from NSE India
+│   └── refresh_data.py        # Incremental daily refresh
+├── resilience.py, logging_config.py, indicator_registry.py
+└── DATA_SETUP.md
 ```
+
+## API Endpoints
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| /api/v1/health | GET | No | Health check |
+| /api/v1/auth/register | POST | No | Register (role=user) |
+| /api/v1/auth/login | POST | No | Login → JWT with role |
+| /api/v1/strategy | POST | JWT | Create strategy |
+| /api/v1/strategies | GET | JWT | List user strategies |
+| /api/v1/backtest | POST | No | Run backtest |
+| /api/v1/admin/data/status | GET | Admin | Data health report |
+| /api/v1/admin/data/refresh | POST | Admin | Trigger refresh |
+| /api/v1/admin/users | GET | Admin | List all users |
+| /api/v1/admin/analytics | GET | Admin | Platform stats |
 
 ## Prioritized Backlog
 
-### P0 - Critical (All Done)
-- [x] Basic scaffold with all pages
-- [x] JWT authentication with MongoDB
-- [x] Strategy Builder UI (7 steps, all indicators)
-- [x] AI features (parser, explainer, risk analyzer)
-- [x] MongoDB persistence
-- [x] API hardening (rate limiting, sanitization, circuit breakers, logging)
-- [x] Frontend JWT auth integration
-
-### P1 - Important (Next)
+### P1 - Next
+- [ ] Run full ingestion (22 symbols, all timeframes)
 - [ ] Frontend edit/delete buttons on strategy list
 - [ ] Analytics dashboard UI
 
 ### P2 - Nice to Have
+- [ ] Expand backtest beyond SMA (RSI/MACD/Stochastic with real data)
 - [ ] Token blacklist for logout
 - [ ] Password reset flow
-- [ ] Caching layer for DB queries
-- [ ] Expand backtest beyond SMA/EMA (currently MOCKED for other indicators)
 - [ ] Strategy sharing between users
-- [ ] Email integration for waitlist
-
-## Known Limitations
-- **Backtest**: Only SMA/EMA use real yfinance data; RSI/MACD/Stochastic use SIMULATED random data
-- **No token blacklist**: Logout only clears localStorage, doesn't invalidate server-side tokens
 
 ## Test Reports
-- `/app/test_reports/iteration_7.json` - Comprehensive e2e test (100% pass rate)
+- `/app/test_reports/iteration_8.json` — Admin roles + market data pipeline (100% pass)
+
+## Credentials
+- Admin: `admin@text2trade.com` / `AdminPass123!`
+- Market data: RELIANCE daily (743 candles) ingested
