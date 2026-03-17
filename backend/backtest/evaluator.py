@@ -1,11 +1,12 @@
 """Condition evaluator — decides if a single condition is True at a given candle index.
 
 Supports operators: >, <, >=, <=, cross_above, cross_below,
-bullish_cross, bearish_cross, upper_touch, lower_touch.
+bullish_cross, bearish_cross, upper_touch, lower_touch,
+buy_signal, sell_signal (Supertrend),
+above_r1, below_s1, above_r2, below_s2 (Pivot Points).
 """
 
 import math
-from typing import Any
 
 import pandas as pd
 
@@ -21,9 +22,7 @@ def _safe_value(series: pd.Series, idx: int) -> float:
 
 
 def _crosses(series_a: pd.Series, series_b_or_val, idx: int, direction: str) -> bool:
-    """Check if series_a crosses above/below series_b_or_val at index idx.
-    direction: 'above' or 'below'.
-    """
+    """Check if series_a crosses above/below series_b_or_val at index idx."""
     if idx < 1:
         return False
 
@@ -42,32 +41,21 @@ def _crosses(series_a: pd.Series, series_b_or_val, idx: int, direction: str) -> 
 
     if direction == "above":
         return prev_a <= prev_b and curr_a > curr_b
-    else:  # below
+    else:
         return prev_a >= prev_b and curr_a < curr_b
 
 
 def evaluate_condition(condition: dict, indicators: dict, candle_index: int, df: pd.DataFrame) -> bool:
-    """Evaluate a single condition at a candle index.
-
-    Args:
-        condition: {"name": str, "params": dict, "operator": str, "value": float|None}
-        indicators: pre-computed indicators keyed by (name, param_key) -> Series or dict
-        candle_index: current bar index in the DataFrame
-        df: the OHLCV DataFrame (for price references)
-
-    Returns True if condition is met.
-    """
+    """Evaluate a single condition at a candle index."""
     name = condition["name"]
     operator = condition["operator"]
     threshold = condition.get("value")
     params = condition.get("params", {})
 
-    # Build a hashable key for the indicator cache
     ind_key = _indicator_key(name, params)
     ind_data = indicators.get(ind_key)
 
     # --- SMA / EMA (crossover between short and long) ---
-    # These use two separate series keyed by period, not the composite key
     if name in ("SMA", "EMA"):
         short_key = _indicator_key(name, {"period": params.get("short", params.get("period", 9))})
         long_key = _indicator_key(name, {"period": params.get("long", 21)})
@@ -79,13 +67,11 @@ def evaluate_condition(condition: dict, indicators: dict, candle_index: int, df:
             return _crosses(short_s, long_s, candle_index, "above")
         if operator in ("cross_below", "crosses_below"):
             return _crosses(short_s, long_s, candle_index, "below")
-        # Fallback: compare short MA to threshold
         val = _safe_value(short_s, candle_index)
         if math.isnan(val) or threshold is None:
             return False
         return _compare(val, operator, float(threshold), short_s, candle_index)
 
-    # For other indicators, ind_data must exist
     if ind_data is None:
         return False
 
@@ -119,15 +105,24 @@ def evaluate_condition(condition: dict, indicators: dict, candle_index: int, df:
             return upper is not None and close_val >= _safe_value(upper, candle_index)
         if operator == "lower_touch":
             return lower is not None and close_val <= _safe_value(lower, candle_index)
-        # Generic comparison against middle band
         middle = ind_data.get("middle")
         if middle is not None and threshold is None:
             val = _safe_value(middle, candle_index)
             return _compare(close_val, operator, val, df["close"], candle_index)
         return False
 
-    # --- ADX (filter) ---
+    # --- ADX ---
     if name == "ADX":
+        adx_series = ind_data.get("adx") if isinstance(ind_data, dict) else ind_data
+        if adx_series is None:
+            return False
+        val = _safe_value(adx_series, candle_index)
+        if math.isnan(val) or threshold is None:
+            return False
+        return _compare(val, operator, float(threshold), adx_series, candle_index)
+
+    # --- ATR ---
+    if name == "ATR":
         val = _safe_value(ind_data, candle_index)
         if math.isnan(val) or threshold is None:
             return False
@@ -146,6 +141,117 @@ def evaluate_condition(condition: dict, indicators: dict, candle_index: int, df:
         if math.isnan(val) or threshold is None:
             return False
         return _compare(val, operator, float(threshold), k_line, candle_index)
+
+    # --- Supertrend ---
+    if name == "Supertrend":
+        direction = ind_data.get("direction")
+        supertrend_line = ind_data.get("supertrend")
+        if direction is None:
+            return False
+        curr_dir = _safe_value(direction, candle_index)
+        if operator == "buy_signal":
+            # Direction flips from -1 to 1
+            if candle_index < 1:
+                return False
+            prev_dir = _safe_value(direction, candle_index - 1)
+            return prev_dir == -1 and curr_dir == 1
+        if operator == "sell_signal":
+            if candle_index < 1:
+                return False
+            prev_dir = _safe_value(direction, candle_index - 1)
+            return prev_dir == 1 and curr_dir == -1
+        # Generic: compare close vs supertrend line
+        if supertrend_line is not None:
+            close_val = _safe_value(df["close"], candle_index)
+            st_val = _safe_value(supertrend_line, candle_index)
+            if math.isnan(close_val) or math.isnan(st_val):
+                return False
+            if operator == ">":
+                return close_val > st_val
+            if operator == "<":
+                return close_val < st_val
+        return False
+
+    # --- VWAP ---
+    if name == "VWAP":
+        val = _safe_value(ind_data, candle_index)
+        close_val = _safe_value(df["close"], candle_index)
+        if math.isnan(val) or math.isnan(close_val):
+            return False
+        if operator == ">":
+            return close_val > val
+        if operator == "<":
+            return close_val < val
+        if operator in ("cross_above", "crosses_above"):
+            return _crosses(df["close"], ind_data, candle_index, "above")
+        if operator in ("cross_below", "crosses_below"):
+            return _crosses(df["close"], ind_data, candle_index, "below")
+        return False
+
+    # --- Pivot Points ---
+    if name == "PivotPoints":
+        close_val = _safe_value(df["close"], candle_index)
+        if math.isnan(close_val):
+            return False
+        if operator == "above_r1":
+            r1 = ind_data.get("r1")
+            return r1 is not None and close_val > _safe_value(r1, candle_index)
+        if operator == "below_s1":
+            s1 = ind_data.get("s1")
+            return s1 is not None and close_val < _safe_value(s1, candle_index)
+        if operator == "above_r2":
+            r2 = ind_data.get("r2")
+            return r2 is not None and close_val > _safe_value(r2, candle_index)
+        if operator == "below_s2":
+            s2 = ind_data.get("s2")
+            return s2 is not None and close_val < _safe_value(s2, candle_index)
+        # Generic comparison against pivot
+        pivot = ind_data.get("pivot")
+        if pivot is not None:
+            pv = _safe_value(pivot, candle_index)
+            if not math.isnan(pv):
+                return _compare(close_val, operator, pv, df["close"], candle_index)
+        return False
+
+    # --- PSAR ---
+    if name == "PSAR":
+        val = _safe_value(ind_data, candle_index)
+        close_val = _safe_value(df["close"], candle_index)
+        if math.isnan(val) or math.isnan(close_val):
+            return False
+        if operator == ">":
+            return close_val > val
+        if operator == "<":
+            return close_val < val
+        if operator in ("cross_above", "crosses_above"):
+            return _crosses(df["close"], ind_data, candle_index, "above")
+        if operator in ("cross_below", "crosses_below"):
+            return _crosses(df["close"], ind_data, candle_index, "below")
+        return False
+
+    # --- CCI ---
+    if name == "CCI":
+        val = _safe_value(ind_data, candle_index)
+        if math.isnan(val) or threshold is None:
+            return False
+        return _compare(val, operator, float(threshold), ind_data, candle_index)
+
+    # --- Williams %R ---
+    if name == "WilliamsR":
+        val = _safe_value(ind_data, candle_index)
+        if math.isnan(val) or threshold is None:
+            return False
+        return _compare(val, operator, float(threshold), ind_data, candle_index)
+
+    # --- OBV ---
+    if name == "OBV":
+        val = _safe_value(ind_data, candle_index)
+        if math.isnan(val):
+            return False
+        if threshold is not None:
+            return _compare(val, operator, float(threshold), ind_data, candle_index)
+        # Cross-based: compare OBV to its own SMA (not implemented without extra params)
+        return False
 
     return False
 

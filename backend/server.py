@@ -598,20 +598,31 @@ async def join_waitlist(request: Request, body: WaitlistRequest):
 
 PARSER_PROMPT = """You extract structured trading strategy data.
 
-Supported indicators ONLY:
-- RSI: params { "period": int }, value is number (0-100)
-- SMA: params { "short": int, "long": int }
-- EMA: params { "short": int, "long": int }
+Supported indicators (15 total):
+- RSI: params { "period": int }, value 0-100, operators: <, >, cross_above, cross_below
+- SMA: params { "short": int, "long": int }, operators: crosses_above, crosses_below
+- EMA: params { "short": int, "long": int }, operators: crosses_above, crosses_below
 - MACD: params { "fast": int, "slow": int, "signal": int }, operators: bullish_cross, bearish_cross
 - Stochastic: params { "k_period": int, "d_period": int }, operators: cross_above, cross_below
+- Bollinger: params { "period": int, "std_dev": int }, operators: upper_touch, lower_touch
+- ADX: params { "period": int }, operators: >, <
+- ATR: params { "period": int }, operators: >, <
+- Supertrend: params { "period": int, "multiplier": float }, operators: buy_signal, sell_signal
+- VWAP: no params, operators: >, <, cross_above, cross_below (price vs VWAP)
+- PivotPoints: params { "method": "standard"|"fibonacci"|"woodie" }, operators: above_r1, below_s1, above_r2, below_s2
+- PSAR: params { "af_start": float, "af_max": float }, operators: >, <, cross_above, cross_below
+- CCI: params { "period": int }, value threshold, operators: >, <, cross_above, cross_below
+- WilliamsR: params { "period": int }, value -100 to 0, operators: >, <, cross_above, cross_below
+- OBV: no params, operators: >, <
 
 Common patterns:
 - "Golden cross" = SMA with operator crosses_above
 - "Death cross" = SMA with operator crosses_below
 - "MACD bullish" = MACD with operator bullish_cross
-- "MACD bearish" = MACD with operator bearish_cross
 - "Stochastic oversold" = Stochastic cross_above with value 20
-- "Stochastic overbought" = Stochastic cross_below with value 80
+- "Supertrend buy" = Supertrend with operator buy_signal
+- "Price above VWAP" = VWAP with operator >
+- "Bollinger squeeze" = Bollinger lower_touch (entry) + upper_touch (exit)
 
 Return ONLY valid JSON:
 
@@ -623,7 +634,7 @@ Return ONLY valid JSON:
 }
 
 Rules:
-- Only use RSI, SMA, EMA, MACD, Stochastic. Ignore other indicators.
+- Only use the 15 indicators listed above. Ignore unsupported indicators.
 - Extract only explicitly mentioned values.
 - Do not guess missing numbers.
 - Do not explain or add text outside JSON."""
@@ -705,7 +716,7 @@ async def parse_strategy(request: Request, body: ParseRequest, current_user: dic
 
 RISK_PROMPT = """You analyze a structured trading strategy.
 
-Supported indicators ONLY: RSI, SMA, EMA, MACD, Stochastic.
+Supported indicators: RSI, SMA, EMA, MACD, Stochastic, Bollinger, ADX, ATR, Supertrend, VWAP, PivotPoints, PSAR, CCI, WilliamsR, OBV.
 
 Output:
 - Maximum 3 concise risk observations.
@@ -716,7 +727,6 @@ Rules:
 - Do not give advice.
 - Do not predict profitability.
 - Do not suggest alternative indicators.
-- Do not mention indicators not supported (only RSI, SMA, EMA, MACD, Stochastic).
 - Only comment on structural risk (e.g., no stop loss, missing exit).
 - If insufficient data, say: "Risk cannot be assessed fully."
 
@@ -784,7 +794,7 @@ async def analyze_risk(request: Request, body: RiskRequest, current_user: dict =
 
 SYSTEM_PROMPT = """You are a trading strategy explainer.
 
-Supported indicators ONLY: RSI, SMA, EMA, MACD, Stochastic.
+Supported indicators: RSI, SMA, EMA, MACD, Stochastic, Bollinger, ADX, ATR, Supertrend, VWAP, PivotPoints, PSAR, CCI, WilliamsR, OBV.
 
 You will receive:
 1. A structured strategy JSON.
@@ -799,7 +809,6 @@ Strict rules:
 - Do NOT give financial advice.
 - Do NOT predict profits or performance.
 - Do NOT suggest improvements.
-- Do NOT mention indicators not in the JSON (only RSI, SMA, EMA, MACD, Stochastic supported).
 - Do NOT hallucinate or add information not present.
 - If a field is missing, say: "Not defined in this strategy."
 
@@ -921,8 +930,8 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest):
 
 SESSION_SYSTEM_PROMPT = """You are a trading strategy assistant. Help users build trading strategies step by step.
 
-You understand these indicators: RSI, SMA, EMA, MACD, Stochastic, ADX (filter only), ATR (stop loss).
-You can discuss entry/exit conditions, risk management, timeframes, and symbols.
+You understand these 15 indicators:
+RSI, SMA, EMA, MACD, Stochastic, Bollinger Bands, ADX, ATR, Supertrend, VWAP, Pivot Points, PSAR, CCI, Williams %R, OBV.
 
 Rules:
 - Be concise and actionable

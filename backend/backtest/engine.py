@@ -5,13 +5,11 @@ Flow: fetch OHLCV -> compute indicators -> iterate candles -> evaluate entry/exi
 
 import logging
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import List, Optional
 
 import pandas as pd
-import ta.momentum
-import ta.trend
 
 from data.service import get_ohlcv
 from indicators.calculator import compute_indicator, CALCULATOR_REGISTRY
@@ -65,34 +63,17 @@ def _precompute_indicators(df: pd.DataFrame, conditions: list) -> dict:
         params = cond.get("params", {})
 
         if name in ("SMA", "EMA"):
-            # Need both short and long MAs
+            # Need both short and long MAs as separate series
             short_p = params.get("short", params.get("period", 9))
             long_p = params.get("long", 21)
             for p in [short_p, long_p]:
                 key = _indicator_key(name, {"period": p})
                 if key not in cache:
-                    calc_name = name  # SMA or EMA
-                    cache[key] = compute_indicator(df, calc_name, {"period": p})
+                    cache[key] = compute_indicator(df, name, {"period": p})
         elif name in CALCULATOR_REGISTRY:
             key = _indicator_key(name, params)
             if key not in cache:
                 cache[key] = compute_indicator(df, name, params)
-        elif name == "Stochastic":
-            key = _indicator_key(name, params)
-            if key not in cache:
-                k_period = params.get("k_period", 14)
-                d_period = params.get("d_period", 3)
-                stoch = ta.momentum.StochasticOscillator(
-                    df["high"], df["low"], df["close"],
-                    window=k_period, smooth_window=d_period
-                )
-                cache[key] = {"k": stoch.stoch(), "d": stoch.stoch_signal()}
-        elif name == "ADX":
-            key = _indicator_key(name, params)
-            if key not in cache:
-                period = params.get("period", 14)
-                adx = ta.trend.ADXIndicator(df["high"], df["low"], df["close"], window=period)
-                cache[key] = adx.adx()
 
     return cache
 
