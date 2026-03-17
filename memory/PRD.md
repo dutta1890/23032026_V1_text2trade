@@ -14,6 +14,14 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## What's Been Implemented
 
+### Session 6 (2026-03-15) — 15 Indicators Complete
+- **Completed existing 3**: Stochastic (k, d), ADX (adx, +DI, -DI), ATR
+- **Added 7 new**: Supertrend (buy_signal/sell_signal), VWAP (daily-reset for intraday), Pivot Points (standard/fibonacci/woodie), PSAR, CCI, Williams %R, OBV
+- **Updated registry**: 15 indicators with params and operators
+- **Updated evaluator**: New operators buy_signal, sell_signal, above_r1, below_s1, above_r2, below_s2
+- **Updated AI prompts**: All 15 indicators listed in parser, explainer, risk analyzer, session prompts
+- **Testing**: 12/12 passed, iteration_11.json
+
 ### Session 5 (2026-03-15) — Real Backtest Engine
 - **Killed fake backtest**: Removed ALL simulated/random backtest code from server.py
 - **Indicator Calculator** (`indicators/calculator.py`): 5 core indicators using `ta` library:
@@ -92,7 +100,6 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - [ ] Frontend edit/delete buttons on strategy list
 - [ ] Analytics dashboard UI
 - [ ] Refactor server.py into routers
-- [ ] Stochastic/ADX/ATR indicators in backtest engine (currently only RSI, SMA, EMA, MACD, Bollinger)
 
 ### P2 - Nice to Have
 - [ ] Token blacklist for logout
@@ -102,6 +109,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - [ ] Email integration for waitlist
 
 ## Test Reports
+- `/app/test_reports/iteration_11.json` — 15 indicators (12/12 pass)
 - `/app/test_reports/iteration_10.json` — Real backtest engine (9/10 pass)
 - `/app/test_reports/iteration_9.json` — AI sessions (13/13 pass)
 - `/app/test_reports/iteration_8.json` — Data pipeline (100% pass)
