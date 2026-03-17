@@ -26,6 +26,10 @@ INDICATORS = {
     "ATR": {
         "params": ["period"],
         "operators": ["atr_multiple"]
+    },
+    "Bollinger": {
+        "params": ["period", "std_dev"],
+        "operators": [">", "<", ">=", "<=", "upper_touch", "lower_touch"]
     }
 }
 
