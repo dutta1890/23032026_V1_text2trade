@@ -14,6 +14,14 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## What's Been Implemented
 
+### Session 7 (2026-03-15) — Performance Analytics, Costs & Equity Curve
+- **Metrics** (`backtest/metrics.py`): 18 fields — total_trades, win_rate, total_pnl_pct/abs, max_drawdown_pct/duration, sharpe_ratio (annualized, 6% risk-free), profit_factor, avg_pnl, avg_win/loss, max_consecutive_wins/losses, avg_holding, best/worst trade
+- **Costs** (`backtest/costs.py`): Zerodha-like model — Rs 20/order brokerage, 0.1% STT sell-side delivery, 0.00345% exchange charges, GST, stamp duty, SEBI charges
+- **Slippage**: Configurable per-request (default 0.05%). Entry goes up, exit goes down.
+- **Equity Curve**: [{timestamp, equity, drawdown_pct}] starting at initial_capital
+- **Updated API**: BacktestRequest accepts slippage_pct, initial_capital, brokerage_per_order. Response now includes metrics, costs, equity_curve, warnings
+- **Testing**: 9/9 passed, iteration_12.json
+
 ### Session 6 (2026-03-15) — 15 Indicators Complete
 - **Completed existing 3**: Stochastic (k, d), ADX (adx, +DI, -DI), ATR
 - **Added 7 new**: Supertrend (buy_signal/sell_signal), VWAP (daily-reset for intraday), Pivot Points (standard/fibonacci/woodie), PSAR, CCI, Williams %R, OBV
@@ -109,6 +117,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - [ ] Email integration for waitlist
 
 ## Test Reports
+- `/app/test_reports/iteration_12.json` — Analytics layer (9/9 pass)
 - `/app/test_reports/iteration_11.json` — 15 indicators (12/12 pass)
 - `/app/test_reports/iteration_10.json` — Real backtest engine (9/10 pass)
 - `/app/test_reports/iteration_9.json` — AI sessions (13/13 pass)
