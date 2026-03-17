@@ -883,20 +883,21 @@ from backtest.engine import run_backtest as engine_run_backtest
 class BacktestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     strategy: dict
+    slippage_pct: float = 0.05
+    initial_capital: float = 100000
+    brokerage_per_order: float = 20
 
 class BacktestResponse(BaseModel):
     success: bool
     label: str
     disclaimer: str
     trades: list
-    win_rate: float
-    pnl: float
-    total_trades: int
-    wins: int
-    losses: int
+    metrics: dict
+    costs: dict
+    equity_curve: list
+    warnings: list
     data_source: str
     candles_processed: int = 0
-    message: str = ""
 
 @api_router.post("/backtest", response_model=BacktestResponse)
 @limiter.limit("5/minute")
@@ -906,21 +907,27 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest):
         symbol = strategy.get("instrument", {}).get("symbol", "RELIANCE")
         timeframe = strategy.get("timeframe", {}).get("interval", "1d")
 
-        result = engine_run_backtest(strategy, symbol, timeframe)
+        result = engine_run_backtest(
+            strategy, symbol, timeframe,
+            slippage_pct=body.slippage_pct,
+            initial_capital=body.initial_capital,
+            brokerage_per_order=body.brokerage_per_order,
+        )
 
         analytics_db["backtests_run"] += 1
-        if result.success and result.trades:
+        if result["success"] and result["trades"]:
             analytics_db["backtest_types"]["historical"] += 1
 
-        return result.__dict__
+        return result
     except Exception as e:
         logger.error(f"Backtest endpoint error: {e}")
+        from backtest.metrics import calculate_metrics
         return {
             "success": False, "label": "Backtest Error",
-            "disclaimer": str(e), "trades": [], "win_rate": 0,
-            "pnl": 0, "total_trades": 0, "wins": 0, "losses": 0,
+            "disclaimer": str(e), "trades": [],
+            "metrics": calculate_metrics([]), "costs": {},
+            "equity_curve": [], "warnings": [str(e)],
             "data_source": "error", "candles_processed": 0,
-            "message": f"Unexpected error: {e}",
         }
 
 
