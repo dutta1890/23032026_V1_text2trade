@@ -14,6 +14,14 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## What's Been Implemented
 
+### Session 8 (2026-03-15) — Multi-turn NL Parser Rewrite
+- **New system prompt**: 3 response modes (question/strategy/error). AI asks follow-up questions for missing info. Never guesses values. F&O redirect. 15 supported indicators + 22 instruments.
+- **Conversation flow handler**: Parses AI JSON response, validates strategy mode against registry + Pydantic, silent retry on validation failure (1 extra credit).
+- **Hallucination detection**: Extracts indicator names from every strategy response, rejects + retries if unsupported indicator found.
+- **Normalization**: `_normalize_ai_strategy()` transforms free-form AI JSON to strict schema (handles `indicator`→`name`, nested risk_management objects, etc.)
+- **Strategy finalization**: `POST /session/{id}/finalize` validates draft, normalizes, saves to strategies collection. `PUT /session/{id}/draft` for manual editing before finalize.
+- **Testing**: 12/12 passed, iteration_13.json
+
 ### Session 7 (2026-03-15) — Performance Analytics, Costs & Equity Curve
 - **Metrics** (`backtest/metrics.py`): 18 fields — total_trades, win_rate, total_pnl_pct/abs, max_drawdown_pct/duration, sharpe_ratio (annualized, 6% risk-free), profit_factor, avg_pnl, avg_win/loss, max_consecutive_wins/losses, avg_holding, best/worst trade
 - **Costs** (`backtest/costs.py`): Zerodha-like model — Rs 20/order brokerage, 0.1% STT sell-side delivery, 0.00345% exchange charges, GST, stamp duty, SEBI charges
@@ -98,6 +106,8 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 | /api/v1/analyze-risk | POST | JWT | AI: risk analysis |
 | /api/v1/session/start | POST | JWT | Create session |
 | /api/v1/session/{id}/message | POST | JWT | Session message |
+| /api/v1/session/{id}/finalize | POST | JWT | Validate + save strategy draft |
+| /api/v1/session/{id}/draft | PUT | JWT | Manually edit strategy draft |
 | /api/v1/session/{id} | GET/DELETE | JWT | Get/delete session |
 | /api/v1/ai/usage | GET | JWT | Usage stats |
 | /api/v1/admin/* | Various | Admin | Admin endpoints |
@@ -117,6 +127,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - [ ] Email integration for waitlist
 
 ## Test Reports
+- `/app/test_reports/iteration_13.json` — Multi-turn NL parser (12/12 pass)
 - `/app/test_reports/iteration_12.json` — Analytics layer (9/9 pass)
 - `/app/test_reports/iteration_11.json` — 15 indicators (12/12 pass)
 - `/app/test_reports/iteration_10.json` — Real backtest engine (9/10 pass)
