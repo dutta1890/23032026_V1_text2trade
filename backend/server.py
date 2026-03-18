@@ -152,7 +152,10 @@ VALID_OPERATORS = Literal[
     "<", ">", ">=", "<=", "==",
     "cross_above", "cross_below", "crosses_above", "crosses_below",
     "bullish_cross", "bearish_cross",
-    "atr_multiple"
+    "atr_multiple",
+    "buy_signal", "sell_signal",
+    "upper_touch", "lower_touch",
+    "above_r1", "below_s1", "above_r2", "below_s2"
 ]
 
 class IndicatorCondition(BaseModel):
@@ -935,17 +938,195 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest):
 # SESSION MANAGEMENT ENDPOINTS
 # =============================================================================
 
-SESSION_SYSTEM_PROMPT = """You are a trading strategy assistant. Help users build trading strategies step by step.
+NL_BUILDER_SYSTEM_PROMPT = """You are a trading strategy builder assistant for the Indian stock market.
 
-You understand these 15 indicators:
-RSI, SMA, EMA, MACD, Stochastic, Bollinger Bands, ADX, ATR, Supertrend, VWAP, Pivot Points, PSAR, CCI, Williams %R, OBV.
+Your job: Convert the user's trading idea into a structured equity strategy JSON through conversation. Ask clarifying questions when information is missing. Never guess values.
 
-Rules:
-- Be concise and actionable
-- If the user describes a strategy, extract structured parameters
-- If asked to create a JSON strategy, output valid JSON matching the Text2trade schema
-- Do not give financial advice or predict profits
-- Maximum 200 words per response unless generating JSON output"""
+SCOPE: Equity / stock trading only. If the user asks about options, futures, F&O, or derivatives, respond:
+{ "mode": "question", "message": "F&O support is coming in the next release. For now, let's build your equity strategy. Which stock are you interested in?" }
+
+SUPPORTED INDICATORS (only use these):
+RSI, SMA, EMA, MACD, Bollinger, Stochastic, ADX, ATR, Supertrend, VWAP, PivotPoints, PSAR, CCI, WilliamsR, OBV
+
+SUPPORTED INSTRUMENTS (equity only):
+RELIANCE, TCS, HDFCBANK, INFY, ICICIBANK, HINDUNILVR, ITC, SBIN, BHARTIARTL, KOTAKBANK, LT, AXISBANK, ASIANPAINT, MARUTI, BAJFINANCE, TITAN, SUNPHARMA, HCLTECH, WIPRO, TATAMOTORS, NIFTY 50, BANKNIFTY
+
+RESPONSE MODES:
+
+MODE 1 — QUESTION: { "mode": "question", "message": "...", "fields_needed": [...] }
+MODE 2 — STRATEGY: { "mode": "strategy", "strategy": { "instrument": { "symbol": "", "type": "equity" }, "timeframe": "", "entry_conditions": [...], "exit_conditions": [...], "risk_management": { ... } }, "explanation": "..." }
+MODE 3 — ERROR: { "mode": "error", "message": "..." }
+
+RULES:
+- Instrument type is ALWAYS "equity".
+- If stop loss missing: ASK.
+- If exit condition missing: ASK.
+- If instrument missing: ASK.
+- If timeframe missing: ASK.
+- Unsupported indicator: return error mode.
+- One question at a time. Max 2 fields per question.
+- Never give financial advice. Never predict profits."""
+
+SUPPORTED_INDICATORS = {
+    "RSI", "SMA", "EMA", "MACD", "Bollinger", "Stochastic", "ADX", "ATR",
+    "Supertrend", "VWAP", "PivotPoints", "PSAR", "CCI", "WilliamsR", "OBV",
+}
+
+SUPPORTED_INSTRUMENTS = {
+    "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR", "ITC",
+    "SBIN", "BHARTIARTL", "KOTAKBANK", "LT", "AXISBANK", "ASIANPAINT", "MARUTI",
+    "BAJFINANCE", "TITAN", "SUNPHARMA", "HCLTECH", "WIPRO", "TATAMOTORS",
+    "NIFTY 50", "BANKNIFTY",
+}
+
+
+def _detect_hallucinated_indicators(strategy_data: dict) -> list:
+    """Extract indicator names from a strategy dict and check against registry.
+    Returns list of invalid indicator names. Handles both 'name' and 'indicator' fields.
+    """
+    invalid = []
+    for cond_list_key in ("entry_conditions", "exit_conditions", "filters"):
+        for cond in strategy_data.get(cond_list_key, []):
+            name = cond.get("name") or cond.get("indicator") or ""
+            if name and name not in SUPPORTED_INDICATORS:
+                invalid.append(name)
+    return invalid
+
+
+def _parse_ai_json(text: str) -> dict:
+    """Extract JSON from AI response text. Handles markdown code blocks."""
+    import re
+    cleaned = text.strip()
+    # Strip markdown code fences
+    match = re.search(r'```(?:json)?\s*([\s\S]*?)```', cleaned)
+    if match:
+        cleaned = match.group(1).strip()
+    # Try to find JSON object
+    start = cleaned.find('{')
+    if start == -1:
+        return None
+    # Find matching closing brace
+    depth = 0
+    for i in range(start, len(cleaned)):
+        if cleaned[i] == '{':
+            depth += 1
+        elif cleaned[i] == '}':
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(cleaned[start:i+1])
+                except json.JSONDecodeError:
+                    return None
+    return None
+
+
+def _validate_strategy_draft(strategy_data: dict) -> list:
+    """Validate a strategy draft from AI. Returns list of error strings."""
+    errors = []
+    if not strategy_data.get("entry_conditions"):
+        errors.append("No entry conditions defined.")
+    if not strategy_data.get("instrument") or not strategy_data["instrument"].get("symbol"):
+        errors.append("No instrument/symbol specified.")
+    if not strategy_data.get("timeframe"):
+        errors.append("No timeframe specified.")
+
+    hallucinated = _detect_hallucinated_indicators(strategy_data)
+    if hallucinated:
+        errors.append(f"Unsupported indicators: {', '.join(hallucinated)}")
+
+    return errors
+
+
+def _normalize_ai_condition(cond: dict) -> dict:
+    """Normalize an AI-generated condition to match our strict IndicatorCondition schema.
+    Handles: 'indicator' -> 'name', 'length' -> 'period', strips extra fields.
+    """
+    name = cond.get("name") or cond.get("indicator") or ""
+
+    # Normalize params
+    raw_params = cond.get("params", {})
+    params = {}
+    for k, v in raw_params.items():
+        if k == "length":
+            params["period"] = v
+        else:
+            params[k] = v
+
+    operator = cond.get("operator", "")
+    value = cond.get("value")
+
+    # Only return fields our schema expects
+    result = {"name": name, "params": params, "operator": operator}
+    if value is not None:
+        result["value"] = value
+    return result
+
+
+def _normalize_ai_strategy(draft: dict) -> dict:
+    """Normalize AI-generated strategy JSON to match the strict schema used by CRUD endpoints."""
+    normalized = {}
+
+    # Instrument
+    inst = draft.get("instrument", {})
+    if isinstance(inst, str):
+        normalized["instrument"] = {"symbol": inst}
+    else:
+        normalized["instrument"] = {"symbol": inst.get("symbol", ""), "base": None, "quote": None}
+
+    # Timeframe
+    tf = draft.get("timeframe", "1d")
+    if isinstance(tf, dict):
+        normalized["timeframe"] = tf
+    else:
+        normalized["timeframe"] = {"interval": tf, "candle_count": None}
+
+    # Entry conditions — normalize each, skip non-indicator entries
+    normalized["entry_conditions"] = []
+    for c in draft.get("entry_conditions", []):
+        ind_name = c.get("name") or c.get("indicator") or ""
+        if ind_name in SUPPORTED_INDICATORS:
+            normalized["entry_conditions"].append(_normalize_ai_condition(c))
+
+    # Exit conditions — normalize each, skip TP/SL entries (they go to risk_management)
+    normalized["exit_conditions"] = []
+    for c in draft.get("exit_conditions", []):
+        ctype = c.get("type", "")
+        if ctype in ("take_profit", "stop_loss"):
+            continue  # These belong in risk_management
+        ind_name = c.get("name") or c.get("indicator") or ""
+        if ind_name in SUPPORTED_INDICATORS:
+            normalized["exit_conditions"].append(_normalize_ai_condition(c))
+
+    # Filters
+    normalized["filters"] = []
+    for c in draft.get("filters", []):
+        ind_name = c.get("name") or c.get("indicator") or ""
+        if ind_name in SUPPORTED_INDICATORS:
+            normalized["filters"].append(_normalize_ai_condition(c))
+
+    # Risk management — normalize from various AI formats
+    rm = draft.get("risk_management", {})
+    sl = rm.get("stop_loss")
+    tp = rm.get("take_profit")
+    # Handle nested objects like {"stop_loss": {"value": 4, "type": "fixed_percent"}}
+    if isinstance(sl, dict):
+        sl = sl.get("value")
+    if isinstance(tp, dict):
+        tp = tp.get("value")
+    normalized["risk_management"] = {
+        "position_size": None,
+        "position_size_type": None,
+        "max_daily_loss": None,
+        "max_drawdown": None,
+        "risk_per_trade": None,
+        "stop_loss": float(sl) if sl is not None else None,
+        "stop_loss_type": "fixed",
+        "stop_loss_atr_period": 14,
+        "take_profit": float(tp) if tp is not None else None,
+        "trailing_stop": None,
+    }
+
+    return normalized
 
 
 class SessionMessageRequest(BaseModel):
@@ -954,9 +1135,15 @@ class SessionMessageRequest(BaseModel):
 
 
 class SessionMessageResponse(BaseModel):
-    role: str
-    content: str
+    mode: str  # "question", "strategy", "error"
+    content: dict  # The parsed JSON response
     session_id: str
+    strategy_draft: Optional[dict] = None
+
+
+class DraftUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    strategy_draft: dict
 
 
 @api_router.post("/session/start")
@@ -971,7 +1158,7 @@ async def start_session(request: Request, current_user: dict = Depends(get_curre
 @api_router.post("/session/{session_id}/message")
 @limiter.limit("20/minute")
 async def send_session_message(request: Request, session_id: str, body: SessionMessageRequest, current_user: dict = Depends(get_current_user)):
-    """Send a message in a session and get AI response."""
+    """Send a message in a session. AI responds in 3 modes: question, strategy, error."""
     user_email = current_user.get("email")
 
     # Verify session ownership
@@ -996,14 +1183,7 @@ async def send_session_message(request: Request, session_id: str, body: SessionM
     # Build context: last 6 messages, token-budgeted to 500 tokens
     context_msgs = get_context_messages(session_id, user_email, max_messages=6, token_budget=500)
 
-    # Call AI with context
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="LLM key not configured")
-
-    ai_config = get_ai_config("session_chat")
-
-    # Build prompt with conversation history (exclude the latest user message — added separately)
+    # Build prompt with conversation history
     context_parts = []
     for msg in context_msgs[:-1]:
         prefix = "User" if msg["role"] == "user" else "Assistant"
@@ -1012,10 +1192,74 @@ async def send_session_message(request: Request, session_id: str, body: SessionM
     context_str = "\n".join(context_parts) if context_parts else ""
     full_prompt = f"{context_str}\nUser: {sanitized}" if context_str else sanitized
 
+    # Call AI
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+
+    ai_config = get_ai_config("session_chat")
+    ai_text = await _call_session_ai(api_key, session_id, full_prompt, ai_config)
+
+    # Parse response JSON
+    parsed = _parse_ai_json(ai_text)
+    if parsed is None:
+        # AI didn't return valid JSON — wrap as question mode
+        parsed = {"mode": "question", "message": ai_text, "fields_needed": []}
+
+    mode = parsed.get("mode", "question")
+
+    # --- Handle strategy mode with validation + hallucination check ---
+    if mode == "strategy":
+        strategy_data = parsed.get("strategy", {})
+        errors = _validate_strategy_draft(strategy_data)
+
+        if errors:
+            # Silent retry with correction context (costs 1 extra credit)
+            if check_and_increment_usage(user_email, "session_chat"):
+                correction_prompt = (
+                    f"Your previous response had validation errors: {'; '.join(errors)}. "
+                    f"Please fix and return a valid strategy JSON. Only use supported indicators: "
+                    f"{', '.join(sorted(SUPPORTED_INDICATORS))}. "
+                    f"Original user request context:\n{full_prompt}"
+                )
+                retry_text = await _call_session_ai(api_key, session_id, correction_prompt, ai_config)
+                retry_parsed = _parse_ai_json(retry_text)
+                if retry_parsed and retry_parsed.get("mode") == "strategy":
+                    retry_errors = _validate_strategy_draft(retry_parsed.get("strategy", {}))
+                    if not retry_errors:
+                        parsed = retry_parsed
+                        strategy_data = parsed.get("strategy", {})
+                        errors = []
+                        ai_text = retry_text
+
+            if errors:
+                # Retry also failed — return as error
+                parsed = {"mode": "error", "message": f"Strategy validation failed: {'; '.join(errors)}"}
+                mode = "error"
+            else:
+                mode = "strategy"
+
+        if mode == "strategy":
+            # Store validated strategy draft in session
+            update_strategy_draft(session_id, user_email, strategy_data)
+
+    # Store assistant response
+    append_message(session_id, user_email, "assistant", json.dumps(parsed) if isinstance(parsed, dict) else ai_text)
+
+    return SessionMessageResponse(
+        mode=mode,
+        content=parsed,
+        session_id=session_id,
+        strategy_draft=parsed.get("strategy") if mode == "strategy" else None,
+    )
+
+
+async def _call_session_ai(api_key: str, session_id: str, prompt: str, ai_config: dict) -> str:
+    """Make an AI call for the session. Returns raw text."""
     chat = LlmChat(
         api_key=api_key,
         session_id=session_id,
-        system_message=SESSION_SYSTEM_PROMPT,
+        system_message=NL_BUILDER_SYSTEM_PROMPT,
     ).with_model("openai", "gpt-5.2").with_params(
         max_tokens=ai_config["max_tokens"],
         temperature=ai_config["temperature"],
@@ -1024,23 +1268,102 @@ async def send_session_message(request: Request, session_id: str, body: SessionM
     start_time = time.time()
     try:
         response = await resilient_call(
-            chat.send_message, UserMessage(text=full_prompt),
+            chat.send_message, UserMessage(text=prompt),
             circuit_name="ai", max_retries=2, timeout=30.0, fallback=None,
         )
         if response is None:
             raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
         latency_ms = (time.time() - start_time) * 1000
-        log_ai_call("session_chat", len(full_prompt), latency_ms, True)
+        log_ai_call("session_chat", len(prompt), latency_ms, True)
     except (ServiceTimeoutError, ServiceUnavailableError) as e:
-        log_ai_call("session_chat", len(full_prompt), (time.time() - start_time) * 1000, False)
+        log_ai_call("session_chat", len(prompt), (time.time() - start_time) * 1000, False)
         raise HTTPException(status_code=503, detail=str(e))
 
-    ai_text = response if isinstance(response, str) else str(response)
+    return response if isinstance(response, str) else str(response)
 
-    # Store assistant response
-    append_message(session_id, user_email, "assistant", ai_text)
 
-    return SessionMessageResponse(role="assistant", content=ai_text, session_id=session_id)
+@api_router.post("/session/{session_id}/finalize")
+@limiter.limit("10/minute")
+async def finalize_session_strategy(request: Request, session_id: str, current_user: dict = Depends(get_current_user)):
+    """Validate the session's strategy draft and save to strategies collection."""
+    user_email = current_user.get("email")
+
+    session = get_session(session_id, user_email)
+    if session == "forbidden":
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    draft = session.get("strategy_draft")
+    if not draft:
+        raise HTTPException(status_code=400, detail="No strategy draft in this session. Continue the conversation to build one.")
+
+    # Normalize AI output to match our strict schema
+    normalized = _normalize_ai_strategy(draft)
+
+    # Validate normalized draft
+    errors = _validate_strategy_draft(normalized)
+    if errors:
+        raise HTTPException(status_code=422, detail=f"Draft has errors: {'; '.join(errors)}")
+
+    # Build a full Strategy-compatible doc
+    strategy_id = str(uuid.uuid4())
+    user_id = current_user.get("user_id", user_email)
+    symbol = normalized["instrument"].get("symbol", "UNKNOWN")
+    timeframe_val = normalized["timeframe"]
+    if isinstance(timeframe_val, dict):
+        timeframe_val = timeframe_val.get("interval", "1d")
+
+    strategy_doc = {
+        "id": strategy_id,
+        "user_id": user_id,
+        "version": "1.0",
+        "metadata": {
+            "name": f"AI Strategy - {symbol}",
+            "description": draft.get("explanation") or f"AI-built strategy for {symbol}",
+            "tags": ["ai-generated"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        "market": {"type": "equity", "exchange": "NSE"},
+        "instrument": normalized["instrument"],
+        "timeframe": normalized["timeframe"],
+        "entry_conditions": normalized["entry_conditions"],
+        "exit_conditions": normalized["exit_conditions"],
+        "filters": normalized.get("filters", []),
+        "risk_management": normalized["risk_management"],
+    }
+
+    strategies_collection.insert_one(strategy_doc)
+    analytics_db["strategies_created"] += 1
+
+    return {
+        "success": True,
+        "strategy_id": strategy_id,
+        "message": f"Strategy saved for {symbol}.",
+    }
+
+
+@api_router.put("/session/{session_id}/draft")
+@limiter.limit("20/minute")
+async def update_session_draft(request: Request, session_id: str, body: DraftUpdateRequest, current_user: dict = Depends(get_current_user)):
+    """Manually edit the strategy draft before finalizing."""
+    user_email = current_user.get("email")
+
+    session = get_session(session_id, user_email)
+    if session == "forbidden":
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Validate the new draft
+    errors = _validate_strategy_draft(body.strategy_draft)
+    if errors:
+        raise HTTPException(status_code=422, detail=f"Draft has errors: {'; '.join(errors)}")
+
+    update_strategy_draft(session_id, user_email, body.strategy_draft)
+
+    return {"success": True, "message": "Draft updated.", "strategy_draft": body.strategy_draft}
 
 
 @api_router.get("/session/{session_id}")
