@@ -4,12 +4,13 @@ import { useAuth } from "../../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Hammer, BookOpen, Activity, LogOut, Menu, X,
-  TrendingUp, User as UserIcon
+  TrendingUp, User as UserIcon, Search
 } from "lucide-react";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/build", label: "Build Strategy", icon: Hammer },
+  { to: "/screener", label: "Screener", icon: Search },
   { to: "/templates", label: "Templates", icon: BookOpen },
   { to: "/paper-trades", label: "Paper Trades", icon: Activity },
 ];

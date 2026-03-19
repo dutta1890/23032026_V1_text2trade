@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useApi } from "@/hooks/useApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   Database, Users, BarChart3, Activity, RefreshCw, Loader2,
   AlertTriangle, CheckCircle, Clock
@@ -40,11 +41,19 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    document.title = "Admin Dashboard | Text2trade";
+    fetchAll();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try { await api.post("/admin/data/refresh", {}); } catch { /* ignore */ }
+    try {
+      await api.post("/admin/data/refresh", {});
+      toast.success("Data refresh completed successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Refresh failed");
+    }
     await fetchAll();
     setRefreshing(false);
   };
@@ -59,6 +68,9 @@ export default function AdminDashboard() {
   const totalCandles = analytics?.market_data?.total_candles || 0;
   const totalSymbols = analytics?.market_data?.symbols || 0;
 
+  const staleCount = ds.stale_symbols?.length || 0;
+  const isHealthy = staleCount === 0 && (totalCandles > 0 || (ds.total_candles || 0) > 0);
+
   return (
     <div className="space-y-8" data-testid="admin-dashboard">
       <div className="flex items-center justify-between">
@@ -67,8 +79,25 @@ export default function AdminDashboard() {
           <p className="text-sm text-muted-foreground mt-1">System health and platform analytics.</p>
         </div>
         <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="font-mono text-xs uppercase gap-2" data-testid="refresh-data-btn">
-          {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh Data
+          {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} {refreshing ? "Refreshing..." : "Refresh Data"}
         </Button>
+      </div>
+
+      {/* Data Health Banner */}
+      <div className={`flex items-center gap-3 px-4 py-3 border ${isHealthy ? "border-primary/30 bg-primary/5" : "border-destructive/30 bg-destructive/5"}`} data-testid="data-health-banner">
+        {isHealthy ? (
+          <>
+            <div className="w-2.5 h-2.5 rounded-full bg-signal-green animate-pulse" data-testid="health-indicator-green" />
+            <span className="text-sm font-mono text-primary">Data Pipeline Healthy</span>
+            <span className="text-[10px] font-mono text-muted-foreground ml-auto">{totalSymbols || ds.total_symbols || 0} symbols · {(totalCandles || ds.total_candles || 0).toLocaleString()} candles</span>
+          </>
+        ) : (
+          <>
+            <div className="w-2.5 h-2.5 rounded-full bg-signal-red animate-pulse" data-testid="health-indicator-red" />
+            <span className="text-sm font-mono text-destructive">Data Pipeline Issues Detected</span>
+            <span className="text-[10px] font-mono text-muted-foreground ml-auto">{staleCount} stale symbol{staleCount !== 1 ? "s" : ""}</span>
+          </>
+        )}
       </div>
 
       {/* Data Pipeline Health */}
@@ -77,7 +106,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="TOTAL SYMBOLS" value={totalSymbols || ds.total_symbols || 0} icon={Database} color="text-primary" testId="stat-symbols" />
           <StatCard label="TOTAL CANDLES" value={(totalCandles || ds.total_candles || 0).toLocaleString()} icon={BarChart3} testId="stat-candles" />
-          <StatCard label="STALE SYMBOLS" value={ds.stale_symbols?.length || 0} icon={ds.stale_symbols?.length > 0 ? AlertTriangle : CheckCircle} color={ds.stale_symbols?.length > 0 ? "text-yellow-500" : "text-primary"} testId="stat-stale" />
+          <StatCard label="STALE SYMBOLS" value={staleCount} icon={staleCount > 0 ? AlertTriangle : CheckCircle} color={staleCount > 0 ? "text-yellow-500" : "text-primary"} testId="stat-stale" />
           <StatCard label="LAST REFRESH" value={ds.last_refresh ? new Date(ds.last_refresh).toLocaleDateString() : "Never"} icon={Clock} sub={ds.last_refresh ? new Date(ds.last_refresh).toLocaleTimeString() : ""} testId="stat-refresh" />
         </div>
         {ds.stale_symbols?.length > 0 && (

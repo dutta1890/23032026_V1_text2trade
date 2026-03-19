@@ -10,6 +10,7 @@ import {
   Loader2, Activity, ArrowLeft, TrendingUp, TrendingDown,
   ChevronDown, ChevronUp
 } from "lucide-react";
+import MultiStockCompare from "@/components/MultiStockCompare";
 
 const fmt = (v, d = 2) => v != null ? Number(v).toFixed(d) : "—";
 const fmtCur = (v) => v != null ? `\u20B9${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
@@ -42,6 +43,7 @@ export default function BacktestPage() {
   const [deploying, setDeploying] = useState(false);
 
   useEffect(() => {
+    document.title = "Backtest | Text2trade";
     runBacktest();
   }, [strategyId]);
 
@@ -49,8 +51,9 @@ export default function BacktestPage() {
     setLoading(true);
     try {
       const sRes = await api.get(`/strategy/${strategyId}`);
-      const strat = sRes.data;
+      const strat = sRes.data.strategy || sRes.data;
       setStrategy(strat);
+      if (strat?.metadata?.name) document.title = `Backtest: ${strat.metadata.name} | Text2trade`;
       const bRes = await api.post("/backtest", { strategy: strat });
       setResult(bRes.data);
     } catch (err) {
@@ -198,6 +201,9 @@ export default function BacktestPage() {
           </CardContent>
         )}
       </Card>
+
+      {/* Multi-Stock Comparison */}
+      {strategy && <MultiStockCompare strategy={strategy} />}
     </div>
   );
 }

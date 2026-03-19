@@ -33,6 +33,7 @@ export default function TemplatesPage() {
   const [symbols, setSymbols] = useState({});
 
   useEffect(() => {
+    document.title = "Templates | Text2trade";
     api.get("/templates").then((r) => setTemplates(r.data.templates || [])).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

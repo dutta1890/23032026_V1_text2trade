@@ -7,6 +7,9 @@ import {
   Play, Pause, Square, Loader2, TrendingUp, TrendingDown,
   Activity, RefreshCw, ChevronDown, ChevronUp
 } from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer
+} from "recharts";
 
 const StatusBadge = ({ status }) => {
   const s = { running: "bg-primary/20 text-primary", paused: "bg-yellow-500/20 text-yellow-500", completed: "bg-blue-500/20 text-blue-400", stopped: "bg-destructive/20 text-destructive" };
@@ -34,7 +37,10 @@ export default function PaperTradesPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchAll(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    document.title = "Paper Trades | Text2trade";
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDeploy = async () => {

@@ -102,7 +102,7 @@ export default function BuilderPage() {
   const [copied, setCopied] = useState(false);
   const chatEnd = useRef(null);
 
-  useEffect(() => { startSession(); loadTemplates(); }, []);
+  useEffect(() => { document.title = "Build Strategy | Text2trade"; startSession(); loadTemplates(); }, []);
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   const startSession = async () => {

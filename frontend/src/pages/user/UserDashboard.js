@@ -3,10 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Hammer, BookOpen, Search, FolderOpen, Activity, BarChart3,
-  TrendingUp, TrendingDown, Loader2, Play, PlusCircle, ArrowRight
+  TrendingUp, TrendingDown, Loader2, Play, PlusCircle, ArrowRight,
+  Eye, GitCompare
 } from "lucide-react";
+import StrategyCompare from "@/components/StrategyCompare";
 
 const StatCard = ({ label, value, sub, color = "text-foreground", testId }) => (
   <Card className="border-border bg-card" data-testid={testId}>
@@ -24,8 +27,11 @@ export default function UserDashboard() {
   const [strategies, setStrategies] = useState([]);
   const [paperTrades, setPaperTrades] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
+    document.title = "Dashboard | Text2trade";
     Promise.all([
       api.get("/strategies").catch(() => ({ data: { strategies: [] } })),
       api.get("/paper-trades").catch(() => ({ data: { paper_trades: [] } })),
@@ -38,6 +44,12 @@ export default function UserDashboard() {
 
   const activePT = paperTrades.filter((t) => t.status === "running");
   const completedPT = paperTrades.filter((t) => t.status === "completed");
+
+  const toggleSelect = (id) => {
+    setSelectedIds((p) => p.includes(id) ? p.filter((x) => x !== id) : p.length < 5 ? [...p, id] : p);
+  };
+
+  const selectedStrategies = strategies.filter((s) => selectedIds.includes(s.id));
 
   if (loading) {
     return <div className="flex items-center justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
@@ -68,7 +80,7 @@ export default function UserDashboard() {
               <p className="text-muted-foreground font-normal">12 pre-built strategies</p>
             </div>
           </Button>
-          <Button variant="outline" className="h-auto p-4 justify-start gap-3 font-mono text-xs" onClick={() => navigate("/build?tab=screener")} data-testid="qs-scan">
+          <Button variant="outline" className="h-auto p-4 justify-start gap-3 font-mono text-xs" onClick={() => navigate("/screener")} data-testid="qs-scan">
             <Search className="w-5 h-5 text-primary" />
             <div className="text-left">
               <p className="font-bold text-foreground">Scan Stocks</p>
@@ -86,10 +98,30 @@ export default function UserDashboard() {
         <StatCard label="COMPLETED" value={completedPT.length} testId="stat-completed" />
       </div>
 
+      {/* Strategy Comparison */}
+      {showCompare && selectedStrategies.length >= 2 && (
+        <StrategyCompare
+          strategies={selectedStrategies}
+          onClose={() => { setShowCompare(false); setSelectedIds([]); }}
+        />
+      )}
+
       {/* Your Strategies */}
       <div data-testid="strategies-section">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="mono-label text-[10px]">YOUR STRATEGIES</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="mono-label text-[10px]">YOUR STRATEGIES</h2>
+            {selectedIds.length >= 2 && !showCompare && (
+              <Button size="sm" variant="outline" className="h-6 font-mono text-[10px] gap-1" onClick={() => setShowCompare(true)} data-testid="compare-strategies-btn">
+                <GitCompare className="w-3 h-3" /> Compare ({selectedIds.length})
+              </Button>
+            )}
+            {selectedIds.length > 0 && (
+              <button className="text-[10px] font-mono text-muted-foreground hover:text-foreground" onClick={() => { setSelectedIds([]); setShowCompare(false); }} data-testid="clear-selection-btn">
+                Clear
+              </button>
+            )}
+          </div>
           <Link to="/build" className="text-[10px] font-mono text-primary flex items-center gap-1 hover:underline">New <ArrowRight className="w-3 h-3" /></Link>
         </div>
         {strategies.length === 0 ? (
@@ -111,15 +143,26 @@ export default function UserDashboard() {
         ) : (
           <div className="space-y-2">
             {strategies.slice(0, 8).map((s, i) => (
-              <Card key={s.id || i} className="border-border bg-card hover:border-primary/30 transition-colors" data-testid={`strategy-row-${i}`}>
+              <Card key={s.id || i} className={`border-border bg-card hover:border-primary/30 transition-colors ${selectedIds.includes(s.id) ? "border-primary/40 bg-primary/5" : ""}`} data-testid={`strategy-row-${i}`}>
                 <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-mono font-bold text-sm text-foreground truncate">{s.metadata?.name || "Unnamed"}</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">
-                      {s.instrument?.symbol || "—"} · {s.timeframe?.interval || "—"} · {s.entry_conditions?.length || 0} conditions
-                    </p>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Checkbox
+                      checked={selectedIds.includes(s.id)}
+                      onCheckedChange={() => toggleSelect(s.id)}
+                      className="shrink-0"
+                      data-testid={`select-strategy-${i}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono font-bold text-sm text-foreground truncate">{s.metadata?.name || "Unnamed"}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {s.instrument?.symbol || "—"} · {s.timeframe?.interval || "—"} · {s.entry_conditions?.length || 0} conditions
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2">
+                    <Button variant="ghost" size="sm" className="h-7 font-mono text-[10px] gap-1" onClick={() => navigate(`/strategy/${s.id}`)} data-testid={`view-strategy-${i}`}>
+                      <Eye className="w-3 h-3" /> View
+                    </Button>
                     <Button variant="outline" size="sm" className="h-7 font-mono text-[10px] gap-1" onClick={() => navigate(`/backtest/${s.id}`)} data-testid={`backtest-link-${i}`}>
                       <Play className="w-3 h-3" /> Backtest
                     </Button>
