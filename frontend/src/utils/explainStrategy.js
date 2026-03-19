@@ -48,15 +48,31 @@ export function explainStrategy(strategy) {
   strategy.filters?.forEach(c => lines.push(formatFilter(c)));
 
   if (risk_management?.stop_loss) {
-    if (risk_management.stop_loss_type === "atr_multiple") {
-      const atrPeriod = risk_management.stop_loss_atr_period || 14;
-      lines.push(`Stop loss at ${risk_management.stop_loss}x ATR(${atrPeriod}).`);
-    } else {
-      lines.push(`Stop loss at ${risk_management.stop_loss}%.`);
+    const sl = risk_management.stop_loss;
+    if (typeof sl === "object" && sl !== null) {
+      if (sl.type === "atr_multiple") {
+        lines.push(`Stop loss at ${sl.value}x ATR.`);
+      } else {
+        lines.push(`Stop loss at ${sl.value}%.`);
+      }
+    } else if (typeof sl === "number") {
+      lines.push(`Stop loss at ${sl}%.`);
     }
   }
-  if (risk_management?.take_profit) {
-    lines.push(`Take profit at ${risk_management.take_profit}%.`);
+  if (risk_management?.target_profit) {
+    const tp = risk_management.target_profit;
+    if (typeof tp === "object" && tp !== null) {
+      lines.push(`Take profit at ${tp.value}%.`);
+    } else if (typeof tp === "number") {
+      lines.push(`Take profit at ${tp}%.`);
+    }
+  } else if (risk_management?.take_profit) {
+    const tp = risk_management.take_profit;
+    if (typeof tp === "object" && tp !== null) {
+      lines.push(`Take profit at ${tp.value}%.`);
+    } else if (typeof tp === "number") {
+      lines.push(`Take profit at ${tp}%.`);
+    }
   }
 
   return lines.join(" ");

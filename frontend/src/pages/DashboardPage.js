@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, PlusCircle, FolderOpen, HelpCircle, LogOut, User, ChevronRight, Lightbulb, FileText, Settings, BarChart3, Zap, X, MessageCircle, Sparkles, AlertTriangle, Loader2, Play } from "lucide-react";
+import { TrendingUp, PlusCircle, FolderOpen, HelpCircle, LogOut, User, ChevronRight, Lightbulb, FileText, Settings, BarChart3, Zap, X, MessageCircle, Sparkles, AlertTriangle, Loader2, Play, Activity } from "lucide-react";
 import StrategyBuilder from "@/components/StrategyBuilder";
 import StrategyChat from "@/components/StrategyChat";
 import NLStrategyInput from "@/components/NLStrategyInput";
+import BacktestResultsPanel from "@/components/BacktestResultsPanel";
+import StrategyPlayground from "@/components/StrategyPlayground";
+import PaperTradingContent from "@/components/PaperTradingContent";
 import { explainStrategy } from "@/utils/explainStrategy";
 import axios from "axios";
 
@@ -15,6 +18,8 @@ const Sidebar = ({ activePage, onPageChange, userEmail, onLogout }) => {
   const menuItems = [
     { id: "create", label: "Create Strategy", icon: PlusCircle },
     { id: "strategies", label: "My Strategies", icon: FolderOpen },
+    { id: "playground", label: "AI Playground", icon: Sparkles },
+    { id: "paper-trading", label: "Paper Trading", icon: Activity },
     { id: "help", label: "Help", icon: HelpCircle },
   ];
 
@@ -107,7 +112,7 @@ const CreateStrategyContent = ({ onStartBuilder, onStartNL }) => (
   </div>
 );
 
-const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRisk, riskWarnings, analyzingRisk, onRunBacktest, backtestResults, runningBacktest }) => (
+const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRisk, riskWarnings, analyzingRisk, onRunBacktest, backtestResults, runningBacktest, expandedBacktest, onExpandBacktest }) => (
   <div className="space-y-8">
     <div className="flex items-center justify-between">
       <div>
@@ -134,76 +139,81 @@ const MyStrategiesContent = ({ strategies, onCreateNew, onOpenChat, onAnalyzeRis
     ) : (
       <div className="space-y-4">
         {strategies.map((s, i) => (
-          <Card key={s.id || i} className="border-border bg-card" data-testid={`strategy-card-${i}`}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-mono font-bold text-foreground">{s.metadata?.name || "Unnamed"}</h3>
-                  <p className="text-xs text-muted-foreground font-mono mt-1">
-                    {s.market?.type} / {s.instrument?.symbol} / {s.timeframe?.interval}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">{explainStrategy(s)}</p>
+          <div key={s.id || i}>
+            <Card className="border-border bg-card" data-testid={`strategy-card-${i}`}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-mono font-bold text-foreground">{s.metadata?.name || "Unnamed"}</h3>
+                    <p className="text-xs text-muted-foreground font-mono mt-1">
+                      {s.market?.type} / {s.instrument?.symbol} / {s.timeframe?.interval}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">{explainStrategy(s)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => onRunBacktest(s.id, s)} disabled={runningBacktest === s.id} data-testid={`backtest-btn-${i}`}>
+                      {runningBacktest === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
+                      {runningBacktest === s.id ? "" : "Backtest"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => onAnalyzeRisk(s.id, s)} disabled={analyzingRisk === s.id} data-testid={`risk-btn-${i}`}>
+                      {analyzingRisk === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4 mr-1" />}
+                      {analyzingRisk === s.id ? "" : "Risk"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => onOpenChat(s)} data-testid={`chat-btn-${i}`}>
+                      <MessageCircle className="w-4 h-4 mr-1" /> Ask AI
+                    </Button>
+                    <span className="mono-label text-primary">v{s.version || "1.0"}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => onRunBacktest(s.id, s)} disabled={runningBacktest === s.id} data-testid={`backtest-btn-${i}`}>
-                    {runningBacktest === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
-                    {runningBacktest === s.id ? "" : "Backtest"}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => onAnalyzeRisk(s.id, s)} disabled={analyzingRisk === s.id} data-testid={`risk-btn-${i}`}>
-                    {analyzingRisk === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4 mr-1" />}
-                    {analyzingRisk === s.id ? "" : "Risk"}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => onOpenChat(s)} data-testid={`chat-btn-${i}`}>
-                    <MessageCircle className="w-4 h-4 mr-1" /> Ask AI
-                  </Button>
-                  <span className="mono-label text-primary">v{s.version || "1.0"}</span>
-                </div>
+                {/* Quick stats when backtest results exist but not expanded */}
+                {backtestResults[s.id] && !backtestResults[s.id].error && expandedBacktest !== s.id && (
+                  <div className="mt-4 p-3 bg-primary/10 border border-primary/30 cursor-pointer" onClick={() => onExpandBacktest(s.id)} data-testid={`backtest-summary-${i}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-6">
+                        <div>
+                          <span className="mono-label text-[10px]">Trades</span>
+                          <p className="font-mono font-bold text-foreground">{backtestResults[s.id].metrics?.total_trades || 0}</p>
+                        </div>
+                        <div>
+                          <span className="mono-label text-[10px]">Win Rate</span>
+                          <p className="font-mono font-bold text-foreground">{(backtestResults[s.id].metrics?.win_rate || 0).toFixed(1)}%</p>
+                        </div>
+                        <div>
+                          <span className="mono-label text-[10px]">P&L</span>
+                          <p className={`font-mono font-bold ${(backtestResults[s.id].metrics?.total_pnl_pct || 0) >= 0 ? "text-primary" : "text-destructive"}`}>
+                            {(backtestResults[s.id].metrics?.total_pnl_pct || 0) >= 0 ? "+" : ""}{(backtestResults[s.id].metrics?.total_pnl_pct || 0).toFixed(2)}%
+                          </p>
+                        </div>
+                        <div>
+                          <span className="mono-label text-[10px]">Sharpe</span>
+                          <p className="font-mono font-bold text-foreground">{(backtestResults[s.id].metrics?.sharpe_ratio || 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-primary uppercase">Click to expand</span>
+                    </div>
+                  </div>
+                )}
+                {riskWarnings[s.id] && (
+                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30" data-testid={`risk-warnings-${i}`}>
+                    <p className="mono-label text-destructive mb-2">Risk Warnings</p>
+                    <ul className="space-y-1">
+                      {riskWarnings[s.id].map((w, wi) => (
+                        <li key={wi} className="text-xs text-destructive flex gap-2">
+                          <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" /> {w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            {/* Expanded Backtest Results */}
+            {expandedBacktest === s.id && backtestResults[s.id] && !backtestResults[s.id].error && (
+              <div className="mt-2">
+                <BacktestResultsPanel results={backtestResults[s.id]} onClose={() => onExpandBacktest(null)} />
               </div>
-              {backtestResults[s.id] && !backtestResults[s.id].error && (
-                <div className="mt-4 p-3 bg-primary/10 border border-primary/30" data-testid={`backtest-results-${i}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="mono-label text-primary">{backtestResults[s.id].label}</p>
-                    <span className="text-xs text-muted-foreground">Data: {backtestResults[s.id].data_source}</span>
-                  </div>
-                  {backtestResults[s.id].disclaimer && (
-                    <p className="text-xs text-yellow-500 mb-2 italic">{backtestResults[s.id].disclaimer}</p>
-                  )}
-                  <div className="grid grid-cols-4 gap-4 text-center">
-                    <div>
-                      <p className="text-2xl font-mono font-bold text-foreground">{backtestResults[s.id].total_trades}</p>
-                      <p className="text-xs text-muted-foreground">Trades</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-mono font-bold text-foreground">{backtestResults[s.id].win_rate}%</p>
-                      <p className="text-xs text-muted-foreground">Win Rate</p>
-                    </div>
-                    <div>
-                      <p className={`text-2xl font-mono font-bold ${backtestResults[s.id].pnl >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                        {backtestResults[s.id].pnl >= 0 ? '+' : ''}{backtestResults[s.id].pnl}%
-                      </p>
-                      <p className="text-xs text-muted-foreground">P&L</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-mono font-bold text-foreground">{backtestResults[s.id].wins}/{backtestResults[s.id].losses}</p>
-                      <p className="text-xs text-muted-foreground">W/L</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {riskWarnings[s.id] && (
-                <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30" data-testid={`risk-warnings-${i}`}>
-                  <p className="mono-label text-destructive mb-2">Risk Warnings</p>
-                  <ul className="space-y-1">
-                    {riskWarnings[s.id].map((w, wi) => (
-                      <li key={wi} className="text-xs text-destructive flex gap-2">
-                        <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" /> {w}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </div>
         ))}
       </div>
     )}
@@ -304,6 +314,8 @@ export default function DashboardPage() {
   const [analyzingRisk, setAnalyzingRisk] = useState(null);
   const [backtestResults, setBacktestResults] = useState({});
   const [runningBacktest, setRunningBacktest] = useState(null);
+  const [expandedBacktest, setExpandedBacktest] = useState(null);
+  const [showPlayground, setShowPlayground] = useState(false);
   const navigate = useNavigate();
 
   const getAuthHeaders = () => {
@@ -338,7 +350,7 @@ export default function DashboardPage() {
     localStorage.removeItem("userEmail");
     navigate("/login");
   };
-  const handlePageChange = (pageId) => { setActivePage(pageId); setShowBuilder(false); setShowNL(false); setChatStrategy(null); };
+  const handlePageChange = (pageId) => { setActivePage(pageId); setShowBuilder(false); setShowNL(false); setChatStrategy(null); setShowPlayground(false); setExpandedBacktest(null); };
   const handleStartBuilder = () => { setShowBuilder(true); setShowNL(false); };
   const handleStartNL = () => { setShowNL(true); setShowBuilder(false); };
   const handleCloseBuilder = () => setShowBuilder(false);
@@ -366,7 +378,7 @@ export default function DashboardPage() {
     setRunningBacktest(id);
     try {
       const res = await axios.post(`${API_URL}/v1/backtest`, { strategy }, getAuthHeaders());
-      if (res.data?.success) {
+      if (res.data) {
         setBacktestResults(prev => ({ ...prev, [id]: res.data }));
       }
     } catch (err) {
@@ -375,6 +387,9 @@ export default function DashboardPage() {
     } finally {
       setRunningBacktest(null);
     }
+  };
+  const handleExpandBacktest = (id) => {
+    setExpandedBacktest(expandedBacktest === id ? null : id);
   };
   const handleNLConfirm = (parsed) => {
     console.log("Parsed strategy:", parsed);
@@ -386,6 +401,14 @@ export default function DashboardPage() {
   const handleCloseChat = () => setChatStrategy(null);
 
   const renderContent = () => {
+    if (showPlayground) {
+      return (
+        <StrategyPlayground
+          onClose={() => { setShowPlayground(false); setActivePage("create"); }}
+          onStrategyCreated={fetchStrategies}
+        />
+      );
+    }
     if (showNL) {
       return (
         <div className="space-y-6">
@@ -428,7 +451,9 @@ export default function DashboardPage() {
     }
     switch (activePage) {
       case "create": return <CreateStrategyContent onStartBuilder={handleStartBuilder} onStartNL={handleStartNL} />;
-      case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} onOpenChat={handleOpenChat} onAnalyzeRisk={handleAnalyzeRisk} riskWarnings={riskWarnings} analyzingRisk={analyzingRisk} onRunBacktest={handleRunBacktest} backtestResults={backtestResults} runningBacktest={runningBacktest} />;
+      case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} onOpenChat={handleOpenChat} onAnalyzeRisk={handleAnalyzeRisk} riskWarnings={riskWarnings} analyzingRisk={analyzingRisk} onRunBacktest={handleRunBacktest} backtestResults={backtestResults} runningBacktest={runningBacktest} expandedBacktest={expandedBacktest} onExpandBacktest={handleExpandBacktest} />;
+      case "playground": return <StrategyPlayground onClose={() => handlePageChange("create")} onStrategyCreated={fetchStrategies} />;
+      case "paper-trading": return <PaperTradingContent strategies={strategies} />;
       case "help": return <HelpContent />;
       default: return <CreateStrategyContent onStartBuilder={handleStartBuilder} onStartNL={handleStartNL} />;
     }

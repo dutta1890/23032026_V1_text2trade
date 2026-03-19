@@ -226,19 +226,46 @@ class Timeframe(BaseModel):
     def strip_strings(cls, v):
         return v.strip() if isinstance(v, str) else v
 
+class StopLoss(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["percentage", "points", "atr_multiple"] = "percentage"
+    value: float = Field(ge=0.1, le=50)
+
+class TrailingStopLoss(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = False
+    type: Literal["percentage", "points"] = "percentage"
+    value: float = Field(ge=0.1, le=20, default=1.0)
+    activation_profit: float = Field(ge=0, le=50, default=0)
+
+class TargetProfit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["percentage", "points"] = "percentage"
+    value: float = Field(ge=0.1, le=100)
+
+class TimeBasedExit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = False
+    exit_time: str = Field(default="15:10", pattern=r"^\d{2}:\d{2}$")
+
+class DailyLimits(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    max_loss_per_day: float = Field(ge=0, le=100, default=5.0)
+    max_trades_per_day: int = Field(ge=1, le=50, default=10)
+
+class PositionSizing(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    method: Literal["fixed_quantity", "percent_capital", "risk_per_trade"] = "fixed_quantity"
+    value: float = Field(ge=0.1, le=100, default=1)
+
 class RiskManagement(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    
-    position_size: Optional[float] = Field(default=None, ge=0.01, le=1000000)
-    position_size_type: Optional[str] = Field(default=None, max_length=20)
-    max_daily_loss: Optional[float] = Field(default=None, ge=0.1, le=100)
-    max_drawdown: Optional[float] = Field(default=None, ge=0.1, le=100)
-    risk_per_trade: Optional[float] = Field(default=None, ge=0.1, le=100)
-    take_profit: Optional[float] = Field(default=None, ge=0.1, le=1000)
-    stop_loss: Optional[float] = Field(default=None, ge=0.1, le=100)
-    stop_loss_type: Optional[str] = Field(default="fixed", max_length=20)
-    stop_loss_atr_period: Optional[int] = Field(default=14, ge=1, le=500)
-    trailing_stop: Optional[float] = Field(default=None, ge=0.1, le=100)
+    stop_loss: Optional[StopLoss] = None
+    trailing_stop_loss: TrailingStopLoss = Field(default_factory=TrailingStopLoss)
+    target_profit: Optional[TargetProfit] = None
+    time_based_exit: TimeBasedExit = Field(default_factory=TimeBasedExit)
+    daily_limits: DailyLimits = Field(default_factory=DailyLimits)
+    position_sizing: PositionSizing = Field(default_factory=lambda: PositionSizing(method="fixed_quantity", value=1))
 
 class Strategy(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -353,16 +380,21 @@ def validate_strategy(strategy: Strategy):
     if not strategy.timeframe or not strategy.timeframe.interval:
         errors.append("Timeframe is required")
     
-    # stop_loss > 0
-    sl = strategy.risk_management.stop_loss if strategy.risk_management else None
-    tp = strategy.risk_management.take_profit if strategy.risk_management else None
-    
-    if sl is not None and sl <= 0:
-        errors.append("stop_loss must be greater than 0")
-    
-    # target > stop_loss if both defined
-    if sl is not None and tp is not None and tp <= sl:
-        errors.append("take_profit must be greater than stop_loss")
+    rm = strategy.risk_management
+    if rm:
+        # Trailing SL requires base SL
+        if rm.trailing_stop_loss and rm.trailing_stop_loss.enabled and rm.stop_loss is None:
+            errors.append("Trailing stop loss requires a base stop loss")
+        
+        # risk_per_trade requires SL
+        if rm.position_sizing and rm.position_sizing.method == "risk_per_trade" and rm.stop_loss is None:
+            errors.append("risk_per_trade position sizing requires a stop loss")
+        
+        # Time exit warns if not intraday
+        if rm.time_based_exit and rm.time_based_exit.enabled:
+            tf = strategy.timeframe.interval if strategy.timeframe else ""
+            if tf in ("1d", "1wk", "1mo"):
+                errors.append("Time-based exit is only meaningful for intraday timeframes")
     
     # Validate conditions against indicator registry
     for cond in strategy.entry_conditions:
@@ -935,6 +967,99 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest):
 
 
 # =============================================================================
+# PAPER TRADING ENDPOINTS
+# =============================================================================
+
+from paper_trading.engine import deploy_paper_trade, stop_paper_trade, pause_paper_trade
+
+
+class PaperTradeDeployRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    strategy_id: str
+    symbol: str = "RELIANCE"
+    timeframe: str = "1d"
+    initial_capital: float = Field(default=100000, ge=1000, le=10000000)
+    lookback_days: int = Field(default=60, ge=7, le=365)
+    slippage_pct: float = Field(default=0.05, ge=0, le=1)
+
+
+@api_router.post("/paper-trade/deploy")
+@limiter.limit("5/minute")
+async def deploy_paper_trade_endpoint(request: Request, body: PaperTradeDeployRequest, current_user: dict = Depends(get_current_user)):
+    """Deploy a strategy for paper trading on cached data."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+
+    # Load strategy
+    strategy_doc = strategies_collection.find_one(
+        {"id": body.strategy_id, "user_id": user_id}, {"_id": 0}
+    )
+    if not strategy_doc:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    result = deploy_paper_trade(
+        strategy=strategy_doc,
+        symbol=body.symbol,
+        timeframe=body.timeframe,
+        initial_capital=body.initial_capital,
+        user_id=user_id,
+        db=db,
+        lookback_days=body.lookback_days,
+        slippage_pct=body.slippage_pct,
+    )
+
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return result
+
+
+@api_router.get("/paper-trades")
+@limiter.limit("20/minute")
+async def list_paper_trades(request: Request, current_user: dict = Depends(get_current_user)):
+    """List all paper trades for the authenticated user."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+    docs = list(db.paper_trades.find(
+        {"user_id": user_id}, {"_id": 0}
+    ).sort("created_at", -1))
+    return {"paper_trades": docs, "count": len(docs)}
+
+
+@api_router.get("/paper-trade/{paper_trade_id}")
+@limiter.limit("30/minute")
+async def get_paper_trade(request: Request, paper_trade_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific paper trade with full details."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+    doc = db.paper_trades.find_one(
+        {"paper_trade_id": paper_trade_id, "user_id": user_id}, {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Paper trade not found")
+    return doc
+
+
+@api_router.post("/paper-trade/{paper_trade_id}/pause")
+@limiter.limit("10/minute")
+async def pause_paper_trade_endpoint(request: Request, paper_trade_id: str, current_user: dict = Depends(get_current_user)):
+    """Pause a paper trade."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+    result = pause_paper_trade(paper_trade_id, user_id, db)
+    if not result:
+        raise HTTPException(status_code=404, detail="Paper trade not found")
+    return {"success": True, "status": result.get("status"), "paper_trade_id": paper_trade_id}
+
+
+@api_router.post("/paper-trade/{paper_trade_id}/stop")
+@limiter.limit("10/minute")
+async def stop_paper_trade_endpoint(request: Request, paper_trade_id: str, current_user: dict = Depends(get_current_user)):
+    """Stop a paper trade and close any open positions."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+    result = stop_paper_trade(paper_trade_id, user_id, db)
+    if not result:
+        raise HTTPException(status_code=404, detail="Paper trade not found")
+    return result
+
+
+# =============================================================================
 # SESSION MANAGEMENT ENDPOINTS
 # =============================================================================
 
@@ -1104,27 +1229,33 @@ def _normalize_ai_strategy(draft: dict) -> dict:
         if ind_name in SUPPORTED_INDICATORS:
             normalized["filters"].append(_normalize_ai_condition(c))
 
-    # Risk management — normalize from various AI formats
+    # Risk management — normalize from various AI formats to new schema
     rm = draft.get("risk_management", {})
     sl = rm.get("stop_loss")
     tp = rm.get("take_profit")
+    trailing = rm.get("trailing_stop") or rm.get("trailing_stop_loss")
     # Handle nested objects like {"stop_loss": {"value": 4, "type": "fixed_percent"}}
     if isinstance(sl, dict):
         sl = sl.get("value")
     if isinstance(tp, dict):
         tp = tp.get("value")
-    normalized["risk_management"] = {
-        "position_size": None,
-        "position_size_type": None,
-        "max_daily_loss": None,
-        "max_drawdown": None,
-        "risk_per_trade": None,
-        "stop_loss": float(sl) if sl is not None else None,
-        "stop_loss_type": "fixed",
-        "stop_loss_atr_period": 14,
-        "take_profit": float(tp) if tp is not None else None,
-        "trailing_stop": None,
-    }
+    if isinstance(trailing, dict):
+        trailing = trailing.get("value")
+
+    risk = {}
+    if sl is not None:
+        risk["stop_loss"] = {"type": "percentage", "value": float(sl)}
+    else:
+        risk["stop_loss"] = None
+    if tp is not None:
+        risk["target_profit"] = {"type": "percentage", "value": float(tp)}
+    else:
+        risk["target_profit"] = None
+    risk["trailing_stop_loss"] = {"enabled": trailing is not None, "type": "percentage", "value": float(trailing) if trailing else 1.0, "activation_profit": 0}
+    risk["time_based_exit"] = {"enabled": False, "exit_time": "15:10"}
+    risk["daily_limits"] = {"max_loss_per_day": 5.0, "max_trades_per_day": 10}
+    risk["position_sizing"] = {"method": "fixed_quantity", "value": 1}
+    normalized["risk_management"] = risk
 
     return normalized
 
