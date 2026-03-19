@@ -10,105 +10,86 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **Market Data**: NSE India via `nse` package (no API key, no signup)
 - **AI**: OpenAI GPT-5.2 via Emergent LLM Key
 - **Auth**: JWT (Access + Refresh tokens) with admin/user roles
-- **Indicators**: `ta` library for 15 indicators (RSI, SMA, EMA, MACD, Bollinger, Stochastic, ADX, ATR, Supertrend, VWAP, PivotPoints, PSAR, CCI, WilliamsR, OBV)
+- **Indicators**: `ta` library for 15 indicators
 
 ## What's Been Implemented
 
-### Session 11 (2026-03-19) — Strategy Templates + E2E Pipeline
-- **12 Equity Templates** seeded in `strategy_templates` collection:
-  - Trend: Golden Cross, Supertrend Follower, EMA Ribbon
-  - Mean Reversion: RSI Mean Reversion, Bollinger Bounce, Stochastic Reversal
-  - Momentum: MACD Momentum, CCI Breakout
-  - Intraday: VWAP Intraday
-  - Breakout: Pivot Breakout
-  - Volatility: ATR Volatility
-  - Combined: Supertrend + RSI
-- **Template Endpoints**:
-  - `GET /api/v1/templates` — public list (no auth)
-  - `GET /api/v1/template/{id}` — public detail
-  - `POST /api/v1/template/{id}/clone` — user clones to their strategies (auth)
-  - `POST /api/v1/admin/templates` — admin creates (403 for non-admin)
-  - `PUT /api/v1/admin/templates/{id}` — admin updates
-  - `DELETE /api/v1/admin/templates/{id}` — admin deletes
-- **Templates UI**: Template browser with category filter tabs, condition display, symbol picker, clone button
-- **AI Template Awareness**: AI prompt now suggests templates for vague user queries
-- **E2E Tested**: Clone→Backtest (16 trades), AI conversation→finalize, Gibberish→clarifying question
-- **Testing**: Backend 13/13, Frontend 8/8 — iteration_15.json
+### Session 12 (2026-03-19) — Screener + Multi-Backtest + Comparison Engine
+- **Screener** (`POST /api/v1/screener/scan`): Scans all symbols against indicator conditions on latest candle. Auth required. Returns matches with indicator values and timing.
+- **5 Screener Presets** (`GET /api/v1/screener/presets`): Oversold, Trending Up, VWAP Breakout, Bollinger Squeeze, Momentum Surge. Public endpoint.
+- **Multi-Stock Backtest** (`POST /api/v1/backtest/multi`): Same strategy on up to 10 stocks independently. Results sorted by P&L.
+- **Strategy Comparison** (`POST /api/v1/backtest/compare`): Up to 5 strategies on one stock, ranked by Sharpe ratio.
+- **Admin Screener Analytics** (`GET /api/v1/admin/screener/stats`): Most run presets, most scanned symbols. In-memory tracking.
+- **Evaluator Enhancement**: SMA/EMA `>` operator now compares short vs long directly when no threshold provided.
+- **Testing**: Backend 20/20 — iteration_16.json
 
-### Session 10 (2026-03-19) — Frontend Dashboard + Paper Trading UI + AI Playground
-- BacktestResultsPanel: equity curve chart, 18 metrics, cost breakdown, trade log
-- AI Strategy Playground: chat + real-time JSON preview
-- Paper Trading UI: deploy form, status tracking, pause/stop
+### Session 11 — Strategy Templates + E2E Pipeline
+- 12 equity templates seeded (7 categories)
+- Template endpoints: public list/detail, user clone, admin CRUD
+- Templates UI: category filters, clone button
+- Testing: Backend 13/13, Frontend 8/8 — iteration_15.json
+
+### Session 10 — Frontend Dashboard + Paper Trading UI + AI Playground
+- BacktestResultsPanel: equity curve chart, metrics, costs, trade log
+- AI Strategy Playground: chat + JSON preview
+- Paper Trading UI: deploy, status, pause/stop
 - Testing: Backend 10/10, Frontend 12/12 — iteration_14.json
 
 ### Earlier Sessions
-- Session 9: Paper Trading Engine + Expanded Risk Management
-- Session 8: Multi-turn NL Parser (12/12 — iteration_13.json)
-- Session 7: Performance Analytics, Costs & Equity Curve (9/9 — iteration_12.json)
-- Session 6: 15 Indicators Complete (12/12 — iteration_11.json)
-- Session 5: Real Backtest Engine (9/10 — iteration_10.json)
-- Session 4: AI Session System & Token Limits (13/13 — iteration_9.json)
-- Session 3: Market Data Pipeline + Admin Roles
-- Session 2: API Hardening & Auth Fix
-- Session 1: MVP
+- Sessions 4-9: Real backtest engine, 15 indicators, performance analytics, multi-turn AI, paper trading engine, risk management
+- Sessions 1-3: MVP, auth, market data pipeline
 
 ## API Endpoints
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| /api/v1/health | GET | No | Health check |
-| /api/v1/auth/register | POST | No | Register |
-| /api/v1/auth/login | POST | No | Login |
-| /api/v1/templates | GET | No | List all 12 templates (public) |
-| /api/v1/template/{id} | GET | No | Template detail (public) |
-| /api/v1/template/{id}/clone | POST | JWT | Clone template to user's strategies |
-| /api/v1/strategy | POST | JWT | Create strategy |
-| /api/v1/strategies | GET | JWT | List strategies |
-| /api/v1/strategy/{id} | GET/PUT/DELETE | JWT | CRUD strategy |
-| /api/v1/backtest | POST | No | Real backtest with indicators |
-| /api/v1/session/start | POST | JWT | Start AI session |
-| /api/v1/session/{id}/message | POST | JWT | Send message |
-| /api/v1/session/{id}/finalize | POST | JWT | Finalize strategy |
-| /api/v1/paper-trade/deploy | POST | JWT | Deploy paper trade |
-| /api/v1/paper-trades | GET | JWT | List paper trades |
-| /api/v1/paper-trade/{id} | GET | JWT | Get paper trade |
-| /api/v1/paper-trade/{id}/pause | POST | JWT | Pause paper trade |
-| /api/v1/paper-trade/{id}/stop | POST | JWT | Stop paper trade |
-| /api/v1/admin/templates | POST | Admin | Create template |
-| /api/v1/admin/templates/{id} | PUT | Admin | Update template |
-| /api/v1/admin/templates/{id} | DELETE | Admin | Delete template |
-| /api/v1/admin/data/* | Various | Admin | Data management |
-| /api/v1/admin/users | GET | Admin | List users |
-| /api/v1/admin/analytics | GET | Admin | Analytics |
+| /api/v1/screener/presets | GET | No | List 5 screener presets |
+| /api/v1/screener/scan | POST | JWT | Scan symbols against conditions |
+| /api/v1/backtest/multi | POST | JWT | Same strategy on up to 10 stocks |
+| /api/v1/backtest/compare | POST | JWT | Up to 5 strategies on one stock (ranked by Sharpe) |
+| /api/v1/templates | GET | No | List 12 templates |
+| /api/v1/template/{id} | GET | No | Template detail |
+| /api/v1/template/{id}/clone | POST | JWT | Clone template |
+| /api/v1/strategies | GET | JWT | List user strategies |
+| /api/v1/backtest | POST | No | Single backtest |
+| /api/v1/session/* | Various | JWT | AI conversation |
+| /api/v1/paper-trade/* | Various | JWT | Paper trading |
+| /api/v1/admin/templates | POST/PUT/DELETE | Admin | Template CRUD |
+| /api/v1/admin/screener/stats | GET | Admin | Screener analytics |
+| /api/v1/admin/* | Various | Admin | Data, users, analytics |
 
-## DB Collections
-- `users` — JWT auth with admin/user roles
-- `strategies` — User strategies (created or cloned)
-- `strategy_templates` — 12 pre-built templates (admin-managed, user-clonable)
-- `market_data` — OHLCV candles from NSE
-- `conversation_sessions` — AI multi-turn sessions
-- `paper_trades` — Paper trading simulations
+## File Structure
+```
+/app/backend/
+├── server.py
+├── auth.py, ai_sessions.py, indicator_registry.py
+├── screener/
+│   └── engine.py              # NEW: Screener logic + 5 presets
+├── backtest/
+│   ├── engine.py, evaluator.py (updated), costs.py, metrics.py
+├── indicators/
+│   └── calculator.py          # 15 indicators
+├── paper_trading/
+│   └── engine.py
+├── data/
+│   └── service.py
+└── scripts/
+    ├── seed_templates.py, migrate_risk_schema.py, create_admin.py, etc.
+```
 
 ## Prioritized Backlog
-
 ### P1 - Next
-- [ ] Refactor server.py into routers (strategies, sessions, paper_trading, templates)
+- [ ] Refactor server.py into separate FastAPI routers
 - [ ] Frontend edit/delete buttons on strategy list
 - [ ] Strategy Optimizer (multiple parameter combinations)
+- [ ] Frontend for screener, multi-backtest, and comparison
 
 ### P2 - Nice to Have
 - [ ] Strategy performance comparison view
-- [ ] Token blacklist for logout
-- [ ] Password reset flow
+- [ ] Token blacklist for logout / password reset
 - [ ] Strategy sharing between users
-- [ ] Caching layer for DB queries
 - [ ] Email integration for waitlist
-
-## Test Reports
-- `/app/test_reports/iteration_15.json` — Templates + E2E (Backend 13/13, Frontend 8/8)
-- `/app/test_reports/iteration_14.json` — Dashboard + Paper Trading UI (Backend 10/10, Frontend 12/12)
-- Earlier: iteration_9 through iteration_13
 
 ## Credentials
 - Test user: `testai@example.com` / `Password123!`
 - Admin: `admin@example.com` / `Password123!`
-- Market data: RELIANCE daily (741 candles)
+- Market data: 7 symbols (RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, ITC, HINDUNILVR)
