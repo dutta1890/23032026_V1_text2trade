@@ -55,12 +55,20 @@ def get_ohlcv(symbol: str, timeframe: str, start_date: datetime, end_date: datet
             f"No data for {symbol}. Available: {', '.join(sorted(available))}"
         )
 
-    # Check if timeframe exists for symbol
+    # Check if timeframe exists for symbol (case-insensitive)
     available_tf = market_data_collection.distinct("timeframe", {"symbol": symbol})
-    if timeframe not in available_tf:
+    # Normalize to lowercase for comparison
+    timeframe_lower = timeframe.lower()
+    tf_match = None
+    for tf in available_tf:
+        if tf.lower() == timeframe_lower:
+            tf_match = tf
+            break
+    if tf_match is None:
         raise ValueError(
             f"No {timeframe} data for {symbol}. Available: {', '.join(sorted(available_tf))}"
         )
+    timeframe = tf_match
 
     # Query MongoDB
     cursor = market_data_collection.find(
