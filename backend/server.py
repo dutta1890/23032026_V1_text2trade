@@ -1060,6 +1060,91 @@ async def stop_paper_trade_endpoint(request: Request, paper_trade_id: str, curre
 
 
 # =============================================================================
+# TEMPLATE ENDPOINTS
+# =============================================================================
+
+templates_collection = db["strategy_templates"]
+
+
+@api_router.get("/templates")
+@limiter.limit("30/minute")
+async def list_templates(request: Request):
+    """List all strategy templates. No auth required — public discovery."""
+    docs = list(templates_collection.find({}, {"_id": 0}).sort("category", 1))
+    return {"templates": docs, "count": len(docs)}
+
+
+@api_router.get("/template/{template_id}")
+@limiter.limit("30/minute")
+async def get_template(request: Request, template_id: str):
+    """Get a single template by ID. No auth required."""
+    doc = templates_collection.find_one({"template_id": template_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return doc
+
+
+class CloneTemplateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    symbol: Optional[str] = None
+    timeframe: Optional[str] = None
+    name: Optional[str] = None
+
+
+@api_router.post("/template/{template_id}/clone")
+@limiter.limit("10/minute")
+async def clone_template(request: Request, template_id: str, body: CloneTemplateRequest = None, current_user: dict = Depends(get_current_user)):
+    """Clone a template into the user's strategies collection."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+
+    template = templates_collection.find_one({"template_id": template_id}, {"_id": 0})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    now = datetime.now(timezone.utc).isoformat()
+    strategy_id = str(uuid.uuid4())
+
+    # Build strategy from template
+    symbol = (body.symbol.upper().strip() if body and body.symbol else template["instrument"]["symbol"])
+    tf = (body.timeframe.strip() if body and body.timeframe else template["timeframe"]["interval"])
+    custom_name = (body.name.strip() if body and body.name else None)
+
+    strategy_doc = {
+        "id": strategy_id,
+        "user_id": user_id,
+        "version": "1.0",
+        "metadata": {
+            "name": custom_name or f"{template['name']} - {symbol}",
+            "description": template.get("description", ""),
+            "tags": ["cloned", template.get("category", "").lower()],
+            "created_at": now,
+            "updated_at": now,
+        },
+        "market": template["market"],
+        "instrument": {"symbol": symbol, "base": None, "quote": None},
+        "timeframe": {"interval": tf, "candle_count": None},
+        "entry_conditions": template["entry_conditions"],
+        "exit_conditions": template["exit_conditions"],
+        "filters": template.get("filters", []),
+        "risk_management": template["risk_management"],
+    }
+
+    strategies_collection.insert_one(strategy_doc)
+    strategy_doc.pop("_id", None)
+
+    # Increment clone count
+    templates_collection.update_one(
+        {"template_id": template_id},
+        {"$inc": {"clone_count": 1}},
+    )
+
+    analytics_db["strategies_created"] += 1
+    logger.info(f"Template '{template['name']}' cloned by {user_id} -> strategy {strategy_id}")
+
+    return {"success": True, "strategy_id": strategy_id, "strategy": strategy_doc}
+
+
+# =============================================================================
 # SESSION MANAGEMENT ENDPOINTS
 # =============================================================================
 
@@ -1090,7 +1175,24 @@ RULES:
 - If timeframe missing: ASK.
 - Unsupported indicator: return error mode.
 - One question at a time. Max 2 fields per question.
-- Never give financial advice. Never predict profits."""
+- Never give financial advice. Never predict profits.
+
+TEMPLATES (suggest when user is vague or exploring):
+If the user's request is vague (e.g., "I want a simple strategy", "something for beginners", "trend following"), suggest relevant templates from this list:
+1. Golden Cross (Trend) - SMA 50/200 crossover, 3% SL
+2. RSI Mean Reversion - Buy RSI<30, sell RSI>70, 2% SL
+3. Supertrend Follower (Trend) - Supertrend buy/sell signals, 1.5% TSL
+4. MACD Momentum - MACD cross + ADX>25 filter, 2.5% SL
+5. Bollinger Bounce (Mean Reversion) - Lower band touch + RSI<35, 2% SL
+6. VWAP Intraday - VWAP crossover, 15:10 time exit, 1% SL
+7. Pivot Breakout - Above R1 entry, 1.5% SL
+8. Stochastic Reversal - K crosses D in oversold zone, 2% SL
+9. ATR Volatility - EMA crossover + ATR filter, ATR-based SL
+10. CCI Breakout (Momentum) - CCI crosses +100, 3% SL
+11. Supertrend + RSI (Combined) - Supertrend + RSI>50 filter, 2% TSL
+12. EMA Ribbon (Trend) - EMA 9/21/55 ribbon, 2.5% SL
+When suggesting templates, respond: { "mode": "question", "message": "Based on your interest, here are some templates you might like: ...", "fields_needed": ["template_choice"] }
+If the user picks a template, still ask about instrument and any customizations before returning a strategy JSON."""
 
 SUPPORTED_INDICATORS = {
     "RSI", "SMA", "EMA", "MACD", "Bollinger", "Stochastic", "ADX", "ATR",
@@ -1600,6 +1702,89 @@ async def admin_analytics(request: Request, admin: dict = Depends(get_admin_user
         },
         "usage": analytics_db,
     }
+
+
+# --- Admin template management ---
+
+class AdminTemplateCreate(BaseModel):
+    name: str = Field(max_length=100)
+    description: str = Field(max_length=500)
+    category: str = Field(max_length=50)
+    instrument: dict
+    timeframe: dict
+    entry_conditions: list
+    exit_conditions: list = Field(default_factory=list)
+    filters: list = Field(default_factory=list)
+    risk_management: dict
+
+
+@admin_router.post("/templates")
+@limiter.limit("10/minute")
+async def admin_create_template(request: Request, body: AdminTemplateCreate, admin: dict = Depends(get_admin_user)):
+    """Admin: Create a new strategy template."""
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "template_id": str(uuid.uuid4()),
+        "name": body.name.strip(),
+        "description": body.description.strip(),
+        "category": body.category.strip(),
+        "market": {"type": "equity", "exchange": "NSE"},
+        "instrument": body.instrument,
+        "timeframe": body.timeframe,
+        "entry_conditions": body.entry_conditions,
+        "exit_conditions": body.exit_conditions,
+        "filters": body.filters,
+        "risk_management": body.risk_management,
+        "created_at": now,
+        "updated_at": now,
+        "clone_count": 0,
+        "is_featured": True,
+    }
+    templates_collection.insert_one(doc)
+    doc.pop("_id", None)
+    logger.info(f"Admin created template: {doc['name']} ({doc['template_id'][:8]})")
+    return {"success": True, "template": doc}
+
+
+@admin_router.put("/templates/{template_id}")
+@limiter.limit("10/minute")
+async def admin_update_template(request: Request, template_id: str, body: AdminTemplateCreate, admin: dict = Depends(get_admin_user)):
+    """Admin: Update an existing template."""
+    existing = templates_collection.find_one({"template_id": template_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    now = datetime.now(timezone.utc).isoformat()
+    update_doc = {
+        "name": body.name.strip(),
+        "description": body.description.strip(),
+        "category": body.category.strip(),
+        "instrument": body.instrument,
+        "timeframe": body.timeframe,
+        "entry_conditions": body.entry_conditions,
+        "exit_conditions": body.exit_conditions,
+        "filters": body.filters,
+        "risk_management": body.risk_management,
+        "updated_at": now,
+    }
+    templates_collection.update_one({"template_id": template_id}, {"$set": update_doc})
+    logger.info(f"Admin updated template: {body.name} ({template_id[:8]})")
+
+    result = templates_collection.find_one({"template_id": template_id}, {"_id": 0})
+    return {"success": True, "template": result}
+
+
+@admin_router.delete("/templates/{template_id}")
+@limiter.limit("10/minute")
+async def admin_delete_template(request: Request, template_id: str, admin: dict = Depends(get_admin_user)):
+    """Admin: Delete a template."""
+    existing = templates_collection.find_one({"template_id": template_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    templates_collection.delete_one({"template_id": template_id})
+    logger.info(f"Admin deleted template: {template_id[:8]}")
+    return {"success": True, "message": "Template deleted"}
 
 
 # =============================================================================

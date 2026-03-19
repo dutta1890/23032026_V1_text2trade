@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, PlusCircle, FolderOpen, HelpCircle, LogOut, User, ChevronRight, Lightbulb, FileText, Settings, BarChart3, Zap, X, MessageCircle, Sparkles, AlertTriangle, Loader2, Play, Activity } from "lucide-react";
+import { TrendingUp, PlusCircle, FolderOpen, HelpCircle, LogOut, User, ChevronRight, Lightbulb, FileText, Settings, BarChart3, Zap, X, MessageCircle, Sparkles, AlertTriangle, Loader2, Play, Activity, BookOpen } from "lucide-react";
 import StrategyBuilder from "@/components/StrategyBuilder";
 import StrategyChat from "@/components/StrategyChat";
 import NLStrategyInput from "@/components/NLStrategyInput";
 import BacktestResultsPanel from "@/components/BacktestResultsPanel";
 import StrategyPlayground from "@/components/StrategyPlayground";
 import PaperTradingContent from "@/components/PaperTradingContent";
+import TemplatesContent from "@/components/TemplatesContent";
 import { explainStrategy } from "@/utils/explainStrategy";
 import axios from "axios";
 
@@ -17,6 +18,7 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const Sidebar = ({ activePage, onPageChange, userEmail, onLogout }) => {
   const menuItems = [
     { id: "create", label: "Create Strategy", icon: PlusCircle },
+    { id: "templates", label: "Templates", icon: BookOpen },
     { id: "strategies", label: "My Strategies", icon: FolderOpen },
     { id: "playground", label: "AI Playground", icon: Sparkles },
     { id: "paper-trading", label: "Paper Trading", icon: Activity },
@@ -451,6 +453,7 @@ export default function DashboardPage() {
     }
     switch (activePage) {
       case "create": return <CreateStrategyContent onStartBuilder={handleStartBuilder} onStartNL={handleStartNL} />;
+      case "templates": return <TemplatesContent onStrategyCreated={fetchStrategies} />;
       case "strategies": return <MyStrategiesContent strategies={strategies} onCreateNew={handleStartBuilder} onOpenChat={handleOpenChat} onAnalyzeRisk={handleAnalyzeRisk} riskWarnings={riskWarnings} analyzingRisk={analyzingRisk} onRunBacktest={handleRunBacktest} backtestResults={backtestResults} runningBacktest={runningBacktest} expandedBacktest={expandedBacktest} onExpandBacktest={handleExpandBacktest} />;
       case "playground": return <StrategyPlayground onClose={() => handlePageChange("create")} onStrategyCreated={fetchStrategies} />;
       case "paper-trading": return <PaperTradingContent strategies={strategies} />;
