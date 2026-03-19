@@ -1,0 +1,88 @@
+{
+  "summary": "Iteration 16 Testing Complete - Screener, Multi-Stock Backtest, and Strategy Comparison. All 20 tests pass. Screener scans 7 symbols, finds matches per preset (4 oversold, variable for others). Multi-stock backtest runs independently on up to 10 symbols sorted by P&L. Strategy comparison ranks up to 5 strategies by Sharpe ratio. Admin stats tracks preset runs and symbol matches (in-memory).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/v1/backtest/multi and /api/v1/backtest/compare",
+        "issue": "Returns 422 (Pydantic validation) instead of 400 when exceeding max limits for symbols/strategies. Technically correct but inconsistent with test spec wording."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "GET /api/v1/screener/presets returns 5 presets (no auth required) ✓",
+    "Presets include: oversold, trending_up, vwap_breakout, bollinger_squeeze, momentum_surge ✓",
+    "Each preset has id, name, description, conditions_count ✓",
+    "POST /api/v1/screener/scan without auth returns 401 ✓",
+    "POST /api/v1/screener/scan with preset='oversold' returns valid response (4 matches: HDFCBANK, HINDUNILVR, INFY, TCS) ✓",
+    "POST /api/v1/screener/scan with preset='trending_up' returns valid response ✓",
+    "POST /api/v1/screener/scan with preset='vwap_breakout' returns valid response ✓",
+    "POST /api/v1/screener/scan with preset='bollinger_squeeze' returns valid response ✓",
+    "POST /api/v1/screener/scan with preset='momentum_surge' returns valid response ✓",
+    "POST /api/v1/screener/scan with custom conditions (RSI < 40) returns matches ✓",
+    "POST /api/v1/screener/scan with invalid preset returns 400 ✓",
+    "POST /api/v1/screener/scan without conditions or preset returns 400 ✓",
+    "POST /api/v1/backtest/multi with 5 symbols returns 5 independent results ✓",
+    "POST /api/v1/backtest/multi results sorted by P&L descending ✓",
+    "POST /api/v1/backtest/multi with >10 symbols returns 422 (validation error) ✓",
+    "POST /api/v1/backtest/compare with 2 strategies on RELIANCE returns ranked results ✓",
+    "POST /api/v1/backtest/compare results ranked by Sharpe ratio ✓",
+    "POST /api/v1/backtest/compare with >5 strategies returns 422 (validation error) ✓",
+    "GET /api/v1/admin/screener/stats as admin returns most_run_presets and most_scanned_symbols ✓",
+    "GET /api/v1/admin/screener/stats as non-admin returns 403 ✓"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_16.py",
+    "/app/test_reports/pytest/pytest_iteration_16.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Screener engine properly computes all needed indicators and evaluates conditions on latest candle",
+    "Multi-stock backtest correctly clones strategy and runs independent backtests per symbol",
+    "Strategy comparison correctly sorts by Sharpe ratio with P&L as tiebreaker",
+    "Admin screener stats correctly tracks in-memory analytics for preset runs and symbol matches"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_16.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "N/A (backend-only testing requested)"
+  },
+  "test_credentials": {
+    "test_user": "testai@example.com / Password123!",
+    "admin_user": "admin@example.com / Password123!"
+  },
+  "seed_data_creation": "None - used existing 7 symbols with daily data",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 16 features complete: (1) GET /screener/presets returns 5 presets. (2) POST /screener/scan works with preset or custom conditions (auth required). (3) POST /backtest/multi runs same strategy on up to 10 symbols sorted by P&L. (4) POST /backtest/compare runs up to 5 strategies on one symbol ranked by Sharpe. (5) GET /admin/screener/stats returns analytics (admin only). Analytics are in-memory and reset on server restart. 7 symbols with data: RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, ITC, HINDUNILVR.",
+  "manual_verification": {
+    "oversold_scan": {
+      "matches": 4,
+      "symbols": ["HDFCBANK (RSI: 26.71)", "HINDUNILVR (RSI: 25.52)", "INFY (RSI: 27.40)", "TCS (RSI: 22.28)"]
+    },
+    "multi_backtest": {
+      "symbols_tested": 5,
+      "all_successful": true,
+      "sorted_by_pnl": true,
+      "best_performer": "ICICIBANK (20.97% P&L)"
+    },
+    "strategy_comparison": {
+      "strategies_tested": 2,
+      "ranked_by_sharpe": true,
+      "best_strategy": "MACD Momentum (Sharpe: -2.22)",
+      "worst_strategy": "RSI Mean Reversion (Sharpe: -4.00)"
+    },
+    "admin_stats": {
+      "preset_runs_tracked": true,
+      "symbol_matches_tracked": true,
+      "total_preset_runs_after_tests": 6
+    }
+  }
+}

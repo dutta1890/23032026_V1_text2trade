@@ -67,10 +67,16 @@ def evaluate_condition(condition: dict, indicators: dict, candle_index: int, df:
             return _crosses(short_s, long_s, candle_index, "above")
         if operator in ("cross_below", "crosses_below"):
             return _crosses(short_s, long_s, candle_index, "below")
-        val = _safe_value(short_s, candle_index)
-        if math.isnan(val) or threshold is None:
+        short_val = _safe_value(short_s, candle_index)
+        if threshold is not None:
+            if math.isnan(short_val):
+                return False
+            return _compare(short_val, operator, float(threshold), short_s, candle_index)
+        # No threshold → compare short vs long directly
+        long_val = _safe_value(long_s, candle_index)
+        if math.isnan(short_val) or math.isnan(long_val):
             return False
-        return _compare(val, operator, float(threshold), short_s, candle_index)
+        return _compare(short_val, operator, long_val, short_s, candle_index)
 
     if ind_data is None:
         return False

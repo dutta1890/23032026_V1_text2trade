@@ -1145,6 +1145,188 @@ async def clone_template(request: Request, template_id: str, body: CloneTemplate
 
 
 # =============================================================================
+# SCREENER + MULTI-BACKTEST + COMPARISON ENDPOINTS
+# =============================================================================
+
+from screener.engine import run_screener, SCREENER_PRESETS
+
+# In-memory analytics for screener usage
+screener_analytics = {"preset_runs": {}, "symbol_scans": {}}
+
+
+class ScreenerScanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    conditions: Optional[list] = None
+    preset: Optional[str] = None
+    timeframe: str = "1d"
+    symbols: Optional[List[str]] = None
+
+
+@api_router.post("/screener/scan")
+@limiter.limit("10/minute")
+async def screener_scan(request: Request, body: ScreenerScanRequest, current_user: dict = Depends(get_current_user)):
+    """Scan all symbols against indicator conditions on the latest candle."""
+    if not body.conditions and not body.preset:
+        raise HTTPException(status_code=400, detail="Provide 'conditions' or 'preset'")
+
+    conditions = body.conditions
+    if body.preset:
+        preset = SCREENER_PRESETS.get(body.preset)
+        if not preset:
+            raise HTTPException(status_code=400, detail=f"Unknown preset: {body.preset}. Available: {list(SCREENER_PRESETS.keys())}")
+        conditions = preset["conditions"]
+        screener_analytics["preset_runs"][body.preset] = screener_analytics["preset_runs"].get(body.preset, 0) + 1
+
+    result = run_screener(conditions, body.timeframe, body.symbols)
+
+    # Track scanned symbols
+    for m in result.get("matches", []):
+        sym = m["symbol"]
+        screener_analytics["symbol_scans"][sym] = screener_analytics["symbol_scans"].get(sym, 0) + 1
+
+    if body.preset:
+        result["preset"] = body.preset
+        result["preset_name"] = SCREENER_PRESETS[body.preset]["name"]
+        result["preset_description"] = SCREENER_PRESETS[body.preset]["description"]
+
+    return result
+
+
+@api_router.get("/screener/presets")
+@limiter.limit("30/minute")
+async def list_screener_presets(request: Request):
+    """List available screener presets. No auth required."""
+    presets = []
+    for key, val in SCREENER_PRESETS.items():
+        presets.append({
+            "id": key,
+            "name": val["name"],
+            "description": val["description"],
+            "conditions_count": len(val["conditions"]),
+        })
+    return {"presets": presets, "count": len(presets)}
+
+
+class MultiBacktestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    strategy: dict
+    symbols: List[str] = Field(max_length=10)
+    timeframe: str = "1d"
+    initial_capital: float = 100000.0
+
+
+@api_router.post("/backtest/multi")
+@limiter.limit("5/minute")
+async def multi_stock_backtest(request: Request, body: MultiBacktestRequest, current_user: dict = Depends(get_current_user)):
+    """Run the same strategy on up to 10 stocks independently."""
+    if len(body.symbols) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 symbols allowed")
+    if len(body.symbols) == 0:
+        raise HTTPException(status_code=400, detail="At least 1 symbol required")
+
+    from backtest.engine import run_backtest
+
+    results = []
+    for symbol in body.symbols:
+        # Clone strategy and set the symbol
+        strat_copy = {**body.strategy}
+        sym = symbol.upper().strip()
+        tf = body.timeframe
+        if "timeframe" in strat_copy and strat_copy.get("timeframe"):
+            tf = strat_copy["timeframe"].get("interval", body.timeframe)
+
+        try:
+            bt_result = run_backtest(strat_copy, symbol=sym, timeframe=tf, initial_capital=body.initial_capital)
+            bt_result["symbol"] = sym
+            results.append(bt_result)
+        except Exception as e:
+            results.append({
+                "symbol": sym,
+                "success": False,
+                "error": str(e),
+                "metrics": {},
+                "trades": [],
+            })
+
+    # Sort by total P&L descending
+    results.sort(key=lambda r: r.get("metrics", {}).get("total_pnl_pct", float("-inf")) or float("-inf"), reverse=True)
+
+    return {
+        "results": results,
+        "total_symbols": len(body.symbols),
+        "successful": sum(1 for r in results if r.get("success")),
+        "strategy_name": body.strategy.get("metadata", {}).get("name", "Unnamed"),
+    }
+
+
+class CompareBacktestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    strategies: List[dict] = Field(max_length=5)
+    symbol: str
+    timeframe: str = "1d"
+    initial_capital: float = 100000.0
+
+
+@api_router.post("/backtest/compare")
+@limiter.limit("5/minute")
+async def compare_strategies(request: Request, body: CompareBacktestRequest, current_user: dict = Depends(get_current_user)):
+    """Run up to 5 strategies on one stock, ranked by Sharpe ratio."""
+    if len(body.strategies) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 strategies allowed")
+    if len(body.strategies) == 0:
+        raise HTTPException(status_code=400, detail="At least 1 strategy required")
+
+    from backtest.engine import run_backtest
+
+    results = []
+    for i, strat in enumerate(body.strategies):
+        strat_name = strat.get("metadata", {}).get("name", f"Strategy {i+1}")
+        sym = body.symbol.upper().strip()
+        tf = body.timeframe
+        if "timeframe" in strat and strat.get("timeframe"):
+            tf = strat["timeframe"].get("interval", body.timeframe)
+
+        try:
+            bt_result = run_backtest(strat, symbol=sym, timeframe=tf, initial_capital=body.initial_capital)
+            bt_result["strategy_name"] = strat_name
+            bt_result["rank"] = 0
+            results.append(bt_result)
+        except Exception as e:
+            results.append({
+                "strategy_name": strat_name,
+                "success": False,
+                "error": str(e),
+                "metrics": {},
+                "trades": [],
+                "rank": 0,
+            })
+
+    # Rank by Sharpe ratio (higher = better), then by total P&L as tiebreaker
+    def sort_key(r):
+        if not r.get("success"):
+            return (float("-inf"), float("-inf"))
+        m = r.get("metrics", {})
+        sharpe = m.get("sharpe_ratio", float("-inf"))
+        if sharpe is None:
+            sharpe = float("-inf")
+        pnl = m.get("total_pnl_pct", 0) or 0
+        return (sharpe, pnl)
+
+    results.sort(key=sort_key, reverse=True)
+    for i, r in enumerate(results):
+        r["rank"] = i + 1
+
+    return {
+        "results": results,
+        "symbol": body.symbol.upper().strip(),
+        "total_strategies": len(body.strategies),
+        "successful": sum(1 for r in results if r.get("success")),
+        "best_strategy": results[0]["strategy_name"] if results and results[0].get("success") else None,
+        "best_sharpe": results[0].get("metrics", {}).get("sharpe_ratio") if results and results[0].get("success") else None,
+    }
+
+
+# =============================================================================
 # SESSION MANAGEMENT ENDPOINTS
 # =============================================================================
 
@@ -1785,6 +1967,25 @@ async def admin_delete_template(request: Request, template_id: str, admin: dict 
     templates_collection.delete_one({"template_id": template_id})
     logger.info(f"Admin deleted template: {template_id[:8]}")
     return {"success": True, "message": "Template deleted"}
+
+
+@admin_router.get("/screener/stats")
+@limiter.limit("10/minute")
+async def admin_screener_stats(request: Request, admin: dict = Depends(get_admin_user)):
+    """Admin: Get screener usage analytics — most run presets, most scanned symbols."""
+    preset_runs = screener_analytics.get("preset_runs", {})
+    symbol_scans = screener_analytics.get("symbol_scans", {})
+
+    # Sort by count descending
+    top_presets = sorted(preset_runs.items(), key=lambda x: x[1], reverse=True)
+    top_symbols = sorted(symbol_scans.items(), key=lambda x: x[1], reverse=True)
+
+    return {
+        "most_run_presets": [{"preset": k, "count": v} for k, v in top_presets],
+        "most_scanned_symbols": [{"symbol": k, "match_count": v} for k, v in top_symbols[:20]],
+        "total_preset_runs": sum(preset_runs.values()),
+        "total_symbol_matches": sum(symbol_scans.values()),
+    }
 
 
 # =============================================================================
