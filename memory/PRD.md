@@ -5,7 +5,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## Architecture
 - **Frontend**: React + TailwindCSS + Shadcn UI + Recharts
-- **Backend**: FastAPI (Python)
+- **Backend**: FastAPI (Python) — modular routers (v1.2.0)
 - **Database**: MongoDB
 - **Auth**: JWT with role-based routing (admin/user). Tokens in React state/context only.
 - **AI**: OpenAI GPT-5.2 via Emergent LLM Key
@@ -14,46 +14,36 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## What's Been Implemented
 
-### Session 14 (2026-03-19) — Frontend Feature Push (Screener, Strategy Detail, Comparison, Polish)
-- **Stock Screener UI** (`/screener`): 5 preset cards (Oversold, Trending Up, VWAP Breakout, Bollinger Squeeze, Momentum Surge), custom scan builder with indicator/operator/value fields, results table with Build Strategy button
-- **Strategy Detail Page** (`/strategy/:id`): Human-readable entry/exit conditions, risk management display (SL, TP, TSL, time exit), action buttons (Run Backtest, Edit, Delete, Paper Trade), raw JSON preview
-- **Multi-Stock Comparison**: On backtest page, compare strategy across up to 10 stocks with bar chart and metrics table
-- **Strategy Comparison**: On dashboard, select 2-5 strategies via checkboxes, compare side-by-side on any symbol (ranked by Sharpe ratio)
-- **General UI Polish**: Error boundary wrapper, 404 page with navigation, SVG favicon, page titles on all pages, loading skeletons component
-- **Admin Polish**: Green/red data health banner with animated indicator dot, Refresh Data button with loading state and toast notifications
-- **Bug Fix**: Added missing recharts imports to PaperTradesPage
-- **Cleanup**: Removed unused DashboardPage.js
+### Session 15 (2026-03-19) — Backend Refactoring + UI Polish
+- **Backend Refactoring**: Split `server.py` (~2046 lines) into modular architecture:
+  - `database.py`: Shared MongoDB connections, collections, in-memory state
+  - `models.py`: Centralized Pydantic models
+  - `routers/strategies.py`: Strategy CRUD
+  - `routers/ai.py`: AI parser, risk analyzer, explainer, session management
+  - `routers/backtest_routes.py`: Backtest + multi-stock + comparison
+  - `routers/paper_trading.py`: Paper trading endpoints
+  - `routers/templates.py`: Template endpoints
+  - `routers/screener_routes.py`: Screener scan + presets
+  - `routers/admin.py`: Admin-only endpoints
+  - Slim `server.py` (~230 lines): App factory, middleware, auth, general routes
+- **Loading Skeletons**: Wired `PageSkeleton` component into Dashboard, Templates, Paper Trades, Strategy Detail pages (replacing plain Loader2 spinners)
+- **Testing**: Backend 20/20, Frontend 14/14 — iteration_19.json
+
+### Session 14 (2026-03-19) — Frontend Feature Push
+- **Stock Screener UI** (`/screener`): 5 preset cards, custom scan builder, results table with Build Strategy button
+- **Strategy Detail Page** (`/strategy/:id`): Human-readable conditions/risk, action buttons (Run Backtest, Edit, Delete)
+- **Multi-Stock Comparison**: Compare strategy across 10 stocks on backtest page
+- **Strategy Comparison**: Select 2-5 strategies on dashboard via checkboxes for side-by-side comparison
+- **General UI Polish**: Error boundary, 404 page, SVG favicon, page titles, loading skeletons
+- **Admin Polish**: Green/red data health banner, refresh button with loading+toast
 - **Testing**: Frontend 20/20 — iteration_18.json
 
-### Session 13 (2026-03-19) — Complete Frontend Rebuild
-- **Auth System**: AuthContext with useAuth(), ProtectedRoute, AdminRoute guards
-  - JWT decode in memory, NO localStorage
-  - Role-based routing: admin→/admin/dashboard, user→/dashboard
-  - /register page with email/password/confirm
-- **User Dashboard** (/dashboard): Quick Start (Build, Templates, Scan), Stats cards, Strategy list with checkboxes, Paper Trades summary
-- **Strategy Builder** (/build): AI chat + template selector tabs, risk controls editor, Finalize→Backtest→Deploy buttons
-- **Backtest Results** (/backtest/{id}): Metrics cards, equity curve, cost breakdown, sortable trade table, Paper Trade button, Multi-stock compare
-- **Paper Trades** (/paper-trades): Deploy form, status badges, expand for equity curve + trade log
-- **Template Gallery** (/templates): 12 cards with category badges+filters, symbol picker, clone→open flow
-- **Admin Dashboard** (/admin/dashboard): Data pipeline health banner, Platform stats, Screener analytics, Refresh Data button with toast
-- **Admin Users** (/admin/users): User table with search, strategy count, AI calls
-- **Layouts**: UserLayout + AdminLayout with responsive sidebars, mobile menu (375px+)
-- **Testing**: Frontend 27/27 — iteration_17.json, Frontend 20/20 — iteration_18.json
+### Session 13 — Complete Frontend Rebuild
+- Auth system (JWT in memory), role-based routing, all user/admin pages
+- Testing: Frontend 27/27 — iteration_17.json
 
-### Session 12 — Screener + Multi-Backtest + Comparison Engine
-- Screener with 5 presets, Multi-stock backtest (up to 10), Strategy comparison (ranked by Sharpe)
-- Testing: Backend 20/20 — iteration_16.json
-
-### Session 11 — Strategy Templates + E2E Pipeline
-- 12 equity templates, Template CRUD endpoints, clone flow
-- Testing: Backend 13/13, Frontend 8/8 — iteration_15.json
-
-### Session 10 — Frontend Dashboard (first version)
-- BacktestResultsPanel, AI Playground, Paper Trading UI
-- Testing: Backend 10/10, Frontend 12/12 — iteration_14.json
-
-### Earlier Sessions (4-9)
-- Real backtest engine, 15 indicators, performance analytics, multi-turn AI, paper trading engine, risk management
+### Sessions 10-12 — Backend Features
+- Screener + multi-backtest + comparison engine, strategy templates, backtest engine
 
 ## Routes
 | Route | Auth | Component | Description |
@@ -74,50 +64,46 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## File Structure
 ```
-/app/frontend/src/
-├── App.js (ErrorBoundary, all routes including /screener, /strategy/:id, 404)
-├── context/AuthContext.js
-├── hooks/useApi.js
-├── components/
-│   ├── ProtectedRoute.js, AdminRoute.js
-│   ├── ErrorBoundary.js (NEW: React error boundary)
-│   ├── LoadingSkeleton.js (NEW: PageSkeleton, TableSkeleton, CardSkeleton)
-│   ├── MultiStockCompare.js (NEW: Compare strategy across stocks)
-│   ├── StrategyCompare.js (NEW: Compare multiple strategies side-by-side)
-│   ├── layout/UserLayout.js (Screener nav added), AdminLayout.js
-│   ├── BacktestResultsPanel.js, StrategyPlayground.js
-│   ├── PaperTradingContent.js, TemplatesContent.js
-│   └── ui/ (Shadcn)
-├── pages/
-│   ├── HomePage.js, LoginPage.js, RegisterPage.js
-│   ├── NotFoundPage.js (NEW: 404)
-│   ├── user/UserDashboard.js, BuilderPage.js, BacktestPage.js
-│   ├── user/PaperTradesPage.js, TemplatesPage.js
-│   ├── user/ScreenerPage.js (NEW: Stock screener)
-│   ├── user/StrategyDetailPage.js (NEW: Strategy detail view)
-│   └── admin/AdminDashboard.js, AdminUsers.js
-└── utils/explainStrategy.js, simulate.js
-
 /app/backend/
-├── server.py, auth.py, ai_sessions.py
+├── server.py (~230 lines - app factory)
+├── database.py (shared DB, collections, state)
+├── models.py (Pydantic models)
+├── auth.py, ai_sessions.py, resilience.py
+├── routers/
+│   ├── strategies.py, ai.py, backtest_routes.py
+│   ├── paper_trading.py, templates.py
+│   ├── screener_routes.py, admin.py
 ├── screener/engine.py
 ├── backtest/engine.py, evaluator.py, costs.py, metrics.py
 ├── indicators/calculator.py
 ├── paper_trading/engine.py
 ├── data/service.py
-└── scripts/seed_templates.py, migrate_risk_schema.py, etc.
+└── scripts/seed_templates.py, etc.
+
+/app/frontend/src/
+├── App.js (ErrorBoundary, all routes)
+├── context/AuthContext.js
+├── hooks/useApi.js
+├── components/
+│   ├── ErrorBoundary.js, LoadingSkeleton.js
+│   ├── MultiStockCompare.js, StrategyCompare.js
+│   ├── layout/UserLayout.js, AdminLayout.js
+│   └── ui/ (Shadcn)
+├── pages/
+│   ├── NotFoundPage.js
+│   ├── user/ScreenerPage.js, StrategyDetailPage.js, etc.
+│   └── admin/AdminDashboard.js, AdminUsers.js
 ```
 
 ## Prioritized Backlog
 ### P1 - Next
-- [ ] Refactor server.py into separate FastAPI routers
 - [ ] Strategy Optimizer (parameter sweeps)
 
 ### P2 - Nice to Have
 - [ ] Token blacklist for logout / password reset
 - [ ] Strategy sharing between users
-- [ ] Email integration for notifications
-- [ ] Watchlist feature for screener results
+- [ ] Email notifications
+- [ ] Watchlist for screener results
 - [ ] Strategy Leaderboard / Most Cloned section
 
 ## Credentials
