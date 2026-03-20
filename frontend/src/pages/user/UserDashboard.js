@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Hammer, BookOpen, Search, FolderOpen, Activity, BarChart3,
-  TrendingUp, TrendingDown, Loader2, Play, PlusCircle, ArrowRight,
+  TrendingUp, TrendingDown, Play, PlusCircle, ArrowRight,
   Eye, GitCompare
 } from "lucide-react";
+import { PageSkeleton } from "@/components/LoadingSkeleton";
 import StrategyCompare from "@/components/StrategyCompare";
 
 const StatCard = ({ label, value, sub, color = "text-foreground", testId }) => (
@@ -51,9 +52,7 @@ export default function UserDashboard() {
 
   const selectedStrategies = strategies.filter((s) => selectedIds.includes(s.id));
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
-  }
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-8" data-testid="user-dashboard">

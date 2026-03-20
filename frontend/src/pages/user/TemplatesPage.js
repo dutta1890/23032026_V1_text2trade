@@ -8,6 +8,7 @@ import {
   Copy, Loader2, TrendingUp, Activity, ArrowDown, ArrowUp,
   Zap, Target, Clock, Layers, CheckCircle, BookOpen
 } from "lucide-react";
+import { PageSkeleton } from "@/components/LoadingSkeleton";
 
 const ICONS = { "Trend": TrendingUp, "Mean Reversion": ArrowDown, "Momentum": Zap, "Intraday": Clock, "Breakout": ArrowUp, "Volatility": Activity, "Combined": Layers };
 const COLORS = { "Trend": "bg-blue-500/20 text-blue-400 border-blue-500/30", "Mean Reversion": "bg-purple-500/20 text-purple-400 border-purple-500/30", "Momentum": "bg-orange-500/20 text-orange-400 border-orange-500/30", "Intraday": "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", "Breakout": "bg-primary/20 text-primary border-primary/30", "Volatility": "bg-red-500/20 text-red-400 border-red-500/30", "Combined": "bg-cyan-500/20 text-cyan-400 border-cyan-500/30" };
@@ -58,7 +59,7 @@ export default function TemplatesPage() {
   const categories = ["all", ...new Set(templates.map((t) => t.category))];
   const filtered = filter === "all" ? templates : templates.filter((t) => t.category === filter);
 
-  if (loading) return <div className="flex items-center justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6" data-testid="templates-page">

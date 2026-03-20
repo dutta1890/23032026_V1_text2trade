@@ -7,6 +7,7 @@ import {
   Loader2, ArrowLeft, Play, Activity, Pencil, Trash2,
   ChevronRight, Shield, Clock, Target, TrendingUp
 } from "lucide-react";
+import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
 
 const ConditionRow = ({ cond, index }) => {
@@ -74,7 +75,7 @@ export default function StrategyDetailPage() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  if (loading) return <PageSkeleton />;
   if (!strategy) return null;
 
   const rm = strategy.risk_management || {};

@@ -10,6 +10,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer
 } from "recharts";
+import { PageSkeleton } from "@/components/LoadingSkeleton";
 
 const StatusBadge = ({ status }) => {
   const s = { running: "bg-primary/20 text-primary", paused: "bg-yellow-500/20 text-yellow-500", completed: "bg-blue-500/20 text-blue-400", stopped: "bg-destructive/20 text-destructive" };
@@ -58,7 +59,7 @@ export default function PaperTradesPage() {
   const running = paperTrades.filter((t) => t.status === "running").length;
   const completed = paperTrades.filter((t) => t.status === "completed").length;
 
-  if (loading) return <div className="flex items-center justify-center py-32"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6" data-testid="paper-trades-page">
