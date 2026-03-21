@@ -14,6 +14,20 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## What's Been Implemented (All Backlog Complete)
 
+### Session 18 (2026-03-21) — Strategy Performance Tracker + Auth Fix
+- **Strategy Performance Tracker** (P0):
+  - `POST /api/v1/tracker/record` — Record a performance entry (strategy name, symbol, metrics)
+  - `GET /api/v1/tracker/dashboard` — Aggregated stats: cumulative P&L, strategy rankings, best/worst performers, improvement trends, recent activity
+  - `GET /api/v1/tracker/history` — Last 50 records sorted by date
+  - Auto-recording: Successful backtests automatically feed the tracker via `_auto_record()` in `backtest_routes.py`
+  - New collection: `performance_records` with indexes on `user_id` and `(user_id, recorded_at)`
+  - Frontend: Dedicated `/tracker` page with KPI stat cards, cumulative P&L area chart, best/worst performers, improvement trend, strategy rankings, and recent activity
+  - Sidebar: "Tracker" nav item with BarChart3 icon
+- **Auth Fix**:
+  - Fixed critical bug: `AuthContext.login()` was a state setter but LoginPage passed (email, password). Now login() makes the API call and decodes JWT for user data (user_id, email, role)
+  - Added `get_optional_user` dependency in `auth.py` for non-mandatory auth (used by backtest auto-record)
+- **Testing**: Backend 18/18, Frontend all verified — iteration_22.json
+
 ### Session 17 (2026-03-21) — P2 Backlog: Auth, Sharing, Watchlist, Leaderboard
 - **Token Blacklist + Password Reset**:
   - `POST /auth/logout` blacklists JWT in MongoDB (TTL index auto-cleans expired tokens)
@@ -75,6 +89,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 | /screener | User | ScreenerPage | Stock screener with presets + watchlist |
 | /strategy/:id | User | StrategyDetailPage | Strategy detail + share + optimize |
 | /optimizer | User | OptimizerPage | Parameter sweep optimizer |
+| /tracker | User | TrackerPage | Performance tracker dashboard |
 | /watchlist | User | WatchlistPage | Saved screener matches |
 | /admin/dashboard | Admin | AdminDashboard | System health with data banner |
 | /admin/users | Admin | AdminUsers | User management |
@@ -89,20 +104,20 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 │   ├── strategies.py, ai.py, backtest_routes.py
 │   ├── paper_trading.py, templates.py
 │   ├── screener_routes.py, admin.py, optimizer.py
-│   ├── sharing.py (NEW), watchlist.py (NEW), leaderboard.py (NEW)
+│   ├── sharing.py, watchlist.py, leaderboard.py, tracker.py (NEW)
 ├── optimizer/engine.py
 ├── screener/engine.py, backtest/engine.py
 └── data/service.py, scripts/
 
 /app/frontend/src/
-├── App.js (18 routes)
-├── context/AuthContext.js (logout → blacklist)
+├── App.js (19 routes)
+├── context/AuthContext.js (login → API call + JWT decode, logout → blacklist)
 ├── components/ (ErrorBoundary, LoadingSkeleton, MultiStockCompare, StrategyCompare)
 ├── pages/
 │   ├── ForgotPasswordPage.js (NEW), ResetPasswordPage.js (NEW)
 │   ├── SharedStrategyPage.js (NEW), NotFoundPage.js
 │   ├── user/ (Dashboard, Builder, Backtest, PaperTrades, Templates,
-│   │         Screener, StrategyDetail, Optimizer, Watchlist(NEW))
+│   │         Screener, StrategyDetail, Optimizer, Watchlist, Tracker(NEW))
 │   └── admin/ (AdminDashboard, AdminUsers)
 ```
 
@@ -115,7 +130,8 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - `blacklisted_tokens` (NEW): revoked JWTs with TTL auto-cleanup
 - `password_resets` (NEW): reset tokens with 1-hour TTL
 - `shared_strategies` (NEW): strategy snapshots with share tokens, view/clone counts
-- `watchlist` (NEW): user watchlist items (symbol + indicator snapshot)
+- `watchlist`: user watchlist items (symbol + indicator snapshot)
+- `performance_records` (NEW): backtest/paper-trade metrics per strategy per user
 
 ## ALL BACKLOG ITEMS COMPLETE
 No remaining P1/P2 items. All features requested by user have been implemented and tested.
