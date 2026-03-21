@@ -61,6 +61,8 @@ export default function LoginPage() {
           </form>
           <p className="text-center text-xs text-muted-foreground mt-4">
             No account? <Link to="/register" className="text-primary hover:underline" data-testid="link-to-register">Register</Link>
+            <span className="mx-2">·</span>
+            <Link to="/forgot-password" className="text-primary hover:underline" data-testid="link-to-forgot">Forgot Password?</Link>
           </p>
           <Link to="/" className="flex items-center justify-center gap-1 text-xs text-muted-foreground mt-3 hover:text-foreground">
             <ArrowLeft className="w-3 h-3" /> Back to home

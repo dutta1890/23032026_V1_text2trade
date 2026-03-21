@@ -142,6 +142,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token type")
     
+    # Check token blacklist
+    if db["blacklisted_tokens"].find_one({"token": token}):
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+    
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -240,3 +244,98 @@ def refresh_access_token(refresh_token: str) -> AccessTokenResponse:
     new_access_token = create_access_token(user["user_id"], user["email"], user.get("role", "user"))
     
     return AccessTokenResponse(access_token=new_access_token)
+
+
+
+# =============================================================================
+# LOGOUT (TOKEN BLACKLIST)
+# =============================================================================
+
+def blacklist_token(token: str):
+    """Add a token to the blacklist collection with TTL."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        db["blacklisted_tokens"].insert_one({"token": token, "expires_at": exp})
+    except Exception:
+        db["blacklisted_tokens"].insert_one({
+            "token": token,
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS),
+        })
+
+# Create TTL index so expired blacklist entries auto-delete
+try:
+    db["blacklisted_tokens"].create_index("expires_at", expireAfterSeconds=0)
+except Exception:
+    pass
+
+
+# =============================================================================
+# PASSWORD RESET
+# =============================================================================
+
+import secrets
+
+class ForgotPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v):
+        validate_password_strength(v)
+        return v
+
+class PasswordResetResponse(BaseModel):
+    success: bool
+    message: str
+    reset_token: Optional[str] = None
+
+
+def create_password_reset_token(email: str) -> str:
+    """Create a password reset token (1-hour expiry). Returns token or raises."""
+    email = email.lower().strip()
+    user = users_collection.find_one({"email": email})
+    if not user:
+        # Don't reveal whether email exists
+        return None
+
+    token = secrets.token_urlsafe(32)
+    db["password_resets"].insert_one({
+        "token": token,
+        "email": email,
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+        "used": False,
+    })
+    return token
+
+# TTL index for password reset tokens
+try:
+    db["password_resets"].create_index("expires_at", expireAfterSeconds=0)
+except Exception:
+    pass
+
+
+def reset_password_with_token(token: str, new_password: str) -> bool:
+    """Reset password using a valid reset token. Returns True on success."""
+    record = db["password_resets"].find_one({
+        "token": token, "used": False,
+        "expires_at": {"$gt": datetime.now(timezone.utc)},
+    })
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    email = record["email"]
+    new_hash = hash_password(new_password)
+    result = users_collection.update_one({"email": email}, {"$set": {"password_hash": new_hash}})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db["password_resets"].update_one({"token": token}, {"$set": {"used": True}})
+    return True

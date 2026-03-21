@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Hammer, BookOpen, Activity, LogOut, Menu, X,
-  TrendingUp, User as UserIcon, Search, Zap
+  TrendingUp, User as UserIcon, Search, Zap, Bookmark
 } from "lucide-react";
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { to: "/build", label: "Build Strategy", icon: Hammer },
   { to: "/screener", label: "Screener", icon: Search },
   { to: "/optimizer", label: "Optimizer", icon: Zap },
+  { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/templates", label: "Templates", icon: BookOpen },
   { to: "/paper-trades", label: "Paper Trades", icon: Activity },
 ];

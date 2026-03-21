@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import {
   Search, Loader2, Hammer, TrendingUp, Zap, ChevronDown, ChevronUp,
-  Plus, Trash2, Filter
+  Plus, Trash2, Filter, Bookmark
 } from "lucide-react";
+import { toast } from "sonner";
 
 const SYMBOLS = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "ITC", "HINDUNILVR"];
 const INDICATORS = ["RSI", "SMA", "EMA", "MACD", "ADX", "VWAP", "Bollinger", "Supertrend", "Stochastic", "ATR"];
@@ -250,15 +251,39 @@ export default function ScreenerPage() {
                           </td>
                           <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{m.timeframe}</td>
                           <td className="py-3 px-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 font-mono text-[10px] gap-1"
-                              onClick={() => navigate(`/build?symbol=${m.symbol}`)}
-                              data-testid={`build-strategy-${m.symbol}`}
-                            >
-                              <Hammer className="w-3 h-3" /> Build Strategy
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 font-mono text-[10px] gap-1"
+                                onClick={() => navigate(`/build?symbol=${m.symbol}`)}
+                                data-testid={`build-strategy-${m.symbol}`}
+                              >
+                                <Hammer className="w-3 h-3" /> Build
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 font-mono text-[10px] gap-1"
+                                onClick={async () => {
+                                  try {
+                                    await api.post("/watchlist", {
+                                      symbol: m.symbol,
+                                      note: results.preset_name || "Custom scan",
+                                      preset_name: results.preset_name || null,
+                                      indicator_values: m.indicator_values,
+                                    });
+                                    toast.success(`${m.symbol} added to watchlist`);
+                                  } catch (err) {
+                                    const msg = err.response?.data?.detail || "Failed";
+                                    toast.error(msg);
+                                  }
+                                }}
+                                data-testid={`watch-${m.symbol}`}
+                              >
+                                <Bookmark className="w-3 h-3" /> Watch
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}

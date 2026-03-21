@@ -10,6 +10,9 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import HomePage from "@/pages/HomePage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import SharedStrategyPage from "@/pages/SharedStrategyPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import UserDashboard from "@/pages/user/UserDashboard";
 import BuilderPage from "@/pages/user/BuilderPage";
@@ -19,6 +22,7 @@ import TemplatesPage from "@/pages/user/TemplatesPage";
 import ScreenerPage from "@/pages/user/ScreenerPage";
 import StrategyDetailPage from "@/pages/user/StrategyDetailPage";
 import OptimizerPage from "@/pages/user/OptimizerPage";
+import WatchlistPage from "@/pages/user/WatchlistPage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
 
@@ -32,6 +36,9 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/shared/:shareToken" element={<SharedStrategyPage />} />
 
             {/* User routes */}
             <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
@@ -43,6 +50,7 @@ function App() {
               <Route path="/screener" element={<ScreenerPage />} />
               <Route path="/strategy/:strategyId" element={<StrategyDetailPage />} />
               <Route path="/optimizer" element={<OptimizerPage />} />
+              <Route path="/watchlist" element={<WatchlistPage />} />
             </Route>
 
             {/* Admin routes */}

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, ArrowLeft, Play, Activity, Pencil, Trash2,
-  ChevronRight, Shield, Clock, Target, TrendingUp, Zap
+  ChevronRight, Shield, Clock, Target, TrendingUp, Zap, Share2, Copy
 } from "lucide-react";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
@@ -45,6 +45,8 @@ export default function StrategyDetailPage() {
   const [strategy, setStrategy] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [shareToken, setShareToken] = useState(null);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     document.title = "Strategy | Text2trade";
@@ -72,6 +74,24 @@ export default function StrategyDetailPage() {
       toast.error(err.response?.data?.detail || "Delete failed");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setSharing(true);
+    try {
+      const res = await api.post(`/strategy/${strategyId}/share`);
+      const token = res.data.share_token;
+      setShareToken(token);
+      const url = `${window.location.origin}/shared/${token}`;
+      navigator.clipboard.writeText(url).then(
+        () => toast.success("Share link copied to clipboard!"),
+        () => toast.success("Share link generated")
+      );
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Share failed");
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -113,11 +133,30 @@ export default function StrategyDetailPage() {
           <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={() => navigate(`/build?edit=${strategyId}`)} data-testid="edit-btn">
             <Pencil className="w-3 h-3" /> Edit
           </Button>
+          <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={handleShare} disabled={sharing} data-testid="share-btn">
+            {sharing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Share2 className="w-3 h-3" />} Share
+          </Button>
           <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5 text-destructive hover:text-destructive" onClick={handleDelete} disabled={deleting} data-testid="delete-btn">
             {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Delete
           </Button>
         </div>
       </div>
+
+      {/* Share Link */}
+      {shareToken && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-primary/5 border border-primary/30" data-testid="share-link-banner">
+          <Share2 className="w-4 h-4 text-primary shrink-0" />
+          <p className="text-xs font-mono text-muted-foreground flex-1 truncate">
+            {window.location.origin}/shared/{shareToken}
+          </p>
+          <Button variant="ghost" size="sm" className="h-6 text-[10px] font-mono gap-1" onClick={() => {
+            navigator.clipboard.writeText(`${window.location.origin}/shared/${shareToken}`);
+            toast.success("Copied!");
+          }} data-testid="copy-share-link">
+            <Copy className="w-3 h-3" /> Copy
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Entry Conditions */}

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Copy, Loader2, TrendingUp, Activity, ArrowDown, ArrowUp,
-  Zap, Target, Clock, Layers, CheckCircle, BookOpen
+  Zap, Target, Clock, Layers, CheckCircle, BookOpen, Award, Users
 } from "lucide-react";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 
@@ -27,6 +27,7 @@ export default function TemplatesPage() {
   const api = useApi();
   const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [cloning, setCloning] = useState(null);
@@ -35,7 +36,13 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     document.title = "Templates | Text2trade";
-    api.get("/templates").then((r) => setTemplates(r.data.templates || [])).finally(() => setLoading(false));
+    Promise.all([
+      api.get("/templates"),
+      api.get("/templates/leaderboard").catch(() => ({ data: { leaderboard: [] } })),
+    ]).then(([tRes, lRes]) => {
+      setTemplates(tRes.data.templates || []);
+      setLeaderboard(lRes.data.leaderboard || []);
+    }).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -67,6 +74,27 @@ export default function TemplatesPage() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Strategy Templates</h1>
         <p className="text-sm text-muted-foreground mt-1">Pre-built equity strategies. Clone and customize.</p>
       </div>
+
+      {/* Most Popular Leaderboard */}
+      {leaderboard.length > 0 && (
+        <div data-testid="template-leaderboard">
+          <h2 className="mono-label text-[10px] mb-3 flex items-center gap-1.5"><Award className="w-3.5 h-3.5 text-primary" /> MOST POPULAR</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {leaderboard.slice(0, 5).map((t, i) => (
+              <div key={t.template_id} className={`shrink-0 w-48 p-3 border transition-colors ${i === 0 ? "border-primary/40 bg-primary/5" : "border-border bg-card"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-mono font-bold text-primary">#{i + 1}</span>
+                  <p className="font-mono text-xs font-bold text-foreground truncate">{t.name}</p>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+                  <span className="flex items-center gap-0.5"><Users className="w-3 h-3" /> {t.clone_count || 0} clones</span>
+                  <span className="px-1 py-0.5 bg-secondary border border-border">{t.category}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2" data-testid="template-filters">

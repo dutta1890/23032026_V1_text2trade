@@ -26,7 +26,9 @@ from resilience import circuit_breakers
 from auth import (
     UserRegister, UserLogin, UserResponse, TokenResponse,
     RefreshRequest, AccessTokenResponse,
-    register_user, login_user, refresh_access_token, users_collection
+    ForgotPasswordRequest, ResetPasswordRequest, PasswordResetResponse,
+    register_user, login_user, refresh_access_token, users_collection,
+    blacklist_token, create_password_reset_token, reset_password_with_token
 )
 from database import (
     db, mongo_client, strategies_collection, analytics_db,
@@ -43,6 +45,9 @@ from routers.screener_routes import router as screener_router
 from routers.ai import router as ai_router
 from routers.admin import router as admin_router
 from routers.optimizer import router as optimizer_router
+from routers.sharing import router as sharing_router
+from routers.watchlist import router as watchlist_router
+from routers.leaderboard import router as leaderboard_router
 
 # Setup structured logging
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -161,6 +166,31 @@ async def refresh(request: Request, body: RefreshRequest):
     return refresh_access_token(body.refresh_token)
 
 
+@auth_router.post("/logout")
+async def logout(request: Request):
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        blacklist_token(token)
+    return {"success": True, "message": "Logged out"}
+
+
+@auth_router.post("/forgot-password", response_model=PasswordResetResponse)
+@limiter.limit("3/minute")
+async def forgot_password(request: Request, body: ForgotPasswordRequest):
+    token = create_password_reset_token(body.email)
+    # Always return success (don't reveal if email exists)
+    # In production, send the token via email. For now, return it directly.
+    return {"success": True, "message": "If that email exists, a reset link has been generated.", "reset_token": token}
+
+
+@auth_router.post("/reset-password", response_model=PasswordResetResponse)
+@limiter.limit("5/minute")
+async def reset_password(request: Request, body: ResetPasswordRequest):
+    reset_password_with_token(body.token, body.new_password)
+    return {"success": True, "message": "Password reset successfully. You can now login with your new password."}
+
+
 # =============================================================================
 # FEEDBACK, ANALYTICS, WAITLIST
 # =============================================================================
@@ -222,6 +252,9 @@ api_router.include_router(templates_router)
 api_router.include_router(screener_router)
 api_router.include_router(ai_router)
 api_router.include_router(optimizer_router)
+api_router.include_router(sharing_router)
+api_router.include_router(watchlist_router)
+api_router.include_router(leaderboard_router)
 
 
 # =============================================================================
