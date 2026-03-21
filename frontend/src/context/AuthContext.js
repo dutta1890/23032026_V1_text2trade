@@ -8,9 +8,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
 
-  const login = useCallback((userData, accessToken) => {
+  const login = useCallback(async (email, password) => {
+    const res = await axios.post(`${API}/auth/login`, { email, password });
+    const { access_token } = res.data;
+    // Decode JWT payload to get user info
+    const payload = JSON.parse(atob(access_token.split(".")[1]));
+    const userData = { user_id: payload.sub, email: payload.email, role: payload.role };
     setUser(userData);
-    setToken(accessToken);
+    setToken(access_token);
+    return userData;
   }, []);
 
   const logout = useCallback(async () => {

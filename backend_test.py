@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 class Text2tradeAPITester:
-    def __init__(self, base_url: str = "https://strategy-builder-ui-1.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://gains-tracker-152.preview.emergentagent.com"):
         """Initialize the API tester with the public endpoint."""
         self.base_url = base_url
         self.tests_run = 0

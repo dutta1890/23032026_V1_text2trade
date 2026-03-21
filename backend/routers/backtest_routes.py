@@ -1,16 +1,44 @@
 """Backtest, multi-stock, and comparison endpoints."""
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 import logging
+from datetime import datetime, timezone
 
-from auth import get_current_user
-from database import analytics_db
+from auth import get_current_user, get_optional_user
+from database import db, analytics_db
 from data.service import get_available_symbols, get_data_status
 from backtest.engine import run_backtest as engine_run_backtest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+performance_records = db["performance_records"]
+
+
+def _auto_record(user_id: str, result: dict, strategy: dict, symbol: str, timeframe: str):
+    """Auto-record a successful backtest result to the performance tracker."""
+    if not user_id or not result.get("success"):
+        return
+    metrics = result.get("metrics", {})
+    try:
+        performance_records.insert_one({
+            "user_id": user_id,
+            "strategy_id": strategy.get("id"),
+            "strategy_name": strategy.get("metadata", {}).get("name", "Unnamed"),
+            "symbol": symbol.upper().strip(),
+            "timeframe": timeframe,
+            "source": "backtest",
+            "sharpe": metrics.get("sharpe_ratio") or 0,
+            "pnl_pct": metrics.get("total_pnl_pct") or 0,
+            "win_rate": metrics.get("win_rate") or 0,
+            "max_drawdown": metrics.get("max_drawdown_pct") or 0,
+            "total_trades": metrics.get("total_trades") or 0,
+            "profit_factor": metrics.get("profit_factor") or 0,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        logger.warning(f"Auto-record tracker failed: {e}")
 
 
 class BacktestRequest(BaseModel):
@@ -34,7 +62,7 @@ class BacktestResponse(BaseModel):
 
 
 @router.post("/backtest", response_model=BacktestResponse)
-async def run_backtest_endpoint(request: Request, body: BacktestRequest):
+async def run_backtest_endpoint(request: Request, body: BacktestRequest, current_user: dict = Depends(get_optional_user)):
     try:
         strategy = body.strategy
         symbol = strategy.get("instrument", {}).get("symbol", "RELIANCE")
@@ -50,6 +78,9 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest):
         analytics_db["backtests_run"] += 1
         if result["success"] and result["trades"]:
             analytics_db["backtest_types"]["historical"] += 1
+            # Auto-record to performance tracker
+            user_id = current_user.get("user_id", current_user.get("email")) if current_user else None
+            _auto_record(user_id, result, strategy, symbol, timeframe)
 
         return result
     except Exception as e:

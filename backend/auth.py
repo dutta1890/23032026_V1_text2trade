@@ -163,6 +163,26 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return user
 
 
+async def get_optional_user(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Optional[dict]:
+    """Get current user if authenticated, else return None (no error)."""
+    if not credentials:
+        return None
+    try:
+        token = credentials.credentials
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
+        if db["blacklisted_tokens"].find_one({"token": token}):
+            return None
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        user = users_collection.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
+        return user if user and user.get("is_active", True) else None
+    except Exception:
+        return None
+
+
 async def get_admin_user(current_user: dict = Depends(get_current_user)) -> dict:
     """Require admin role. Extends get_current_user."""
     if current_user.get("role") != "admin":

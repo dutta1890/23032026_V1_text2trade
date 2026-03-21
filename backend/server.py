@@ -48,6 +48,7 @@ from routers.optimizer import router as optimizer_router
 from routers.sharing import router as sharing_router
 from routers.watchlist import router as watchlist_router
 from routers.leaderboard import router as leaderboard_router
+from routers.tracker import router as tracker_router
 
 # Setup structured logging
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -255,6 +256,7 @@ api_router.include_router(optimizer_router)
 api_router.include_router(sharing_router)
 api_router.include_router(watchlist_router)
 api_router.include_router(leaderboard_router)
+api_router.include_router(tracker_router)
 
 
 # =============================================================================

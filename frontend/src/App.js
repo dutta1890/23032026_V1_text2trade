@@ -23,6 +23,7 @@ import ScreenerPage from "@/pages/user/ScreenerPage";
 import StrategyDetailPage from "@/pages/user/StrategyDetailPage";
 import OptimizerPage from "@/pages/user/OptimizerPage";
 import WatchlistPage from "@/pages/user/WatchlistPage";
+import TrackerPage from "@/pages/user/TrackerPage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
 
@@ -51,6 +52,7 @@ function App() {
               <Route path="/strategy/:strategyId" element={<StrategyDetailPage />} />
               <Route path="/optimizer" element={<OptimizerPage />} />
               <Route path="/watchlist" element={<WatchlistPage />} />
+              <Route path="/tracker" element={<TrackerPage />} />
             </Route>
 
             {/* Admin routes */}
