@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, ArrowLeft, Play, Activity, Pencil, Trash2,
-  ChevronRight, Shield, Clock, Target, TrendingUp
+  ChevronRight, Shield, Clock, Target, TrendingUp, Zap
 } from "lucide-react";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
@@ -106,6 +106,9 @@ export default function StrategyDetailPage() {
         <div className="flex gap-2">
           <Button size="sm" className="font-mono text-[10px] uppercase gap-1.5" onClick={() => navigate(`/backtest/${strategyId}`)} data-testid="run-backtest-btn">
             <Play className="w-3 h-3" /> Run Backtest
+          </Button>
+          <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={() => navigate(`/optimizer?strategy=${strategyId}`)} data-testid="optimize-btn">
+            <Zap className="w-3 h-3" /> Optimize
           </Button>
           <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={() => navigate(`/build?edit=${strategyId}`)} data-testid="edit-btn">
             <Pencil className="w-3 h-3" /> Edit

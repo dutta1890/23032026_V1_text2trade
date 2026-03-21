@@ -42,6 +42,7 @@ from routers.templates import router as templates_router
 from routers.screener_routes import router as screener_router
 from routers.ai import router as ai_router
 from routers.admin import router as admin_router
+from routers.optimizer import router as optimizer_router
 
 # Setup structured logging
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -220,6 +221,7 @@ api_router.include_router(paper_trading_router)
 api_router.include_router(templates_router)
 api_router.include_router(screener_router)
 api_router.include_router(ai_router)
+api_router.include_router(optimizer_router)
 
 
 # =============================================================================

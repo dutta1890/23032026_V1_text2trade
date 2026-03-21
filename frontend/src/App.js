@@ -18,6 +18,7 @@ import PaperTradesPage from "@/pages/user/PaperTradesPage";
 import TemplatesPage from "@/pages/user/TemplatesPage";
 import ScreenerPage from "@/pages/user/ScreenerPage";
 import StrategyDetailPage from "@/pages/user/StrategyDetailPage";
+import OptimizerPage from "@/pages/user/OptimizerPage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
 
@@ -41,6 +42,7 @@ function App() {
               <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/screener" element={<ScreenerPage />} />
               <Route path="/strategy/:strategyId" element={<StrategyDetailPage />} />
+              <Route path="/optimizer" element={<OptimizerPage />} />
             </Route>
 
             {/* Admin routes */}
