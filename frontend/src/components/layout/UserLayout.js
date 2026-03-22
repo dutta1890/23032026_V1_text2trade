@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useApi } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Hammer, BookOpen, Activity, LogOut, Menu, X,
-  TrendingUp, User as UserIcon, Search, Zap, Bookmark, BarChart3
+  TrendingUp, User as UserIcon, Search, Zap, Bookmark, BarChart3, Bell
 } from "lucide-react";
 
 const NAV = [
@@ -13,6 +14,7 @@ const NAV = [
   { to: "/screener", label: "Screener", icon: Search },
   { to: "/optimizer", label: "Optimizer", icon: Zap },
   { to: "/tracker", label: "Tracker", icon: BarChart3 },
+  { to: "/alerts", label: "Alerts", icon: Bell, badge: true },
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/templates", label: "Templates", icon: BookOpen },
   { to: "/paper-trades", label: "Paper Trades", icon: Activity },
@@ -21,7 +23,16 @@ const NAV = [
 export default function UserLayout() {
   const { user, logout, isAdmin } = useAuth();
   const location = useLocation();
+  const api = useApi();
   const [open, setOpen] = useState(false);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
+
+  useEffect(() => {
+    api.get("/alerts/notifications")
+      .then((res) => setUnreadAlerts(res.data.unread || 0))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-background flex" data-testid="user-layout">
@@ -45,7 +56,12 @@ export default function UserLayout() {
                 data-testid={`nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
               >
                 <n.icon className="w-4 h-4" />
-                {n.label}
+                <span className="flex-1">{n.label}</span>
+                {n.badge && unreadAlerts > 0 && (
+                  <span className="bg-destructive text-destructive-foreground text-[9px] font-mono font-bold px-1.5 py-0.5 leading-none" data-testid="alerts-badge">
+                    {unreadAlerts}
+                  </span>
+                )}
               </Link>
             );
           })}
