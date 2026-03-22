@@ -26,7 +26,19 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **Auth Fix**:
   - Fixed critical bug: `AuthContext.login()` was a state setter but LoginPage passed (email, password). Now login() makes the API call and decodes JWT for user data (user_id, email, role)
   - Added `get_optional_user` dependency in `auth.py` for non-mandatory auth (used by backtest auto-record)
-- **Testing**: Backend 18/18, Frontend all verified — iteration_22.json
+- **Strategy Alerts** (P1):
+  - `POST /api/v1/alerts` — Create alert rule (strategy_name, metric, operator, threshold, max 20 rules)
+  - `GET /api/v1/alerts` — List user's alert rules
+  - `PUT /api/v1/alerts/{id}` — Toggle enable/disable
+  - `DELETE /api/v1/alerts/{id}` — Delete rule
+  - `POST /api/v1/alerts/evaluate` — Evaluate enabled alerts against latest tracker data, generate notifications
+  - `GET /api/v1/alerts/notifications` — Get triggered notifications with unread count
+  - `PUT /api/v1/alerts/notifications/{id}/read` — Mark as read
+  - `PUT /api/v1/alerts/notifications/read-all` — Mark all as read
+  - New collections: `alert_rules`, `alert_notifications`
+  - Frontend: Dedicated `/alerts` page with create form, alert rules list (toggle/delete), triggered notifications with severity badges, "Run Check" button
+  - Sidebar: "Alerts" nav item with Bell icon and unread count badge
+- **Testing**: Backend 46/46, Frontend all verified — iteration_22.json, iteration_23.json
 
 ### Session 17 (2026-03-21) — P2 Backlog: Auth, Sharing, Watchlist, Leaderboard
 - **Token Blacklist + Password Reset**:
@@ -90,6 +102,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 | /strategy/:id | User | StrategyDetailPage | Strategy detail + share + optimize |
 | /optimizer | User | OptimizerPage | Parameter sweep optimizer |
 | /tracker | User | TrackerPage | Performance tracker dashboard |
+| /alerts | User | AlertsPage | Strategy alerts & notifications |
 | /watchlist | User | WatchlistPage | Saved screener matches |
 | /admin/dashboard | Admin | AdminDashboard | System health with data banner |
 | /admin/users | Admin | AdminUsers | User management |
@@ -104,7 +117,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 │   ├── strategies.py, ai.py, backtest_routes.py
 │   ├── paper_trading.py, templates.py
 │   ├── screener_routes.py, admin.py, optimizer.py
-│   ├── sharing.py, watchlist.py, leaderboard.py, tracker.py (NEW)
+│   ├── sharing.py, watchlist.py, leaderboard.py, tracker.py, alerts.py (NEW)
 ├── optimizer/engine.py
 ├── screener/engine.py, backtest/engine.py
 └── data/service.py, scripts/
@@ -117,7 +130,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 │   ├── ForgotPasswordPage.js (NEW), ResetPasswordPage.js (NEW)
 │   ├── SharedStrategyPage.js (NEW), NotFoundPage.js
 │   ├── user/ (Dashboard, Builder, Backtest, PaperTrades, Templates,
-│   │         Screener, StrategyDetail, Optimizer, Watchlist, Tracker(NEW))
+│   │         Screener, StrategyDetail, Optimizer, Watchlist, Tracker, Alerts(NEW))
 │   └── admin/ (AdminDashboard, AdminUsers)
 ```
 
@@ -131,7 +144,9 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - `password_resets` (NEW): reset tokens with 1-hour TTL
 - `shared_strategies` (NEW): strategy snapshots with share tokens, view/clone counts
 - `watchlist`: user watchlist items (symbol + indicator snapshot)
-- `performance_records` (NEW): backtest/paper-trade metrics per strategy per user
+- `performance_records`: backtest/paper-trade metrics per strategy per user
+- `alert_rules` (NEW): user alert rules (strategy_name, metric, operator, threshold, enabled)
+- `alert_notifications` (NEW): triggered alert notifications (severity, read status)
 
 ## ALL BACKLOG ITEMS COMPLETE
 No remaining P1/P2 items. All features requested by user have been implemented and tested.
