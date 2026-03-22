@@ -40,6 +40,18 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
   - Sidebar: "Alerts" nav item with Bell icon and unread count badge
 - **Testing**: Backend 46/46, Frontend all verified — iteration_22.json, iteration_23.json
 
+### Session 19 (2026-03-21) — Full System Test & QA Sprint
+- **Bug Fix**: Admin strategy_count query was using email instead of user_id — FIXED
+- **Role-Based Access Tests**: 5 users registered, strategy isolation verified, admin 403 for users, admin 200 for all admin endpoints
+- **AI Conversation Tests**: Happy path (2-3 turns), vague input (template suggestions), unsupported indicator (error mode), F&O (redirect message), session timeout (clean 404)
+- **Backtest Accuracy**: SMA 50/200 on RELIANCE (1 trade, 742 candles), RSI<30 on HDFCBANK (11 trades), Supertrend on INFY (14 trades) — all producing valid results
+- **Paper Trading**: Deploy → trades created, Pause → status paused, Stop → status stopped, positions closed
+- **Frontend QA**: 29/29 tests passed — every page verified (login, register, forgot-password, dashboard, build, screener, optimizer, tracker, alerts, watchlist, templates, paper-trades, strategy detail, admin dashboard, admin users, shared strategy, 404)
+- **Mobile Responsive**: Verified at 375x812 (iPhone)
+- **Console Errors**: Minor table hydration warning (non-functional), no unhandled exceptions
+- **KNOWN_ISSUES.md**: Created at `/app/KNOWN_ISSUES.md`
+- **Testing**: iteration_24.json (Frontend 29/29)
+
 ### Session 17 (2026-03-21) — P2 Backlog: Auth, Sharing, Watchlist, Leaderboard
 - **Token Blacklist + Password Reset**:
   - `POST /auth/logout` blacklists JWT in MongoDB (TTL index auto-cleans expired tokens)
