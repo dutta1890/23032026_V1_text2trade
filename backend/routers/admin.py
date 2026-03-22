@@ -49,8 +49,8 @@ async def admin_data_refresh(request: Request, admin: dict = Depends(get_admin_u
 async def admin_list_users(request: Request, admin: dict = Depends(get_admin_user)):
     users = list(users_collection.find({}, {"_id": 0, "password_hash": 0}))
     for u in users:
-        email = u.get("email", "")
-        u["strategy_count"] = strategies_collection.count_documents({"user_id": email})
+        uid = u.get("user_id", u.get("email", ""))
+        u["strategy_count"] = strategies_collection.count_documents({"user_id": uid})
     return {"users": users, "total": len(users)}
 
 
