@@ -35,9 +35,14 @@ class RecordRequest(BaseModel):
     profit_factor: float = 0
 
 
+def _is_demo_mode(current_user: dict) -> bool:
+    return current_user.get("account_mode", "real") == "demo"
+
+
 @router.post("/tracker/record")
 async def record_performance(request: Request, body: RecordRequest, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", current_user.get("email"))
+    demo = _is_demo_mode(current_user)
     now = datetime.now(timezone.utc).isoformat()
     doc = {
         "user_id": user_id,
@@ -46,6 +51,7 @@ async def record_performance(request: Request, body: RecordRequest, current_user
         "symbol": body.symbol.upper().strip(),
         "timeframe": body.timeframe,
         "source": body.source,
+        "is_demo": demo,
         "sharpe": body.sharpe,
         "pnl_pct": body.pnl_pct,
         "win_rate": body.win_rate,
@@ -62,8 +68,14 @@ async def record_performance(request: Request, body: RecordRequest, current_user
 @router.get("/tracker/dashboard")
 async def tracker_dashboard(request: Request, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", current_user.get("email"))
+    demo = _is_demo_mode(current_user)
+    q = {"user_id": user_id}
+    if demo:
+        q["is_demo"] = True
+    else:
+        q["is_demo"] = {"$ne": True}
     records = list(records_collection.find(
-        {"user_id": user_id}, {"_id": 0}
+        q, {"_id": 0}
     ).sort("recorded_at", -1))
 
     if not records:
@@ -187,7 +199,13 @@ async def tracker_dashboard(request: Request, current_user: dict = Depends(get_c
 @router.get("/tracker/history")
 async def tracker_history(request: Request, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", current_user.get("email"))
+    demo = _is_demo_mode(current_user)
+    q = {"user_id": user_id}
+    if demo:
+        q["is_demo"] = True
+    else:
+        q["is_demo"] = {"$ne": True}
     records = list(records_collection.find(
-        {"user_id": user_id}, {"_id": 0}
+        q, {"_id": 0}
     ).sort("recorded_at", -1).limit(50))
     return {"records": records, "count": len(records)}

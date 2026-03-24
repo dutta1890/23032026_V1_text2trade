@@ -16,7 +16,7 @@ router = APIRouter()
 performance_records = db["performance_records"]
 
 
-def _auto_record(user_id: str, result: dict, strategy: dict, symbol: str, timeframe: str):
+def _auto_record(user_id: str, result: dict, strategy: dict, symbol: str, timeframe: str, is_demo: bool = False):
     """Auto-record a successful backtest result to the performance tracker."""
     if not user_id or not result.get("success"):
         return
@@ -29,6 +29,7 @@ def _auto_record(user_id: str, result: dict, strategy: dict, symbol: str, timefr
             "symbol": symbol.upper().strip(),
             "timeframe": timeframe,
             "source": "backtest",
+            "is_demo": is_demo,
             "sharpe": metrics.get("sharpe_ratio") or 0,
             "pnl_pct": metrics.get("total_pnl_pct") or 0,
             "win_rate": metrics.get("win_rate") or 0,
@@ -80,7 +81,8 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest, current
             analytics_db["backtest_types"]["historical"] += 1
             # Auto-record to performance tracker
             user_id = current_user.get("user_id", current_user.get("email")) if current_user else None
-            _auto_record(user_id, result, strategy, symbol, timeframe)
+            is_demo = current_user.get("account_mode", "real") == "demo" if current_user else False
+            _auto_record(user_id, result, strategy, symbol, timeframe, is_demo)
 
         return result
     except Exception as e:

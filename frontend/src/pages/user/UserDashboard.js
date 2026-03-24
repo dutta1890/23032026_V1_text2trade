@@ -9,6 +9,8 @@ import {
   TrendingUp, TrendingDown, Play, PlusCircle, ArrowRight,
   Eye, GitCompare
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/AuthContext";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 import StrategyCompare from "@/components/StrategyCompare";
 
@@ -106,7 +108,7 @@ export default function UserDashboard() {
       )}
 
       {/* Your Strategies */}
-      <div data-testid="strategies-section">
+      <div data-testid="dashboard-strategies">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <h2 className="mono-label text-[10px]">YOUR STRATEGIES</h2>
@@ -152,7 +154,10 @@ export default function UserDashboard() {
                       data-testid={`select-strategy-${i}`}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono font-bold text-sm text-foreground truncate">{s.metadata?.name || "Unnamed"}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono font-bold text-sm text-foreground truncate">{s.metadata?.name || "Unnamed"}</p>
+                        {s.is_demo && <Badge variant="outline" className="text-[8px] font-mono h-4 px-1.5 text-primary border-primary/40">DEMO</Badge>}
+                      </div>
                       <p className="text-[10px] text-muted-foreground font-mono">
                         {s.instrument?.symbol || "—"} · {s.timeframe?.interval || "—"} · {s.entry_conditions?.length || 0} conditions
                       </p>

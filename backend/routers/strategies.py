@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _is_demo_mode(current_user: dict) -> bool:
+    """Check if user is currently in demo mode."""
+    return current_user.get("account_mode", "real") == "demo"
+
+
 def validate_strategy(strategy: Strategy):
     errors = []
     if not strategy.entry_conditions:
@@ -63,12 +68,14 @@ async def create_strategy(request: Request, strategy: Strategy, current_user: di
 
     try:
         user_id = current_user.get("user_id", current_user.get("email"))
+        demo = _is_demo_mode(current_user)
         now = datetime.now(timezone.utc).isoformat()
         strategy_id = str(uuid.uuid4())
 
         strategy_doc = strategy.model_dump()
         strategy_doc["id"] = strategy_id
         strategy_doc["user_id"] = user_id
+        strategy_doc["is_demo"] = demo
         strategy_doc["version"] = get_next_version(strategy.metadata.name, user_id)
         strategy_doc["metadata"]["created_at"] = now
         strategy_doc["metadata"]["updated_at"] = now
@@ -76,7 +83,7 @@ async def create_strategy(request: Request, strategy: Strategy, current_user: di
         strategies_collection.insert_one(strategy_doc)
         strategy_doc.pop("_id", None)
         analytics_db["strategies_created"] += 1
-        logger.info(f"Strategy created: {strategy_id} by {user_id}")
+        logger.info(f"Strategy created: {strategy_id} by {user_id} (demo={demo})")
         return {"success": True, "strategy": strategy_doc}
     except Exception as e:
         logger.error(f"Strategy creation failed: {e}")
@@ -86,8 +93,14 @@ async def create_strategy(request: Request, strategy: Strategy, current_user: di
 @router.get("/strategies", response_model=StrategiesListResponse)
 async def get_strategies(request: Request, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", current_user.get("email"))
+    demo = _is_demo_mode(current_user)
+    query = {"user_id": user_id}
+    if demo:
+        query["is_demo"] = True
+    else:
+        query["is_demo"] = {"$ne": True}
     docs = list(strategies_collection.find(
-        {"user_id": user_id}, {"_id": 0}
+        query, {"_id": 0}
     ).sort("metadata.created_at", -1).limit(50))
 
     for d in docs:
@@ -166,6 +179,12 @@ async def update_strategy(request: Request, strategy_id: str, strategy: Strategy
 @router.delete("/strategy/{strategy_id}")
 async def delete_strategy(request: Request, strategy_id: str, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", current_user.get("email"))
+    # Check if strategy exists and is deletable
+    doc = strategies_collection.find_one({"id": strategy_id, "user_id": user_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Strategy not found or not owned by user")
+    if doc.get("demo_tag"):
+        raise HTTPException(status_code=403, detail="Demo seed strategies cannot be deleted")
     result = strategies_collection.delete_one({"id": strategy_id, "user_id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Strategy not found or not owned by user")

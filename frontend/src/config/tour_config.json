@@ -1,0 +1,62 @@
+{
+  "steps": [
+    {
+      "id": "welcome",
+      "target": "body",
+      "title": "Welcome to Text2trade!",
+      "content": "This is your AI-powered trading strategy builder. Let's take a quick tour of what you can do.",
+      "placement": "center",
+      "disableBeacon": true
+    },
+    {
+      "id": "dashboard",
+      "target": "[data-testid='dashboard-strategies']",
+      "title": "Your Strategies",
+      "content": "All your trading strategies live here. We've created 3 demo strategies for you to explore.",
+      "placement": "bottom"
+    },
+    {
+      "id": "builder",
+      "target": "[data-testid='nav-build-strategy']",
+      "title": "Build a Strategy",
+      "content": "Click here to start a conversation with AI. Just describe what you want to trade and how.",
+      "placement": "right"
+    },
+    {
+      "id": "backtest",
+      "target": "[data-testid='nav-screener']",
+      "title": "Screen & Backtest",
+      "content": "Use the Screener to find stocks matching your criteria. Backtest your strategies against real historical data.",
+      "placement": "right"
+    },
+    {
+      "id": "paper_trade",
+      "target": "[data-testid='nav-paper-trades']",
+      "title": "Paper Trade",
+      "content": "Happy with backtest results? Deploy to paper trading to simulate real execution with virtual money.",
+      "placement": "right"
+    },
+    {
+      "id": "tracker",
+      "target": "[data-testid='nav-tracker']",
+      "title": "Track Performance",
+      "content": "The Performance Tracker shows your cumulative P&L, best strategies, and improvement trends over time.",
+      "placement": "right"
+    },
+    {
+      "id": "demo_capital",
+      "target": "[data-testid='demo-mode-badge']",
+      "title": "Your Demo Capital",
+      "content": "You have 10,000 in demo money. Use it to practice without any risk. Switch to real mode when you're ready.",
+      "placement": "bottom"
+    },
+    {
+      "id": "done",
+      "target": "body",
+      "title": "You're All Set!",
+      "content": "Start exploring. Build your first strategy or check out the demo ones we've created for you. You can restart this tour anytime from the sidebar.",
+      "placement": "center",
+      "disableBeacon": true
+    }
+  ]
+}

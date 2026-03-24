@@ -11,9 +11,13 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const res = await axios.post(`${API}/auth/login`, { email, password });
     const { access_token } = res.data;
-    // Decode JWT payload to get user info
     const payload = JSON.parse(atob(access_token.split(".")[1]));
-    const userData = { user_id: payload.sub, email: payload.email, role: payload.role };
+    const userData = {
+      user_id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      account_mode: payload.account_mode || "real",
+    };
     setUser(userData);
     setToken(access_token);
     return userData;
@@ -25,17 +29,27 @@ export function AuthProvider({ children }) {
         await axios.post(`${API}/auth/logout`, {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
-      } catch { /* ignore - token might be expired */ }
+      } catch { /* ignore */ }
     }
     setUser(null);
     setToken(null);
   }, [token]);
 
+  const switchMode = useCallback(async (mode) => {
+    if (!token) return;
+    await axios.post(`${API}/account/switch-mode`, { mode }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    // Update local state — backend reads mode from DB, not JWT
+    setUser((prev) => prev ? { ...prev, account_mode: mode } : prev);
+  }, [token]);
+
   const isAuthenticated = !!user && !!token;
   const isAdmin = user?.role === "admin";
+  const isDemo = user?.account_mode === "demo";
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, isAdmin }}>
+    <AuthContext.Provider value={{ user, token, login, logout, switchMode, isAuthenticated, isAdmin, isDemo }}>
       {children}
     </AuthContext.Provider>
   );

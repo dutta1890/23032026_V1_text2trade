@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _is_demo_mode(current_user: dict) -> bool:
+    return current_user.get("account_mode", "real") == "demo"
+
+
 class PaperTradeDeployRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     strategy_id: str
@@ -24,6 +28,7 @@ class PaperTradeDeployRequest(BaseModel):
 @router.post("/paper-trade/deploy")
 async def deploy_paper_trade_endpoint(request: Request, body: PaperTradeDeployRequest, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", current_user.get("email"))
+    demo = _is_demo_mode(current_user)
     strategy_doc = strategies_collection.find_one(
         {"id": body.strategy_id, "user_id": user_id}, {"_id": 0}
     )
@@ -37,14 +42,26 @@ async def deploy_paper_trade_endpoint(request: Request, body: PaperTradeDeployRe
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
+    # Tag with demo mode
+    db.paper_trades.update_one(
+        {"paper_trade_id": result["paper_trade_id"]},
+        {"$set": {"is_demo": demo}}
+    )
+    result["is_demo"] = demo
     return result
 
 
 @router.get("/paper-trades")
 async def list_paper_trades(request: Request, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id", current_user.get("email"))
+    demo = _is_demo_mode(current_user)
+    query = {"user_id": user_id}
+    if demo:
+        query["is_demo"] = True
+    else:
+        query["is_demo"] = {"$ne": True}
     docs = list(db.paper_trades.find(
-        {"user_id": user_id}, {"_id": 0}
+        query, {"_id": 0}
     ).sort("created_at", -1))
     return {"paper_trades": docs, "count": len(docs)}
 

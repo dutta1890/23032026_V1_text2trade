@@ -1,0 +1,98 @@
+{
+  "summary": "Iteration 25 - Demo Account Mode Feature Testing. Comprehensive backend and frontend testing of the new demo mode feature. All 17 backend tests passed (registration with demo/real modes, profile endpoint, mode switching, demo data seeding, is_demo filtering, delete protection, onboarding tour endpoints). All 10 frontend tests passed (demo banner, capital badge, mode toggle, restart tour, DEMO badges on strategies, onboarding tour auto-trigger, paper trades section).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Mode switch with page reload",
+        "issue": "Mode switch does window.location.reload() which clears auth state (stored in React state, not localStorage). User gets logged out after mode switch. This is a known limitation from previous iterations.",
+        "affected_selectors": ["[data-testid='demo-banner-switch']", "[data-testid='mode-toggle-btn']"],
+        "priority": "MEDIUM"
+      }
+    ],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "BACKEND: POST /api/v1/auth/register with start_demo=true creates demo account",
+    "BACKEND: POST /api/v1/auth/register with start_demo=false creates real account",
+    "BACKEND: GET /api/v1/account/profile returns account_mode, demo_capital, has_completed_onboarding",
+    "BACKEND: POST /api/v1/account/switch-mode {mode:'real'} switches to real mode",
+    "BACKEND: POST /api/v1/account/switch-mode {mode:'demo'} switches to demo mode",
+    "BACKEND: Demo user has 3 seeded strategies (golden_cross, rsi_reversion, supertrend)",
+    "BACKEND: Demo user has 1 seeded paper trade with 5 completed trades",
+    "BACKEND: POST /api/v1/account/activate-demo activates demo mode and seeds data",
+    "BACKEND: Activate-demo is idempotent (calling twice still results in 3 demo strategies)",
+    "BACKEND: GET /api/v1/strategies in demo mode returns only is_demo=true strategies",
+    "BACKEND: GET /api/v1/strategies in real mode returns only is_demo!=true strategies",
+    "BACKEND: DELETE demo-seeded strategy returns 403 (demo_tag strategies protected)",
+    "BACKEND: New demo user has has_completed_onboarding=false",
+    "BACKEND: POST /api/v1/account/complete-onboarding sets flag to true",
+    "BACKEND: POST /api/v1/account/restart-tour sets flag back to false",
+    "BACKEND: testai@example.com (real user) can login and access profile",
+    "BACKEND: demouser1@example.com (demo user) can login and is in demo mode",
+    "FRONTEND: Register page has 'Start Free Demo' (primary) and 'Create Account' (secondary) buttons",
+    "FRONTEND: Demo user dashboard shows demo banner with 'DEMO MODE ₹10,450 virtual capital'",
+    "FRONTEND: Sidebar shows Demo Capital badge with ₹10,450 and trades count",
+    "FRONTEND: Sidebar shows 'Demo Mode' toggle button",
+    "FRONTEND: Sidebar shows 'Restart Tour' button for demo users",
+    "FRONTEND: Dashboard shows 3 demo strategies with DEMO badges",
+    "FRONTEND: Onboarding tour auto-triggers on first demo login",
+    "FRONTEND: Paper trades section shows demo paper trade (INFY +4.55%)",
+    "FRONTEND: Demo banner has 'Switch to Real' link",
+    "FRONTEND: Real user (testai@example.com) sees no demo banner, no demo badge, 'Real Mode' toggle"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_demo_mode.py",
+    "/app/test_reports/pytest/pytest_demo_mode.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Consider persisting auth token to localStorage to survive page reloads (would fix mode switch logout issue)"
+  ],
+  "critical_code_review_comments": [
+    "Demo data seeding is properly idempotent - calling activate-demo multiple times doesn't duplicate data",
+    "is_demo filtering correctly uses $ne:True to include legacy strategies without the field in real mode",
+    "demo_tag field correctly protects seeded strategies from deletion",
+    "Onboarding tour uses react-joyride with proper styling and auto-triggers for new demo users",
+    "Mode switch updates backend DB correctly but frontend reload clears auth state (known limitation)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_demo_mode.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100% (10/10 tests passed)"
+  },
+  "test_credentials": {
+    "demo_user": "demouser1@example.com / Test1234!",
+    "real_user": "testai@example.com / Password123!",
+    "admin_user": "admin@example.com / Password123!"
+  },
+  "seed_data_creation": "Multiple test users created during pytest run (test_demo_*, test_profile_*, test_seed_*, etc.)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 25 tested the new Demo Account Mode feature. All backend APIs work correctly: registration with start_demo flag, profile endpoint, mode switching, demo data seeding (3 strategies, 1 paper trade, 1 backtest record), is_demo filtering, delete protection for demo_tag strategies, and onboarding tour endpoints. Frontend correctly shows demo banner, capital badge, mode toggle, restart tour button, DEMO badges on strategies, and auto-triggers onboarding tour. Known limitation: mode switch does page reload which clears auth state (not persisted to localStorage). Demo users: demouser1@example.com, demoscreenshot@example.com. Real user: testai@example.com with 24 strategies.",
+  "notes": {
+    "demo_mode_features_verified": [
+      "Registration with start_demo=true/false",
+      "Account profile with account_mode, demo_capital, has_completed_onboarding",
+      "Mode switching (demo/real)",
+      "Demo data seeding (3 strategies, 1 paper trade, 1 backtest record, demo capital)",
+      "is_demo filtering on strategies and paper trades",
+      "Demo strategy delete protection (403 for demo_tag strategies)",
+      "Onboarding tour endpoints (complete-onboarding, restart-tour)",
+      "Frontend demo banner with virtual capital",
+      "Frontend demo capital badge in sidebar",
+      "Frontend mode toggle button",
+      "Frontend restart tour button",
+      "Frontend DEMO badges on strategies",
+      "Frontend onboarding tour auto-trigger"
+    ],
+    "known_limitations": [
+      "Mode switch does window.location.reload() which clears auth state (stored in React state, not localStorage)"
+    ]
+  }
+}

@@ -124,6 +124,8 @@ class Strategy(BaseModel):
     id: Optional[str] = Field(default=None, max_length=50)
     version: str = Field(default="1.0", max_length=10)
     user_id: Optional[str] = Field(default=None, max_length=50)
+    is_demo: Optional[bool] = Field(default=False)
+    demo_tag: Optional[str] = Field(default=None, max_length=50)
     metadata: Metadata
     market: Market
     instrument: Instrument
