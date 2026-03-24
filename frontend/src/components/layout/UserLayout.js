@@ -66,7 +66,9 @@ export default function UserLayout() {
     try {
       const newMode = isDemo ? "real" : "demo";
       await switchMode(newMode);
-      window.location.reload();
+      // Refresh data without full page reload
+      fetchSidebarData();
+      setSwitching(false);
     } catch {
       setSwitching(false);
     }
@@ -212,7 +214,7 @@ export default function UserLayout() {
       {/* Main content */}
       <main className={`flex-1 md:ml-56 ${isDemo ? "pt-7" : ""}`}>
         <div className={`p-4 sm:p-6 lg:p-8 ${isDemo ? "" : "md:pt-6"} pt-16 md:pt-6`}>
-          <Outlet />
+          <Outlet key={user?.account_mode || "real"} />
         </div>
       </main>
     </div>

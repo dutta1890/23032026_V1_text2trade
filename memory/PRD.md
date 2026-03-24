@@ -52,6 +52,22 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **KNOWN_ISSUES.md**: Created at `/app/KNOWN_ISSUES.md`
 - **Testing**: iteration_24.json (Frontend 29/29)
 
+### Session 20 (2026-03-23) — Demo Account Mode + Onboarding Tour
+- **User Schema Extension**: Added `account_mode`, `demo_capital`, `demo_created_at`, `has_completed_onboarding` to users collection
+- **Registration Flow**: `POST /api/v1/auth/register` now accepts `start_demo: bool`. Demo = seeds 3 strategies + 1 paper trade + 1 backtest + ₹10,000 virtual capital
+- **Account Management Endpoints**:
+  - `POST /api/v1/account/activate-demo` — Activate demo mode (idempotent)
+  - `POST /api/v1/account/switch-mode` — Toggle between "demo" and "real" views
+  - `GET /api/v1/account/profile` — Returns mode, capital, onboarding status
+  - `POST /api/v1/account/complete-onboarding` / `restart-tour`
+- **Demo Data Seeding**: 3 pre-built strategies (Golden Cross, RSI Mean Reversion, Supertrend), 1 backtest result, 1 paper trade with 5 simulated trades, demo capital tracker
+- **Data Filtering**: All strategy/paper-trade/tracker queries filter by `is_demo` matching current mode. Legacy data (without field) shows in real mode via `$ne: True`
+- **Demo Protection**: Demo-seeded strategies (with `demo_tag`) cannot be deleted (403)
+- **Frontend**: Register page with dual CTAs ("Start Free Demo" / "Create Account"), demo banner, demo capital badge in sidebar, DEMO badges on strategy cards, mode toggle, "Restart Tour" button
+- **Onboarding Tour**: react-joyride integration with 8 steps loaded from `/config/tour_config.json`. Auto-triggers on first demo login. Completes/skips via API
+- **New Collections**: `demo_capital` (user_id, starting_capital, current_capital, trades_made)
+- **Testing**: Backend 17/17, Frontend 10/10 — iteration_25.json
+
 ### Session 17 (2026-03-21) — P2 Backlog: Auth, Sharing, Watchlist, Leaderboard
 - **Token Blacklist + Password Reset**:
   - `POST /auth/logout` blacklists JWT in MongoDB (TTL index auto-cleans expired tokens)
