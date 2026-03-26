@@ -68,6 +68,21 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **New Collections**: `demo_capital` (user_id, starting_capital, current_capital, trades_made)
 - **Testing**: Backend 17/17, Frontend 10/10 — iteration_25.json
 
+### Session 21 (2026-03-24) — User Profile & Account Management
+- **Profile Schema**: Extended users with display_name, phone, avatar_initial, timezone, default_capital, preferred_instruments, notification_preferences
+- **Profile Endpoints**:
+  - `GET /api/v1/account/profile` — Full profile with all fields
+  - `PUT /api/v1/account/profile` — Update with validation (phone format, timezone list, capital > 0)
+  - `PUT /api/v1/profile/change-password` — Requires current password verification
+- **Forgot/Reset Password (OTP)**: Updated from token-based to 6-digit OTP with 15-min TTL. OTP logged to console when EMAIL_ENABLED=false
+- **Account Management**:
+  - `GET /api/v1/account/summary` — Stats: mode, strategy counts, backtests, paper trades, member_since
+  - `POST /api/v1/account/export-data` — JSON export of all user data (GDPR readiness)
+  - `DELETE /api/v1/account` — Soft delete (is_active=false), requires password confirmation
+- **Frontend Profile Page** (`/profile`): 7 sections — Personal Info, Password, Preferences, Notifications, Account (mode + stats + export + delete), Integrations (Coming Soon placeholders for Zerodha/Angel One/Upstox), App (tour restart, version, bug report)
+- **Frontend Updates**: Sidebar profile avatar link, updated Forgot/Reset Password pages for OTP flow
+- **Testing**: Backend 19/20 (1 skipped), Frontend 100% — iteration_26.json
+
 ### Session 17 (2026-03-21) — P2 Backlog: Auth, Sharing, Watchlist, Leaderboard
 - **Token Blacklist + Password Reset**:
   - `POST /auth/logout` blacklists JWT in MongoDB (TTL index auto-cleans expired tokens)
