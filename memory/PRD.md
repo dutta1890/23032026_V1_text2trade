@@ -68,6 +68,25 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **New Collections**: `demo_capital` (user_id, starting_capital, current_capital, trades_made)
 - **Testing**: Backend 17/17, Frontend 10/10 — iteration_25.json
 
+### Session 22 (2026-03-26) — P0 Bug Fixes: Resend Sandbox + Auth Persistence
+- **Resend Sandbox Graceful Handling (P0)**:
+  - `email_service.py` `send_email()` now returns structured dict `{sent, sandbox_restricted, error}` instead of bare bool
+  - `auth.py` `create_password_reset_otp()` refactored to `async` — awaits email result and passes sandbox info upstream
+  - `PasswordResetResponse` model extended with optional `email_sent` and `warning` fields
+  - `forgot-password` endpoint returns `{email_sent: false, warning: "Email could not be sent (sandbox mode)..."}` when Resend sandbox blocks delivery
+  - Frontend `ForgotPasswordPage.js` displays amber inline warning banner + `sonner` toast notification
+  - OTP is always logged to backend console as fallback
+  - No more 500 errors for arbitrary email addresses
+- **Auth State Persistence (P0, Recurring)**:
+  - `AuthContext.js` refactored to use `localStorage` (`t2t_token`, `t2t_user`) for session persistence
+  - Token expiry validated on mount via `parseJwt()` — expired tokens auto-cleared
+  - `restoring` state prevents flash-redirect on page load
+  - `ProtectedRoute.js` and `AdminRoute.js` check `restoring` before redirecting
+  - `switchMode()` updates localStorage immediately
+  - `logout()` clears all localStorage keys
+  - Page refresh now stays on authenticated routes
+- **Testing**: Backend 9/9, Frontend 8/8 — iteration_27.json
+
 ### Session 21 (2026-03-24) — User Profile & Account Management
 - **Profile Schema**: Extended users with display_name, phone, avatar_initial, timezone, default_capital, preferred_instruments, notification_preferences
 - **Profile Endpoints**:
@@ -191,8 +210,10 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - `alert_rules` (NEW): user alert rules (strategy_name, metric, operator, threshold, enabled)
 - `alert_notifications` (NEW): triggered alert notifications (severity, read status)
 
-## ALL BACKLOG ITEMS COMPLETE
-No remaining P1/P2 items. All features requested by user have been implemented and tested.
+## Remaining Backlog
+- **Broker Integrations (P1)**: Zerodha, Angel One, Upstox — UI placeholders exist on profile page
+- **Scheduled Auto-Evaluation (P2)**: Automatically run alert checks post-backtest
+- **Verified Domain Email**: Once user adds domain on Resend, switch from sandbox fallback to full delivery
 
 ## Credentials
 - Test user: `testai@example.com` / `Password123!`
