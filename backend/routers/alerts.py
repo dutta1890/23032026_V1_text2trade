@@ -187,6 +187,19 @@ async def evaluate_alerts(request: Request, current_user: dict = Depends(get_cur
             notif.pop("_id", None)
             triggered.append(notif)
 
+    # Send email notification if alerts triggered
+    if triggered:
+        try:
+            import asyncio
+            from email_service import send_email, alert_triggered_html, EMAIL_ENABLED
+            if EMAIL_ENABLED:
+                email = current_user.get("email")
+                if email:
+                    html = alert_triggered_html(triggered)
+                    asyncio.ensure_future(send_email(email, f"{len(triggered)} Alert(s) Triggered — Text2trade", html))
+        except Exception as e:
+            logger.warning(f"Alert email failed: {e}")
+
     return {"triggered": len(triggered), "notifications": triggered}
 
 

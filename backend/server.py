@@ -183,9 +183,14 @@ async def logout(request: Request):
 @auth_router.post("/forgot-password", response_model=PasswordResetResponse)
 @limiter.limit("3/minute")
 async def forgot_password(request: Request, body: ForgotPasswordRequest):
-    create_password_reset_otp(body.email)
-    # Always return success (don't reveal if email exists)
-    return {"success": True, "message": "If that email exists, a 6-digit OTP has been sent."}
+    result = await create_password_reset_otp(body.email)
+    response = {"success": True, "message": "If that email exists, a 6-digit OTP has been sent."}
+    if result.get("sandbox_restricted"):
+        response["email_sent"] = False
+        response["warning"] = "Email could not be sent (sandbox mode). Check server logs for your OTP."
+    elif result.get("otp") and result.get("email_sent"):
+        response["email_sent"] = True
+    return response
 
 
 @auth_router.post("/reset-password", response_model=PasswordResetResponse)

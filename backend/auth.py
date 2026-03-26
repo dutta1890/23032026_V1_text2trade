@@ -219,7 +219,7 @@ def register_user(data: UserRegister) -> UserResponse:
         users_collection.insert_one(user_doc)
     except DuplicateKeyError:
         raise HTTPException(status_code=409, detail="Email already registered")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Database error")
     
     # Seed demo data if requested
@@ -333,14 +333,16 @@ class ResetPasswordRequest(BaseModel):
 class PasswordResetResponse(BaseModel):
     success: bool
     message: str
+    email_sent: Optional[bool] = None
+    warning: Optional[str] = None
 
 
-def create_password_reset_otp(email: str) -> Optional[str]:
-    """Create a 6-digit OTP for password reset (15-min expiry). Returns OTP or None."""
+async def create_password_reset_otp(email: str) -> dict:
+    """Create a 6-digit OTP for password reset (15-min expiry). Returns result dict."""
     email = email.lower().strip()
     user = users_collection.find_one({"email": email})
     if not user:
-        return None
+        return {"otp": None, "email_sent": False, "sandbox_restricted": False}
 
     otp = f"{random.randint(100000, 999999)}"
     db["password_resets"].insert_one({
@@ -351,13 +353,20 @@ def create_password_reset_otp(email: str) -> Optional[str]:
         "used": False,
     })
 
-    if EMAIL_ENABLED:
-        logger.info(f"[EMAIL] Sending OTP to {email}")
-        # TODO: integrate email service
-    else:
-        logger.info(f"[PASSWORD_RESET_OTP] email={email} otp={otp} (EMAIL_ENABLED=false, logged only)")
+    email_sent = False
+    sandbox_restricted = False
 
-    return otp
+    if EMAIL_ENABLED:
+        from email_service import send_email, otp_email_html
+        try:
+            result = await send_email(email, "Your Text2trade Password Reset OTP", otp_email_html(otp))
+            email_sent = result.get("sent", False)
+            sandbox_restricted = result.get("sandbox_restricted", False)
+        except Exception as e:
+            logger.warning(f"Failed to send OTP email to {email}: {e}")
+
+    logger.info(f"[PASSWORD_RESET_OTP] email={email} otp={otp} email_sent={email_sent} sandbox={sandbox_restricted}")
+    return {"otp": otp, "email_sent": email_sent, "sandbox_restricted": sandbox_restricted}
 
 # TTL index for password reset OTPs
 try:

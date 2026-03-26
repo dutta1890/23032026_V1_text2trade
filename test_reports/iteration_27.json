@@ -1,0 +1,74 @@
+{
+  "summary": "Iteration 27 - P0 Bug Fixes Testing: Resend sandbox domain restriction and Auth state persistence. All 9 backend tests passed. All 8 frontend tests passed. Both P0 issues are FIXED and working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "BACKEND: POST /api/v1/auth/forgot-password with sandbox-restricted email returns 200 (not 500)",
+    "BACKEND: POST /api/v1/auth/forgot-password for non-existent email returns success without warning (no email enumeration)",
+    "BACKEND: POST /api/v1/auth/forgot-password for existing user returns {email_sent: false, warning: 'sandbox mode...'} when email can't be sent",
+    "BACKEND: POST /api/v1/auth/login returns access_token and refresh_token",
+    "BACKEND: Token from login works for authenticated requests (GET /api/v1/account/profile)",
+    "BACKEND: POST /api/v1/auth/logout invalidates token (subsequent requests return 401)",
+    "BACKEND: POST /api/v1/auth/refresh returns new access_token",
+    "BACKEND: Invalid token returns 401",
+    "BACKEND: Missing token returns 401/403",
+    "FRONTEND: Login persists token to localStorage under key 't2t_token'",
+    "FRONTEND: Login persists user data to localStorage under key 't2t_user'",
+    "FRONTEND: Page reload on /dashboard stays on /dashboard (auth state persisted)",
+    "FRONTEND: Token still in localStorage after page reload",
+    "FRONTEND: Logout clears t2t_token from localStorage",
+    "FRONTEND: Logout clears t2t_user from localStorage",
+    "FRONTEND: Forgot password page shows amber sandbox warning banner with AlertTriangle icon",
+    "FRONTEND: Forgot password page shows toast notification with sandbox warning",
+    "FRONTEND: Expired token in localStorage redirects to /login on page reload",
+    "FRONTEND: Expired token is cleared from localStorage automatically"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_sandbox_auth_persistence.py",
+    "/app/test_reports/pytest/pytest_sandbox_auth.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "email_service.py correctly detects sandbox restriction via error message parsing (testing/sandbox/only send/403)",
+    "auth.py create_password_reset_otp() is now async and returns {otp, email_sent, sandbox_restricted} dict",
+    "server.py forgot-password endpoint correctly reads result dict and includes warning in response",
+    "AuthContext.js uses localStorage with keys t2t_token and t2t_user for persistence",
+    "AuthContext.js validates token expiry on mount using parseJwt() and clears expired tokens",
+    "ProtectedRoute.js and AdminRoute.js check 'restoring' state before redirecting to prevent flash",
+    "ForgotPasswordPage.js shows sandbox-warning div with amber styling and toast notification"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sandbox_auth_persistence.py"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 tests passed)",
+    "frontend": "100% (all auth persistence and sandbox warning tests passed)"
+  },
+  "test_credentials": {
+    "test_user": "testai@example.com / Password123!",
+    "admin_user": "admin@example.com / Password123!"
+  },
+  "seed_data_creation": "None - used existing test users",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 27 verified both P0 fixes: (1) Resend sandbox restriction now returns warning instead of 500 error - the forgot-password endpoint returns {success: true, email_sent: false, warning: '...'} and frontend shows amber warning banner + toast. (2) Auth state persistence now works - login stores token/user in localStorage (t2t_token, t2t_user), page reload stays on dashboard, logout clears localStorage, expired tokens redirect to login. Rate limit on forgot-password is 3/minute.",
+  "notes": {
+    "p0_fix_1_sandbox_restriction": {
+      "issue": "Resend sandbox mode was causing 500 errors when sending to non-verified emails",
+      "fix": "email_service.py now returns {sent, sandbox_restricted, error} dict. auth.py create_password_reset_otp() is async and returns result dict. server.py includes warning in response.",
+      "verification": "Backend returns {email_sent: false, warning: 'Email could not be sent (sandbox mode)...'} instead of 500. Frontend shows amber warning banner and toast."
+    },
+    "p0_fix_2_auth_persistence": {
+      "issue": "Page refresh was logging user out - auth state was only in React state",
+      "fix": "AuthContext.js now persists token and user to localStorage (t2t_token, t2t_user). On mount, validates token expiry and restores state.",
+      "verification": "Login stores to localStorage, page reload stays on dashboard, logout clears localStorage, expired tokens redirect to login."
+    }
+  }
+}

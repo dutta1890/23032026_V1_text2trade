@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, ArrowLeft, Mail } from "lucide-react";
+import { TrendingUp, ArrowLeft, Mail, AlertTriangle } from "lucide-react";
 import axios from "axios";
+import { toast } from "sonner";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api/v1";
 
@@ -14,15 +15,21 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sandboxWarning, setSandboxWarning] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) { setError("Enter your email"); return; }
     setLoading(true);
     setError("");
+    setSandboxWarning("");
     try {
-      await axios.post(`${API}/auth/forgot-password`, { email });
+      const res = await axios.post(`${API}/auth/forgot-password`, { email });
       setSent(true);
+      if (res.data.warning) {
+        setSandboxWarning(res.data.warning);
+        toast.warning(res.data.warning, { duration: 8000 });
+      }
     } catch (err) {
       setError(err.response?.data?.detail || "Something went wrong");
     } finally { setLoading(false); }
@@ -38,6 +45,12 @@ export default function ForgotPasswordPage() {
             <p className="text-xs text-muted-foreground font-mono mb-4">
               If an account with <span className="text-foreground">{email}</span> exists, we've sent a 6-digit OTP. It expires in 15 minutes.
             </p>
+            {sandboxWarning && (
+              <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono p-3 mb-4 flex items-start gap-2" data-testid="sandbox-warning">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{sandboxWarning}</span>
+              </div>
+            )}
             <Button onClick={() => navigate(`/reset-password?email=${encodeURIComponent(email)}`)} className="font-mono text-xs uppercase gap-1.5" data-testid="enter-otp-btn">
               Enter OTP
             </Button>

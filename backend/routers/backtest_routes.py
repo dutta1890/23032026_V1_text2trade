@@ -42,6 +42,33 @@ def _auto_record(user_id: str, result: dict, strategy: dict, symbol: str, timefr
         logger.warning(f"Auto-record tracker failed: {e}")
 
 
+def _send_backtest_email(current_user: dict, strategy: dict, symbol: str, result: dict):
+    """Send backtest completion email if user has opted in."""
+    try:
+        from auth import users_collection
+        uid = current_user.get("user_id")
+        user_doc = users_collection.find_one({"user_id": uid}, {"_id": 0})
+        prefs = user_doc.get("notification_preferences", {}) if user_doc else {}
+        if not prefs.get("email_on_backtest_complete", True):
+            return
+        email = current_user.get("email") or (user_doc or {}).get("email")
+        if not email:
+            return
+        import asyncio
+        from email_service import send_email, backtest_complete_html, EMAIL_ENABLED
+        if not EMAIL_ENABLED:
+            return
+        metrics = result.get("metrics", {})
+        html = backtest_complete_html(
+            strategy.get("metadata", {}).get("name", "Strategy"),
+            symbol, metrics.get("total_pnl_pct", 0),
+            metrics.get("win_rate", 0), metrics.get("total_trades", 0),
+        )
+        asyncio.ensure_future(send_email(email, f"Backtest Complete: {strategy.get('metadata',{}).get('name','Strategy')}", html))
+    except Exception as e:
+        logger.warning(f"Backtest email failed: {e}")
+
+
 class BacktestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     strategy: dict
@@ -83,6 +110,9 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest, current
             user_id = current_user.get("user_id", current_user.get("email")) if current_user else None
             is_demo = current_user.get("account_mode", "real") == "demo" if current_user else False
             _auto_record(user_id, result, strategy, symbol, timeframe, is_demo)
+            # Email notification if enabled
+            if current_user and not is_demo:
+                _send_backtest_email(current_user, strategy, symbol, result)
 
         return result
     except Exception as e:
