@@ -27,8 +27,10 @@ from auth import (
     UserRegister, UserLogin, UserResponse, TokenResponse,
     RefreshRequest, AccessTokenResponse,
     ForgotPasswordRequest, ResetPasswordRequest, PasswordResetResponse,
+    ChangePasswordRequest,
     register_user, login_user, refresh_access_token, users_collection,
-    blacklist_token, create_password_reset_token, reset_password_with_token
+    blacklist_token, create_password_reset_otp, reset_password_with_otp,
+    change_password, get_current_user,
 )
 from database import (
     db, mongo_client, strategies_collection, analytics_db,
@@ -181,16 +183,15 @@ async def logout(request: Request):
 @auth_router.post("/forgot-password", response_model=PasswordResetResponse)
 @limiter.limit("3/minute")
 async def forgot_password(request: Request, body: ForgotPasswordRequest):
-    token = create_password_reset_token(body.email)
+    create_password_reset_otp(body.email)
     # Always return success (don't reveal if email exists)
-    # In production, send the token via email. For now, return it directly.
-    return {"success": True, "message": "If that email exists, a reset link has been generated.", "reset_token": token}
+    return {"success": True, "message": "If that email exists, a 6-digit OTP has been sent."}
 
 
 @auth_router.post("/reset-password", response_model=PasswordResetResponse)
 @limiter.limit("5/minute")
 async def reset_password(request: Request, body: ResetPasswordRequest):
-    reset_password_with_token(body.token, body.new_password)
+    reset_password_with_otp(body.email, body.otp, body.new_password)
     return {"success": True, "message": "Password reset successfully. You can now login with your new password."}
 
 

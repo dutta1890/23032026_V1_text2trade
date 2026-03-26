@@ -25,6 +25,7 @@ import OptimizerPage from "@/pages/user/OptimizerPage";
 import WatchlistPage from "@/pages/user/WatchlistPage";
 import TrackerPage from "@/pages/user/TrackerPage";
 import AlertsPage from "@/pages/user/AlertsPage";
+import ProfilePage from "@/pages/user/ProfilePage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
 
@@ -55,6 +56,7 @@ function App() {
               <Route path="/watchlist" element={<WatchlistPage />} />
               <Route path="/tracker" element={<TrackerPage />} />
               <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
             {/* Admin routes */}

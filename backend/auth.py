@@ -246,7 +246,7 @@ def login_user(data: UserLogin) -> TokenResponse:
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
     if not user.get("is_active", True):
-        raise HTTPException(status_code=401, detail="User account is disabled")
+        raise HTTPException(status_code=401, detail="Account deactivated. Contact support to reactivate.")
     
     # Generate tokens
     access_token = create_access_token(user["user_id"], user["email"], user.get("role", "user"), user.get("account_mode", "real"))
@@ -304,10 +304,15 @@ except Exception:
 
 
 # =============================================================================
-# PASSWORD RESET
+# PASSWORD RESET (OTP-based)
 # =============================================================================
 
 import secrets
+import random
+import logging
+logger = logging.getLogger(__name__)
+
+EMAIL_ENABLED = os.environ.get("EMAIL_ENABLED", "false").lower() == "true"
 
 class ForgotPasswordRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -315,7 +320,8 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    token: str
+    email: EmailStr
+    otp: str
     new_password: str
 
     @field_validator("new_password")
@@ -327,48 +333,83 @@ class ResetPasswordRequest(BaseModel):
 class PasswordResetResponse(BaseModel):
     success: bool
     message: str
-    reset_token: Optional[str] = None
 
 
-def create_password_reset_token(email: str) -> str:
-    """Create a password reset token (1-hour expiry). Returns token or raises."""
+def create_password_reset_otp(email: str) -> Optional[str]:
+    """Create a 6-digit OTP for password reset (15-min expiry). Returns OTP or None."""
     email = email.lower().strip()
     user = users_collection.find_one({"email": email})
     if not user:
-        # Don't reveal whether email exists
         return None
 
-    token = secrets.token_urlsafe(32)
+    otp = f"{random.randint(100000, 999999)}"
     db["password_resets"].insert_one({
-        "token": token,
         "email": email,
+        "otp": otp,
         "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=15),
         "used": False,
     })
-    return token
 
-# TTL index for password reset tokens
+    if EMAIL_ENABLED:
+        logger.info(f"[EMAIL] Sending OTP to {email}")
+        # TODO: integrate email service
+    else:
+        logger.info(f"[PASSWORD_RESET_OTP] email={email} otp={otp} (EMAIL_ENABLED=false, logged only)")
+
+    return otp
+
+# TTL index for password reset OTPs
 try:
     db["password_resets"].create_index("expires_at", expireAfterSeconds=0)
 except Exception:
     pass
 
 
-def reset_password_with_token(token: str, new_password: str) -> bool:
-    """Reset password using a valid reset token. Returns True on success."""
+def reset_password_with_otp(email: str, otp: str, new_password: str) -> bool:
+    """Reset password using a valid OTP. Returns True on success."""
+    email = email.lower().strip()
     record = db["password_resets"].find_one({
-        "token": token, "used": False,
+        "email": email, "otp": otp, "used": False,
         "expires_at": {"$gt": datetime.now(timezone.utc)},
     })
     if not record:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    email = record["email"]
     new_hash = hash_password(new_password)
     result = users_collection.update_one({"email": email}, {"$set": {"password_hash": new_hash}})
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
 
-    db["password_resets"].update_one({"token": token}, {"$set": {"used": True}})
+    db["password_resets"].update_one({"_id": record["_id"]}, {"$set": {"used": True}})
+    return True
+
+
+# =============================================================================
+# CHANGE PASSWORD (requires current password)
+# =============================================================================
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v):
+        validate_password_strength(v)
+        return v
+
+
+def change_password(user_id: str, current_password: str, new_password: str) -> bool:
+    """Change password for authenticated user. Verifies current password first."""
+    user = users_collection.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not verify_password(current_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    new_hash = hash_password(new_password)
+    users_collection.update_one({"user_id": user_id}, {"$set": {"password_hash": new_hash}})
     return True

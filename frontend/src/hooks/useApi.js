@@ -15,7 +15,7 @@ export function useApi() {
   const get = useCallback((path) => axios.get(`${BASE}${path}`, { headers }), [headers]);
   const post = useCallback((path, data) => axios.post(`${BASE}${path}`, data, { headers }), [headers]);
   const put = useCallback((path, data) => axios.put(`${BASE}${path}`, data, { headers }), [headers]);
-  const del = useCallback((path) => axios.delete(`${BASE}${path}`, { headers }), [headers]);
+  const del = useCallback((path, config) => axios.delete(`${BASE}${path}`, { headers, ...config }), [headers]);
 
   return { get, post, put, del };
 }

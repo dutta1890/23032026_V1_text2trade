@@ -1,11 +1,14 @@
-"""Account management — demo mode, mode switching, onboarding."""
+"""Account management — demo mode, profile, export, soft delete."""
 from fastapi import APIRouter, HTTPException, Depends, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
 import logging
+import json
+import re
 
-from auth import get_current_user, users_collection
+from auth import get_current_user, users_collection, verify_password, change_password, ChangePasswordRequest
 from database import db, strategies_collection
 
 logger = logging.getLogger(__name__)
@@ -13,6 +16,13 @@ router = APIRouter()
 
 paper_trades_col = db["paper_trades"]
 performance_records_col = db["performance_records"]
+
+VALID_TIMEZONES = [
+    "Asia/Kolkata", "Asia/Tokyo", "Asia/Shanghai", "Asia/Singapore", "Asia/Dubai",
+    "Europe/London", "Europe/Berlin", "Europe/Paris", "America/New_York",
+    "America/Chicago", "America/Los_Angeles", "America/Sao_Paulo",
+    "Australia/Sydney", "Pacific/Auckland", "UTC",
+]
 
 DEMO_STRATEGIES = [
     {
@@ -302,15 +312,187 @@ async def get_profile(request: Request, current_user: dict = Depends(get_current
         dc = db["demo_capital"].find_one({"user_id": user_id}, {"_id": 0})
         demo_cap = dc if dc else {"starting_capital": 10000, "current_capital": 10000, "trades_made": 0}
 
+    email = user_doc.get("email", "")
+    display_name = user_doc.get("display_name") or ""
+    avatar_initial = (display_name[0] if display_name else email[0] if email else "?").upper()
+
     return {
         "user_id": user_doc.get("user_id"),
-        "email": user_doc.get("email"),
+        "email": email,
+        "display_name": display_name,
+        "phone": user_doc.get("phone", ""),
+        "avatar_initial": avatar_initial,
         "role": user_doc.get("role", "user"),
         "account_mode": mode,
         "demo_capital": demo_cap,
+        "timezone": user_doc.get("timezone", "Asia/Kolkata"),
+        "default_capital": user_doc.get("default_capital", 100000),
+        "preferred_instruments": user_doc.get("preferred_instruments", []),
+        "notification_preferences": user_doc.get("notification_preferences", {
+            "email_on_backtest_complete": True,
+            "email_on_paper_trade_signal": True,
+            "email_weekly_summary": False,
+        }),
         "has_completed_onboarding": user_doc.get("has_completed_onboarding", False),
         "created_at": user_doc.get("created_at"),
     }
+
+
+# =============================================================================
+# UPDATE PROFILE
+# =============================================================================
+
+class UpdateProfileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: Optional[str] = Field(default=None, max_length=50)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    timezone: Optional[str] = None
+    default_capital: Optional[float] = None
+    preferred_instruments: Optional[List[str]] = None
+    notification_preferences: Optional[dict] = None
+
+
+@router.put("/account/profile")
+async def update_profile(request: Request, body: UpdateProfileRequest, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    updates = {}
+
+    if body.display_name is not None:
+        updates["display_name"] = body.display_name.strip()[:50]
+
+    if body.phone is not None:
+        phone = body.phone.strip()
+        if phone and not re.match(r'^\+?[\d\s\-()]{7,20}$', phone):
+            raise HTTPException(status_code=400, detail="Invalid phone format")
+        updates["phone"] = phone
+
+    if body.timezone is not None:
+        if body.timezone not in VALID_TIMEZONES:
+            raise HTTPException(status_code=400, detail=f"Invalid timezone. Valid: {', '.join(VALID_TIMEZONES)}")
+        updates["timezone"] = body.timezone
+
+    if body.default_capital is not None:
+        if body.default_capital <= 0 or body.default_capital > 100000000:
+            raise HTTPException(status_code=400, detail="Capital must be between 1 and 10,00,00,000")
+        updates["default_capital"] = body.default_capital
+
+    if body.preferred_instruments is not None:
+        updates["preferred_instruments"] = [s.upper().strip() for s in body.preferred_instruments[:20]]
+
+    if body.notification_preferences is not None:
+        valid_keys = {"email_on_backtest_complete", "email_on_paper_trade_signal", "email_weekly_summary"}
+        prefs = {k: bool(v) for k, v in body.notification_preferences.items() if k in valid_keys}
+        updates["notification_preferences"] = prefs
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    users_collection.update_one({"user_id": user_id}, {"$set": updates})
+    return {"success": True, "updated_fields": list(updates.keys())}
+
+
+# =============================================================================
+# CHANGE PASSWORD
+# =============================================================================
+
+@router.put("/profile/change-password")
+async def change_password_endpoint(request: Request, body: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    change_password(user_id, body.current_password, body.new_password)
+    return {"success": True, "message": "Password changed successfully"}
+
+
+# =============================================================================
+# ACCOUNT SUMMARY
+# =============================================================================
+
+@router.get("/account/summary")
+async def account_summary(request: Request, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    user_doc = users_collection.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    mode = user_doc.get("account_mode", "real")
+    demo_cap = None
+    if mode == "demo":
+        dc = db["demo_capital"].find_one({"user_id": user_id}, {"_id": 0})
+        demo_cap = dc
+
+    real_strats = strategies_collection.count_documents({"user_id": user_id, "is_demo": {"$ne": True}})
+    demo_strats = strategies_collection.count_documents({"user_id": user_id, "is_demo": True})
+    total_backtests = performance_records_col.count_documents({"user_id": user_id})
+    total_paper = paper_trades_col.count_documents({"user_id": user_id})
+
+    return {
+        "account_mode": mode,
+        "demo_capital": demo_cap,
+        "total_strategies_real": real_strats,
+        "total_strategies_demo": demo_strats,
+        "total_backtests": total_backtests,
+        "total_paper_trades": total_paper,
+        "member_since": user_doc.get("created_at"),
+        "email": user_doc.get("email"),
+        "display_name": user_doc.get("display_name", ""),
+    }
+
+
+# =============================================================================
+# EXPORT DATA
+# =============================================================================
+
+@router.post("/account/export-data")
+async def export_data(request: Request, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    user_doc = users_collection.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
+
+    strats = list(strategies_collection.find({"user_id": user_id}, {"_id": 0}))
+    papers = list(paper_trades_col.find({"user_id": user_id}, {"_id": 0}))
+    perfs = list(performance_records_col.find({"user_id": user_id}, {"_id": 0}))
+
+    export = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "user": {
+            "email": user_doc.get("email"),
+            "display_name": user_doc.get("display_name"),
+            "created_at": user_doc.get("created_at"),
+            "timezone": user_doc.get("timezone", "Asia/Kolkata"),
+        },
+        "strategies": strats,
+        "paper_trades": papers,
+        "performance_records": perfs,
+        "total_strategies": len(strats),
+        "total_paper_trades": len(papers),
+        "total_performance_records": len(perfs),
+    }
+    return export
+
+
+# =============================================================================
+# DELETE ACCOUNT (SOFT)
+# =============================================================================
+
+class DeleteAccountRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    password: str
+
+
+@router.delete("/account")
+async def delete_account(request: Request, body: DeleteAccountRequest, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    user_doc = users_collection.find_one({"user_id": user_id})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not verify_password(body.password, user_doc["password_hash"]):
+        raise HTTPException(status_code=400, detail="Incorrect password")
+
+    users_collection.update_one({"user_id": user_id}, {"$set": {
+        "is_active": False,
+        "deactivated_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    logger.info(f"Account soft-deleted: {user_id}")
+    return {"success": True, "message": "Account deactivated. Your data is preserved."}
 
 
 @router.post("/account/complete-onboarding")

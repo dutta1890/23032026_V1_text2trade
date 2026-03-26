@@ -147,14 +147,23 @@ export default function UserLayout() {
           </button>
         )}
 
-        {/* User info */}
-        <div className="flex items-center gap-2 px-2 py-1">
-          <UserIcon className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-[10px] font-mono text-muted-foreground truncate flex-1">{user?.email}</span>
+        {/* Profile link */}
+        <Link
+          to="/profile"
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-2 px-2 py-1.5 hover:bg-secondary/50 transition-colors"
+          data-testid="nav-profile"
+        >
+          <div className="w-6 h-6 bg-primary/15 border border-primary/30 flex items-center justify-center font-mono text-[10px] font-bold text-primary">
+            {(user?.email || "?")[0].toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-mono text-foreground truncate block">{user?.email}</span>
+          </div>
           {isAdmin && (
-            <Link to="/admin" className="text-[9px] font-mono text-primary hover:underline">Admin</Link>
+            <Link to="/admin" className="text-[9px] font-mono text-primary hover:underline" onClick={(e) => e.stopPropagation()}>Admin</Link>
           )}
-        </div>
+        </Link>
 
         <Button variant="ghost" size="sm" onClick={logout} className="w-full justify-start font-mono text-xs text-muted-foreground hover:text-destructive gap-2" data-testid="logout-btn">
           <LogOut className="w-3.5 h-3.5" /> Logout
