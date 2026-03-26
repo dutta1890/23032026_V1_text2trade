@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
+import { extractApiError } from "@/utils/apiError";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,7 +108,7 @@ export default function ProfilePage() {
       });
       toast.success("Profile updated");
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Update failed");
+      toast.error(extractApiError(err, "Update failed"));
     } finally { setSaving(false); }
   };
 
@@ -123,7 +124,7 @@ export default function ProfilePage() {
       toast.success("Password changed");
       setCurrentPw(""); setNewPw(""); setConfirmPw("");
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Password change failed");
+      toast.error(extractApiError(err, "Password change failed"));
     } finally { setChangingPw(false); }
   };
 
@@ -152,7 +153,7 @@ export default function ProfilePage() {
       toast.success("Account deactivated");
       setTimeout(() => logout(), 1500);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Deletion failed");
+      toast.error(extractApiError(err, "Deletion failed"));
     } finally { setDeleting(false); }
   };
 

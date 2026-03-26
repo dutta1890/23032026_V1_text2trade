@@ -68,7 +68,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **New Collections**: `demo_capital` (user_id, starting_capital, current_capital, trades_made)
 - **Testing**: Backend 17/17, Frontend 10/10 — iteration_25.json
 
-### Session 22 (2026-03-26) — P0 Bug Fixes: Resend Sandbox + Auth Persistence
+### Session 22 (2026-03-26) — P0 Bug Fixes: Resend Sandbox + Auth Persistence + Validation Error Crash
 - **Resend Sandbox Graceful Handling (P0)**:
   - `email_service.py` `send_email()` now returns structured dict `{sent, sandbox_restricted, error}` instead of bare bool
   - `auth.py` `create_password_reset_otp()` refactored to `async` — awaits email result and passes sandbox info upstream
@@ -85,7 +85,11 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
   - `switchMode()` updates localStorage immediately
   - `logout()` clears all localStorage keys
   - Page refresh now stays on authenticated routes
-- **Testing**: Backend 9/9, Frontend 8/8 — iteration_27.json
+- **Pydantic Validation Error Crash Fix (P0)**:
+  - React error #31: Pydantic validation errors returned `detail` as array of objects, rendered directly in JSX causing crash
+  - Created `/utils/apiError.js` with `extractApiError()` utility — safely extracts human-readable messages from both string and array error formats
+  - Applied to all 18+ error handling locations across RegisterPage, LoginPage, ForgotPasswordPage, ResetPasswordPage, ProfilePage, TrackerPage, BacktestPage
+- **Testing**: Backend 9/9, Frontend 8/8 — iteration_27.json + manual verification of registration flow
 
 ### Session 21 (2026-03-24) — User Profile & Account Management
 - **Profile Schema**: Extended users with display_name, phone, avatar_initial, timezone, default_capital, preferred_instruments, notification_preferences

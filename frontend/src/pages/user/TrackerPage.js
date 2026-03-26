@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
+import { extractApiError } from "@/utils/apiError";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,7 @@ export default function TrackerPage() {
     setError(null);
     api.get("/tracker/dashboard")
       .then((res) => setData(res.data))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load tracker data"))
+      .catch((err) => setError(extractApiError(err, "Failed to load tracker data")))
       .finally(() => setLoading(false));
   };
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TrendingUp, Play, UserPlus, ArrowRight } from "lucide-react";
 import axios from "axios";
+import { extractApiError } from "@/utils/apiError";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api/v1";
 
@@ -30,7 +31,7 @@ export default function RegisterPage() {
       const userData = await login(email, password);
       navigate(userData?.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
-      setError(err.response?.data?.detail || "Registration failed");
+      setError(extractApiError(err, "Registration failed"));
     } finally {
       setLoading(false);
     }

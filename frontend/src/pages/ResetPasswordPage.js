@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TrendingUp, CheckCircle2, ArrowLeft } from "lucide-react";
 import axios from "axios";
+import { extractApiError } from "@/utils/apiError";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api/v1";
 
@@ -30,7 +31,7 @@ export default function ResetPasswordPage() {
       await axios.post(`${API}/auth/reset-password`, { email, otp, new_password: password });
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.detail || "Reset failed. Check your OTP.");
+      setError(extractApiError(err, "Reset failed. Check your OTP."));
     } finally { setLoading(false); }
   };
 

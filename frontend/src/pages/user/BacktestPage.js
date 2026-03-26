@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
+import { extractApiError } from "@/utils/apiError";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +58,7 @@ export default function BacktestPage() {
       const bRes = await api.post("/backtest", { strategy: strat });
       setResult(bRes.data);
     } catch (err) {
-      setResult({ success: false, error: err.response?.data?.detail || "Backtest failed" });
+      setResult({ success: false, error: extractApiError(err, "Backtest failed") });
     } finally {
       setLoading(false);
     }

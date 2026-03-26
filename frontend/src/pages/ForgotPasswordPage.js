@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { TrendingUp, ArrowLeft, Mail, AlertTriangle } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
+import { extractApiError } from "@/utils/apiError";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api/v1";
 
@@ -31,7 +32,7 @@ export default function ForgotPasswordPage() {
         toast.warning(res.data.warning, { duration: 8000 });
       }
     } catch (err) {
-      setError(err.response?.data?.detail || "Something went wrong");
+      setError(extractApiError(err, "Something went wrong"));
     } finally { setLoading(false); }
   };
 

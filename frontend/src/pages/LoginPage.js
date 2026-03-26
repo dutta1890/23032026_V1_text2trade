@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Loader2, ArrowLeft } from "lucide-react";
+import { extractApiError } from "@/utils/apiError";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -26,7 +27,7 @@ export default function LoginPage() {
         navigate("/dashboard", { replace: true });
       }
     } catch (err) {
-      setError(err.response?.data?.detail || "Login failed");
+      setError(extractApiError(err, "Login failed"));
     } finally {
       setLoading(false);
     }
