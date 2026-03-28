@@ -54,6 +54,9 @@ def sanitize_user_input(text: str, max_length: int = 1000) -> str:
     # Truncate first
     text = text[:max_length]
     
+    # Strip HTML tags (XSS prevention)
+    text = re.sub(r'<[^>]+>', '', text)
+    
     # Remove markdown code fences containing system
     text = re.sub(r'```[^`]*system[^`]*```', '[REMOVED]', text, flags=re.IGNORECASE | re.DOTALL)
     

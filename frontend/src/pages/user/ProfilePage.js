@@ -372,7 +372,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono text-foreground">App Version</span>
-            <span className="text-[10px] font-mono text-muted-foreground">v1.3.0</span>
+            <span className="text-[10px] font-mono text-muted-foreground" data-testid="profile-version">v{process.env.REACT_APP_VERSION || "0.2.0"}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono text-foreground">Report a Bug</span>

@@ -443,27 +443,39 @@ async def account_summary(request: Request, current_user: dict = Depends(get_cur
 
 @router.post("/account/export-data")
 async def export_data(request: Request, current_user: dict = Depends(get_current_user)):
+    """Export all user data as JSON. Real mode only (no demo data). Sanitized."""
     user_id = current_user.get("user_id")
     user_doc = users_collection.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
 
-    strats = list(strategies_collection.find({"user_id": user_id}, {"_id": 0}))
-    papers = list(paper_trades_col.find({"user_id": user_id}, {"_id": 0}))
-    perfs = list(performance_records_col.find({"user_id": user_id}, {"_id": 0}))
+    # Real-mode data only (exclude demo)
+    strats = list(strategies_collection.find(
+        {"user_id": user_id, "is_demo": {"$ne": True}}, {"_id": 0}
+    ))
+    papers = list(paper_trades_col.find(
+        {"user_id": user_id, "is_demo": {"$ne": True}}, {"_id": 0}
+    ))
+    backtests = list(db["backtests"].find(
+        {"user_id": user_id, "is_demo": {"$ne": True}}, {"_id": 0}
+    ))
+    perfs = list(performance_records_col.find(
+        {"user_id": user_id, "is_demo": {"$ne": True}}, {"_id": 0}
+    ))
 
     export = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
-        "user": {
-            "email": user_doc.get("email"),
-            "display_name": user_doc.get("display_name"),
-            "created_at": user_doc.get("created_at"),
-            "timezone": user_doc.get("timezone", "Asia/Kolkata"),
+        "user_email": current_user.get("email", ""),
+        "profile": {
+            "email": user_doc.get("email") if user_doc else "",
+            "display_name": user_doc.get("display_name") if user_doc else "",
+            "created_at": user_doc.get("created_at") if user_doc else "",
+            "timezone": user_doc.get("timezone", "Asia/Kolkata") if user_doc else "",
+            "phone": user_doc.get("phone") if user_doc else "",
+            "preferred_instruments": user_doc.get("preferred_instruments", []) if user_doc else [],
         },
         "strategies": strats,
+        "backtests": backtests,
         "paper_trades": papers,
         "performance_records": perfs,
-        "total_strategies": len(strats),
-        "total_paper_trades": len(papers),
-        "total_performance_records": len(perfs),
     }
     return export
 

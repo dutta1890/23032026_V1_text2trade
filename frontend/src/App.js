@@ -6,6 +6,8 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
 import ReconsentGate from "@/components/ReconsentGate";
+import SessionExpiredModal from "@/components/SessionExpiredModal";
+import VersionBanner from "@/components/VersionBanner";
 import UserLayout from "@/components/layout/UserLayout";
 import AdminLayout from "@/components/layout/AdminLayout";
 import HomePage from "@/pages/HomePage";
@@ -38,6 +40,8 @@ function App() {
       <BrowserRouter>
         <ErrorBoundary>
           <Toaster position="top-right" richColors />
+          <VersionBanner />
+          <SessionExpiredModal />
           <ReconsentGate />
           <Routes>
             <Route path="/" element={<HomePage />} />

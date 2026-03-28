@@ -221,6 +221,13 @@ def _validate_strategy_draft(strategy_data: dict) -> list:
         errors.append("No instrument/symbol specified.")
     if not strategy_data.get("timeframe"):
         errors.append("No timeframe specified.")
+    # Condition count limits
+    entry_count = len(strategy_data.get("entry_conditions", []))
+    exit_count = len(strategy_data.get("exit_conditions", []))
+    if entry_count > 10:
+        errors.append(f"Maximum 10 entry conditions allowed (got {entry_count}).")
+    if exit_count > 10:
+        errors.append(f"Maximum 10 exit conditions allowed (got {exit_count}).")
     hallucinated = _detect_hallucinated_indicators(strategy_data)
     if hallucinated:
         errors.append(f"Unsupported indicators: {', '.join(hallucinated)}")
@@ -434,7 +441,7 @@ async def analyze_risk(request: Request, body: RiskRequest, current_user: dict =
         log_ai_call("risk_analyzer", len(sanitized_text), (time.time() - start_time) * 1000, False)
         raise HTTPException(status_code=503, detail=str(e))
 
-    lines = [l.strip().lstrip("•-*").strip() for l in response.split("\n") if l.strip() and l.strip()[0] in "•-*"]
+    lines = [line.strip().lstrip("•-*").strip() for line in response.split("\n") if line.strip() and line.strip()[0] in "•-*"]
     warnings = lines[:3] if lines else [response.strip()]
     return {"success": True, "warnings": warnings}
 
@@ -600,6 +607,7 @@ async def finalize_session_strategy(request: Request, session_id: str, current_u
         raise HTTPException(status_code=422, detail=f"Draft has errors: {'; '.join(errors)}")
 
     from datetime import datetime, timezone
+    import re as _re
     strategy_id = str(uuid.uuid4())
     user_id = current_user.get("user_id", user_email)
     symbol = normalized["instrument"].get("symbol", "UNKNOWN")
@@ -607,10 +615,14 @@ async def finalize_session_strategy(request: Request, session_id: str, current_u
     if isinstance(timeframe_val, dict):
         timeframe_val = timeframe_val.get("interval", "1d")
 
+    # Sanitize strategy name
+    raw_name = draft.get("name") or f"AI Strategy - {symbol}"
+    clean_name = _re.sub(r'<[^>]+>', '', raw_name)[:200]
+
     strategy_doc = {
         "id": strategy_id, "user_id": user_id, "version": "1.0",
         "metadata": {
-            "name": f"AI Strategy - {symbol}",
+            "name": clean_name,
             "description": draft.get("explanation") or f"AI-built strategy for {symbol}",
             "tags": ["ai-generated"],
             "created_at": datetime.now(timezone.utc).isoformat(),

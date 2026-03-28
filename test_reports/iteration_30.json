@@ -1,0 +1,90 @@
+{
+  "summary": "Iteration 30 - Session Hardening, Data Export, Input Validation & App Versioning. All 19 backend tests passed. All frontend tests passed. All requested features working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "BACKEND: GET /api/v1/app/version returns {version: '0.2.0', build_date, min_supported_version}",
+    "BACKEND: GET /api/v1/app/version accessible without authentication (public endpoint)",
+    "BACKEND: POST /api/v1/auth/login returns both access_token and refresh_token",
+    "BACKEND: POST /api/v1/auth/refresh with valid refresh_token returns new access_token",
+    "BACKEND: POST /api/v1/auth/refresh with invalid token returns 401",
+    "BACKEND: POST /api/v1/auth/refresh with expired/old token returns 401",
+    "BACKEND: POST /api/v1/account/export-data returns {exported_at, user_email, profile, strategies, backtests, paper_trades, performance_records}",
+    "BACKEND: Export data does NOT include password_hash field",
+    "BACKEND: Export data does NOT include MongoDB _id fields",
+    "BACKEND: Export data excludes demo data (is_demo: true)",
+    "BACKEND: Export data requires authentication (401 without token)",
+    "BACKEND: Large request body (>1MB Content-Length header) returns 413 status",
+    "BACKEND: Strategy validation rejects >10 entry conditions (422)",
+    "BACKEND: Strategy validation rejects >10 exit conditions (422)",
+    "BACKEND: Middleware updates last_active timestamp on authenticated requests",
+    "BACKEND: GET /api/v1/legal/terms accessible without auth",
+    "BACKEND: GET /api/v1/legal/privacy accessible without auth",
+    "BACKEND: GET /api/v1/legal/disclaimer accessible without auth",
+    "BACKEND: HTML tags handled in strategy name input",
+    "FRONTEND: Login page shows legal footer with Terms|Privacy|Disclaimer|v0.2.0",
+    "FRONTEND: Login stores refresh token in localStorage key t2t_refresh",
+    "FRONTEND: Login stores access token in localStorage key t2t_token",
+    "FRONTEND: Version v0.2.0 displayed in footer via legal-footer component",
+    "FRONTEND: Register page shows 3 consent checkboxes (Terms, Privacy, Disclaimer)",
+    "FRONTEND: Register buttons disabled until all 3 checkboxes checked",
+    "FRONTEND: Register buttons enabled after all 3 checkboxes checked",
+    "FRONTEND: Register buttons disabled again when any checkbox unchecked",
+    "FRONTEND: /legal/terms page accessible without auth",
+    "FRONTEND: /legal/privacy page accessible without auth",
+    "FRONTEND: /legal/disclaimer page accessible without auth",
+    "FRONTEND: Dashboard loads without re-consent modal when user has accepted all docs"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_session_hardening.py",
+    "/app/test_reports/pytest/pytest_session_hardening.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_session_hardening.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed)",
+    "frontend": "100% (all session hardening features working)"
+  },
+  "test_credentials": {
+    "test_user": "testai@example.com / Password123!",
+    "admin_user": "admin@example.com / Password123!"
+  },
+  "seed_data_creation": "None - used existing test users",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 30 tested session hardening, data export, input validation, and app versioning features. All features working: (1) GET /api/v1/app/version returns version 0.2.0, build_date, min_supported_version. (2) Login returns both access_token and refresh_token. (3) Token refresh works with valid refresh_token, returns 401 for invalid/expired tokens. (4) Data export returns all user data excluding password_hash, _id, and demo data. (5) 1MB request body limit enforced via Content-Length header check in middleware. (6) Strategy validation rejects >10 entry or exit conditions. (7) HTML tags stripped from user input via sanitize_user_input. (8) Frontend stores refresh token in localStorage as t2t_refresh. (9) Version v0.2.0 displayed in legal footer. (10) Register page consent checkboxes control button enabled state. (11) Legal pages accessible without auth. (12) Multi-tab detection via localStorage events implemented in AuthContext.",
+  "features_verified": {
+    "session_management": {
+      "silent_token_refresh": "useApi hook intercepts 401 and calls /auth/refresh",
+      "refresh_token_storage": "Stored in localStorage as t2t_refresh",
+      "multi_tab_detection": "AuthContext listens to storage events",
+      "session_expired_modal": "SessionExpiredModal component with data-testid='session-expired-modal'"
+    },
+    "data_export": {
+      "endpoint": "POST /api/v1/account/export-data",
+      "excludes": ["password_hash", "_id", "is_demo: true data"],
+      "includes": ["exported_at", "user_email", "profile", "strategies", "backtests", "paper_trades", "performance_records"]
+    },
+    "input_hardening": {
+      "body_size_limit": "1MB via Content-Length header check in RequestIdMiddleware",
+      "condition_limits": "Max 10 entry + 10 exit conditions in _validate_strategy_draft",
+      "html_stripping": "sanitize_user_input in resilience.py strips HTML tags"
+    },
+    "app_versioning": {
+      "backend_version": "APP_VERSION=0.2.0 in backend/.env",
+      "frontend_version": "REACT_APP_VERSION=0.2.0 in frontend/.env",
+      "version_endpoint": "GET /api/v1/app/version",
+      "footer_display": "LegalFooter.js shows v{APP_VERSION}"
+    }
+  }
+}

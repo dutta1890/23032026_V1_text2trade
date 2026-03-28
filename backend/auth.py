@@ -284,6 +284,13 @@ def refresh_access_token(refresh_token: str) -> AccessTokenResponse:
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type")
     
+    # Enforce 7-day max age on refresh tokens
+    issued_at = payload.get("iat")
+    if issued_at:
+        age_days = (datetime.now(timezone.utc) - datetime.fromtimestamp(issued_at, tz=timezone.utc)).days
+        if age_days > REFRESH_TOKEN_EXPIRE_DAYS:
+            raise HTTPException(status_code=401, detail="Refresh token expired. Please log in again.")
+    
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")

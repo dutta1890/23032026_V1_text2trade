@@ -16,6 +16,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 import logging
 import time
+import jwt
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -61,7 +62,7 @@ from diagnostics import (
     ErrorRecord, store_error, sanitize_dict, classify_severity,
     store_slow_request,
 )
-from logging_config import get_request_id, get_user_id
+from logging_config import get_request_id, get_user_id, set_user_id as set_user_id_ctx
 
 # Setup structured logging
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -160,13 +161,36 @@ auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 # =============================================================================
 
 PERF_THRESHOLD_MS = 3000  # log slow requests above this
+MAX_BODY_SIZE = 1 * 1024 * 1024  # 1MB
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # Reject oversized request bodies
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_BODY_SIZE:
+            return JSONResponse(status_code=413, content={"detail": "Request body too large. Maximum 1MB."})
+
         request_id = generate_request_id()
         set_request_id(request_id)
         set_endpoint(f"{request.method} {request.url.path}")
         start_time = time.time()
+
+        # Update last_active for authenticated users
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                token = auth_header[7:]
+                payload = jwt.decode(token, os.environ.get("JWT_SECRET"), algorithms=["HS256"], options={"verify_exp": False})
+                uid = payload.get("sub")
+                if uid:
+                    set_user_id_ctx(uid)
+                    users_collection.update_one(
+                        {"user_id": uid},
+                        {"$set": {"last_active": datetime.now(timezone.utc).isoformat()}},
+                    )
+            except Exception:
+                pass
+
         response = await call_next(request)
         duration_ms = (time.time() - start_time) * 1000
         response.headers["X-Request-ID"] = request_id
@@ -195,6 +219,18 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 @api_router.get("/", response_model=RootResponse)
 async def root():
     return {"message": "Welcome to Text2trade API", "app_name": "Text2trade"}
+
+
+APP_VERSION = os.environ.get("APP_VERSION", "0.2.0")
+
+@api_router.get("/app/version")
+async def app_version():
+    """Public endpoint — returns app version info."""
+    return {
+        "version": APP_VERSION,
+        "build_date": "2026-03-28",
+        "min_supported_version": "0.2.0",
+    }
 
 
 # ── Diagnostics test endpoints (admin-only, for verification) ────────────────
