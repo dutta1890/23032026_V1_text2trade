@@ -68,6 +68,33 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **New Collections**: `demo_capital` (user_id, starting_capital, current_capital, trades_made)
 - **Testing**: Backend 17/17, Frontend 10/10 — iteration_25.json
 
+### Session 25 (2026-03-28) — Session Hardening, Data Export, Input Validation, Versioning
+- **Task 1: Session Timeout Handling**:
+  - `useApi.js` rewritten with 401 interceptor — silently refreshes token via `/auth/refresh`, retries original request transparently
+  - Refresh token stored in `localStorage` (`t2t_refresh`), passed during refresh
+  - `auth.py` enforces 7-day max age on refresh tokens (`iat` claim check)
+  - `SessionExpiredModal.js` shown when refresh fails — "Session Expired" with login redirect
+- **Task 2: Multiple Tab Handling**:
+  - `AuthContext.js` listens to `storage` events — detects logout in other tabs
+  - Detects user_id mismatch across tabs → forces `window.location.reload()`
+- **Task 3: Data Export**:
+  - `POST /api/v1/account/export-data` returns JSON: {exported_at, user_email, profile, strategies, backtests, paper_trades, performance_records}
+  - Excludes demo data (`is_demo: true`), excludes `password_hash` and `_id`
+  - Profile sanitized to only include safe fields (email, display_name, timezone, etc.)
+- **Task 4: Input Hardening**:
+  - 1MB request body limit in `RequestIdMiddleware` (413 on exceed)
+  - Strategy validation: max 10 entry + 10 exit conditions (422 if exceeded)
+  - Strategy names: max 200 chars, HTML tags stripped
+  - `sanitize_user_input()` in `resilience.py` now strips `<tags>` (XSS prevention)
+- **Task 5: App Version + Cache Busting**:
+  - `GET /api/v1/app/version` (public) returns `{version, build_date, min_supported_version}`
+  - `VersionBanner.js` compares frontend vs backend versions, shows refresh banner if outdated
+  - `LegalFooter.js` displays `v0.2.0` in footer
+  - `APP_VERSION=0.2.0` in backend `.env`, `REACT_APP_VERSION=0.2.0` in frontend `.env`
+- **Task 6: Middleware Enhancement**:
+  - `last_active` timestamp updated on every authenticated request in `RequestIdMiddleware`
+- **Testing**: 19/19 backend + all frontend passed (iteration_30.json)
+
 ### Session 24 (2026-03-28) — Legal Compliance System (6 Tasks)
 - **Task 1: Legal Documents**: Created 4 markdown files in `/backend/legal/` — Terms of Service, Privacy Policy, Risk Disclaimer, Cookie Policy. All include app-specific clauses (AI-generated strategies, backtesting limitations, SEBI notice, governing law India).
 - **Task 2: Legal Document API**:
