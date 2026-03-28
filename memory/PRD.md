@@ -68,6 +68,24 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **New Collections**: `demo_capital` (user_id, starting_capital, current_capital, trades_made)
 - **Testing**: Backend 17/17, Frontend 10/10 — iteration_25.json
 
+### Session 24 (2026-03-28) — Legal Compliance System (6 Tasks)
+- **Task 1: Legal Documents**: Created 4 markdown files in `/backend/legal/` — Terms of Service, Privacy Policy, Risk Disclaimer, Cookie Policy. All include app-specific clauses (AI-generated strategies, backtesting limitations, SEBI notice, governing law India).
+- **Task 2: Legal Document API**:
+  - Public endpoints: `GET /api/v1/legal/{terms|privacy|disclaimer|cookies}` — returns markdown + version + effective_date (no auth)
+  - `GET /api/v1/legal/versions` — returns latest versions of all docs
+  - Admin: `PUT /api/v1/admin/legal/{type}` — creates new version (immutable, audit trail)
+  - MongoDB `legal_documents` collection with unique index on (type, version)
+  - Auto-seeds from markdown files on startup
+- **Task 3: Consent Tracking**:
+  - MongoDB `user_consents` collection — permanent records: `{user_id, document_type, document_version, accepted_at, ip_address}`
+  - Registration requires `accepted_terms=true, accepted_privacy=true, accepted_disclaimer=true` — returns 400 otherwise
+  - `GET /api/v1/legal/consent-status` — checks pending vs latest versions
+  - `POST /api/v1/legal/accept` — accepts specific doc+version with IP logging
+- **Task 4: Registration Consent Checkboxes**: 3 checkboxes with clickable links to legal doc modals. Buttons disabled until all checked.
+- **Task 5: Re-consent Modal**: Full-screen blocking modal on login if docs updated. Tab-based UI for multiple pending docs. "Log out instead" option. Cannot dismiss.
+- **Task 6: Legal Pages + Footer**: `/legal/terms`, `/legal/privacy`, `/legal/disclaimer` public pages. Footer links on register, login, and user dashboard.
+- **Testing**: 17/17 backend + all frontend passed (iteration_29). Bug fixed: `get_latest_doc()` sort by `created_at` instead of version string.
+
 ### Session 23 (2026-03-28) — Diagnostics System (5 Tasks)
 - **Task 1: Backend Error Tracking**:
   - `diagnostics/__init__.py`: ErrorRecord model, store_error(), sanitize_dict(), classify_severity()
