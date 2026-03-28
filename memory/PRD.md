@@ -68,6 +68,35 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **New Collections**: `demo_capital` (user_id, starting_capital, current_capital, trades_made)
 - **Testing**: Backend 17/17, Frontend 10/10 — iteration_25.json
 
+### Session 23 (2026-03-28) — Diagnostics System (5 Tasks)
+- **Task 1: Backend Error Tracking**:
+  - `diagnostics/__init__.py`: ErrorRecord model, store_error(), sanitize_dict(), classify_severity()
+  - MongoDB `error_logs` collection with 90-day TTL index
+  - Global exception handler catches ALL unhandled exceptions, stores record, returns friendly "An internal error occurred" message (never raw stack traces)
+  - Severity auto-classification: TimeoutError→medium, ValidationError→low, DB errors→high, unhandled→critical
+  - Request body sanitization strips passwords, tokens, secrets
+- **Task 2: Frontend Crash Boundary**:
+  - Enhanced `ErrorBoundary.js`: catches React render errors, shows friendly UI with "Go to Dashboard" and "Report Details" buttons
+  - Auto-sends crash reports to `POST /api/v1/diagnostics/frontend-crash` with error_message, component_stack, page_url, browser_info, user_id
+- **Task 3: Health Monitoring Endpoints**:
+  - `GET /api/v1/health` includes `error_rate.last_1h` and `error_rate.last_24h`
+  - `GET /api/v1/admin/diagnostics/summary` — dashboard data (24h/7d counts by severity, top errors, affected users, hourly error rate)
+  - `GET /api/v1/admin/diagnostics/errors` — paginated, filterable by severity/source/resolved/date/user
+  - `GET /api/v1/admin/diagnostics/errors/{id}` — full detail with stack trace
+  - `PUT /api/v1/admin/diagnostics/errors/{id}/resolve` — mark resolved with admin note
+- **Task 4: Performance Monitoring**:
+  - Middleware logs slow requests (>3s) to `performance_logs` collection (30-day TTL)
+  - `GET /api/v1/admin/diagnostics/performance` — avg/max/P95 response times per endpoint, slowest requests
+  - Test endpoints: `/test/error` (force RuntimeError), `/test/slow` (4s sleep)
+- **Task 5: Admin Diagnostics Dashboard** (`/admin/diagnostics`):
+  - Summary cards: Errors (24h), Critical count, Affected Users, Avg Response Time
+  - Error rate bar chart (Recharts, hourly last 24h)
+  - Errors table with severity badges, source, type, endpoint, status, pagination
+  - Filter dropdowns: severity, source (backend/frontend), resolved status
+  - Error detail modal: full stack trace, sanitized request body, resolve button with notes
+  - Performance tab: slowest endpoints table, P95 times, recent slow requests
+- **Testing**: 20/20 passed (iteration_28.json). Testing agent fixed infinite loop bug in AdminDiagnostics.js (unstable useCallback deps)
+
 ### Session 22 (2026-03-26) — P0 Bug Fixes: Resend Sandbox + Auth Persistence + Validation Error Crash
 - **Resend Sandbox Graceful Handling (P0)**:
   - `email_service.py` `send_email()` now returns structured dict `{sent, sandbox_restricted, error}` instead of bare bool
