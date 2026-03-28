@@ -224,6 +224,29 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 ### Sessions 10-12 — Backend Features
 - Screener, multi-backtest, comparison engine, strategy templates, backtest engine
 
+### Session 26 (2026-03-28) — Knowledge Base & Info Tooltips System
+- **Task 1: Knowledge Base Backend**:
+  - `GET /api/v1/knowledge` — returns all 30 seeded trading terms sorted by term_id
+  - `GET /api/v1/knowledge/{term_id}` — returns single term details
+  - `GET /api/v1/knowledge/category/{category}` — filter by category (indicator/risk_management/general)
+  - Admin CRUD: POST/PUT/DELETE at `/api/v1/admin/knowledge`
+  - MongoDB `knowledge_base` collection with unique index on `term_id`
+  - 30 terms seeded: 15 indicators, 8 risk management, 7 general concepts
+  - Fixed seed script to load `.env` (was seeding wrong DB)
+- **Task 2: InfoTooltip Component**:
+  - Reusable `<InfoTooltip termId="..." />` fetches KB data once, caches globally
+  - Hover reveals term name, description, and real-world example via Shadcn Tooltip
+- **Task 3: Tooltips Injected Across UI**:
+  - Strategy Builder: Entry/Exit indicator labels, ADX filter, Stop Loss, ATR Multiple
+  - BuilderPage RiskEditor: Stop Loss, Target Profit, Trailing Stop Loss, Time-based Exit
+  - BacktestPage MetricCards: Win Rate, Max Drawdown, Sharpe Ratio, Profit Factor
+- **Task 4: Trading Glossary Page** (`/glossary`):
+  - Searchable, filterable dictionary of all 30 terms
+  - Category filters: All, General Concepts, Indicators, Risk Management
+  - Cards with descriptions and example blocks
+  - Added to sidebar navigation with GraduationCap icon
+- **Testing**: 31/31 backend + all frontend passed (iteration_31.json)
+
 ## Routes
 | Route | Auth | Component | Description |
 |-------|------|-----------|-------------|
@@ -243,6 +266,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 | /optimizer | User | OptimizerPage | Parameter sweep optimizer |
 | /tracker | User | TrackerPage | Performance tracker dashboard |
 | /alerts | User | AlertsPage | Strategy alerts & notifications |
+| /glossary | User | GlossaryPage | Trading terms dictionary with search |
 | /watchlist | User | WatchlistPage | Saved screener matches |
 | /admin/dashboard | Admin | AdminDashboard | System health with data banner |
 | /admin/users | Admin | AdminUsers | User management |
@@ -257,7 +281,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 │   ├── strategies.py, ai.py, backtest_routes.py
 │   ├── paper_trading.py, templates.py
 │   ├── screener_routes.py, admin.py, optimizer.py
-│   ├── sharing.py, watchlist.py, leaderboard.py, tracker.py, alerts.py (NEW)
+│   ├── sharing.py, watchlist.py, leaderboard.py, tracker.py, alerts.py, knowledge.py (NEW)
 ├── optimizer/engine.py
 ├── screener/engine.py, backtest/engine.py
 └── data/service.py, scripts/
@@ -265,13 +289,14 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 /app/frontend/src/
 ├── App.js (19 routes)
 ├── context/AuthContext.js (login → API call + JWT decode, logout → blacklist)
-├── components/ (ErrorBoundary, LoadingSkeleton, MultiStockCompare, StrategyCompare)
+├── components/ (ErrorBoundary, LoadingSkeleton, MultiStockCompare, StrategyCompare, InfoTooltip(NEW))
 ├── pages/
 │   ├── ForgotPasswordPage.js (NEW), ResetPasswordPage.js (NEW)
 │   ├── SharedStrategyPage.js (NEW), NotFoundPage.js
 │   ├── user/ (Dashboard, Builder, Backtest, PaperTrades, Templates,
-│   │         Screener, StrategyDetail, Optimizer, Watchlist, Tracker, Alerts(NEW))
-│   └── admin/ (AdminDashboard, AdminUsers)
+│   │         Screener, StrategyDetail, Optimizer, Watchlist, Tracker, Alerts)
+│   ├── GlossaryPage.js (NEW)
+│   └── admin/ (AdminDashboard, AdminUsers, AdminDiagnostics)
 ```
 
 ## MongoDB Collections
@@ -287,6 +312,7 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - `performance_records`: backtest/paper-trade metrics per strategy per user
 - `alert_rules` (NEW): user alert rules (strategy_name, metric, operator, threshold, enabled)
 - `alert_notifications` (NEW): triggered alert notifications (severity, read status)
+- `knowledge_base` (NEW): 30 trading terms with term_id, term, category, short_description, example
 
 ## Remaining Backlog
 - **Broker Integrations (P1)**: Zerodha, Angel One, Upstox — UI placeholders exist on profile page
