@@ -28,6 +28,7 @@ import AlertsPage from "@/pages/user/AlertsPage";
 import ProfilePage from "@/pages/user/ProfilePage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminDiagnostics from "@/pages/admin/AdminDiagnostics";
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
             <Route element={<AdminRoute><AdminLayout /></AdminRoute>}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/diagnostics" element={<AdminDiagnostics />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

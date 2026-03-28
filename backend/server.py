@@ -1,5 +1,5 @@
 """Text2trade API — slim app factory."""
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from pathlib import Path
@@ -53,6 +53,14 @@ from routers.leaderboard import router as leaderboard_router
 from routers.tracker import router as tracker_router
 from routers.alerts import router as alerts_router
 from routers.account import router as account_router
+from routers.diagnostics import router as diagnostics_router
+
+# Diagnostics
+from diagnostics import (
+    ErrorRecord, store_error, sanitize_dict, classify_severity,
+    store_slow_request,
+)
+from logging_config import get_request_id, get_user_id
 
 # Setup structured logging
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -83,9 +91,63 @@ def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 # APP SETUP
 # =============================================================================
 
-app = FastAPI(title="Text2trade API", version="1.2.0")
+app = FastAPI(title="Text2trade API", version="1.3.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
+
+
+# =============================================================================
+# GLOBAL EXCEPTION HANDLER (catches ALL unhandled exceptions)
+# =============================================================================
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions, store in error_logs, return friendly msg."""
+    import traceback as tb
+
+    # Skip HTTP exceptions — they already have proper responses
+    if isinstance(exc, HTTPException):
+        raise exc
+
+    error_type = type(exc).__name__
+    stack = tb.format_exception(type(exc), exc, exc.__traceback__)
+    stack_trace = "".join(stack)
+
+    # Try to get request body for debugging (sanitized)
+    request_body = None
+    try:
+        body_bytes = await request.body()
+        if body_bytes:
+            import json
+            raw = json.loads(body_bytes)
+            request_body = sanitize_dict(raw) if isinstance(raw, dict) else None
+    except Exception:
+        pass
+
+    record = ErrorRecord(
+        user_id=get_user_id(),
+        endpoint=str(request.url.path),
+        method=request.method,
+        request_body=request_body,
+        error_type=error_type,
+        error_message=str(exc)[:2000],
+        stack_trace=stack_trace[:10000],
+        request_id=get_request_id() or "",
+        severity=classify_severity(error_type),
+        source="backend",
+    )
+
+    try:
+        store_error(record)
+    except Exception as store_err:
+        logger.error(f"Failed to store error record: {store_err}")
+
+    logger.error(f"Unhandled exception: {error_type}: {exc}", exc_info=True)
+
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal error occurred. Our team has been notified."},
+    )
 
 # Base routers
 api_router = APIRouter(prefix="/api/v1")
@@ -95,6 +157,8 @@ auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 # =============================================================================
 # MIDDLEWARE
 # =============================================================================
+
+PERF_THRESHOLD_MS = 3000  # log slow requests above this
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -106,6 +170,20 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         duration_ms = (time.time() - start_time) * 1000
         response.headers["X-Request-ID"] = request_id
         logger.info("Request completed", extra={"duration_ms": round(duration_ms, 2), "status_code": response.status_code})
+
+        # Performance monitoring — log slow requests
+        if duration_ms > PERF_THRESHOLD_MS:
+            try:
+                store_slow_request(
+                    endpoint=request.url.path,
+                    method=request.method,
+                    duration_ms=duration_ms,
+                    user_id=get_user_id(),
+                    request_id=request_id,
+                )
+            except Exception:
+                pass
+
         return response
 
 
@@ -116,6 +194,22 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 @api_router.get("/", response_model=RootResponse)
 async def root():
     return {"message": "Welcome to Text2trade API", "app_name": "Text2trade"}
+
+
+# ── Diagnostics test endpoints (admin-only, for verification) ────────────────
+
+@api_router.get("/admin/diagnostics/test/error")
+async def test_force_error(request: Request, admin: dict = Depends(get_current_user)):
+    """Force an unhandled exception to verify error tracking."""
+    raise RuntimeError("Diagnostics test: intentional error for verification")
+
+
+@api_router.get("/admin/diagnostics/test/slow")
+async def test_slow_request(request: Request, admin: dict = Depends(get_current_user)):
+    """Simulate a 4-second slow request for performance monitoring."""
+    import asyncio
+    await asyncio.sleep(4)
+    return {"message": "Slow request completed", "duration_sec": 4}
 
 @api_router.get("/health")
 async def health_check():
@@ -134,10 +228,20 @@ async def health_check():
     if mongodb_healthy and any(state != "closed" for state in cb_states.values()):
         status = "degraded"
 
+    # Error rate summary
+    from diagnostics import error_logs as diag_error_logs
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    h1_iso = (now - timedelta(hours=1)).isoformat()
+    h24_iso = (now - timedelta(hours=24)).isoformat()
+    errors_1h = diag_error_logs.count_documents({"timestamp": {"$gte": h1_iso}})
+    errors_24h = diag_error_logs.count_documents({"timestamp": {"$gte": h24_iso}})
+
     return {
         "status": status, "mongodb": mongodb_healthy,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "1.2.0", "circuit_breakers": cb_states
+        "version": "1.3.0", "circuit_breakers": cb_states,
+        "error_rate": {"last_1h": errors_1h, "last_24h": errors_24h},
     }
 
 
@@ -267,6 +371,9 @@ api_router.include_router(leaderboard_router)
 api_router.include_router(tracker_router)
 api_router.include_router(alerts_router)
 api_router.include_router(account_router)
+
+# Diagnostics router (has its own /api/v1 prefix)
+app.include_router(diagnostics_router)
 
 
 # =============================================================================
