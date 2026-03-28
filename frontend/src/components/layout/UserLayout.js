@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
 import OnboardingTour from "@/components/OnboardingTour";
+import LegalFooter from "@/components/LegalFooter";
 import {
   LayoutDashboard, Hammer, BookOpen, Activity, LogOut, Menu, X,
   TrendingUp, User as UserIcon, Search, Zap, Bookmark, BarChart3, Bell,
@@ -225,6 +226,7 @@ export default function UserLayout() {
         <div className={`p-4 sm:p-6 lg:p-8 ${isDemo ? "" : "md:pt-6"} pt-16 md:pt-6`}>
           <Outlet key={user?.account_mode || "real"} />
         </div>
+        <div className="px-4 py-3 border-t border-border"><LegalFooter /></div>
       </main>
     </div>
   );

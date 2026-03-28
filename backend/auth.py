@@ -53,6 +53,9 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     start_demo: bool = False
+    accepted_terms: bool = False
+    accepted_privacy: bool = False
+    accepted_disclaimer: bool = False
     
     @field_validator("password")
     @classmethod
@@ -196,8 +199,11 @@ async def get_admin_user(current_user: dict = Depends(get_current_user)) -> dict
 # AUTH FUNCTIONS
 # =============================================================================
 
-def register_user(data: UserRegister) -> UserResponse:
-    """Register a new user."""
+def register_user(data: UserRegister, ip_address: str = "unknown") -> UserResponse:
+    """Register a new user. Requires all legal consents."""
+    if not (data.accepted_terms and data.accepted_privacy and data.accepted_disclaimer):
+        raise HTTPException(status_code=400, detail="You must accept the Terms of Service, Privacy Policy, and Risk Disclaimer to register.")
+
     email = data.email.lower().strip()
     
     user_id = str(uuid.uuid4())
@@ -229,7 +235,24 @@ def register_user(data: UserRegister) -> UserResponse:
             seed_demo_data(user_id)
         except Exception as e:
             logger.warning(f"Demo seeding failed for {user_id}: {e}")
-    
+
+    # Store consent records
+    try:
+        from routers.legal import get_latest_versions, user_consents
+        versions = get_latest_versions()
+        consent_time = now
+        for dtype in ("terms", "privacy", "disclaimer"):
+            ver = versions.get(dtype, "1.0")
+            user_consents.insert_one({
+                "user_id": user_id,
+                "document_type": dtype,
+                "document_version": ver,
+                "accepted_at": consent_time,
+                "ip_address": ip_address,
+            })
+    except Exception as e:
+        logger.warning(f"Consent record storage failed for {user_id}: {e}")
+
     return UserResponse(user_id=user_id, email=email)
 
 def login_user(data: UserLogin) -> TokenResponse:

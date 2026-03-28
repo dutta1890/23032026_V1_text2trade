@@ -54,6 +54,7 @@ from routers.tracker import router as tracker_router
 from routers.alerts import router as alerts_router
 from routers.account import router as account_router
 from routers.diagnostics import router as diagnostics_router
+from routers.legal import router as legal_router
 
 # Diagnostics
 from diagnostics import (
@@ -252,7 +253,8 @@ async def health_check():
 @auth_router.post("/register", response_model=UserResponse, status_code=201)
 @limiter.limit("5/minute")
 async def register(request: Request, body: UserRegister):
-    result = register_user(body)
+    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
+    result = register_user(body, ip_address=ip)
     log_auth_attempt(result.email, True)
     logger.info(f"New user registered: {result.email}")
     return result
@@ -374,6 +376,9 @@ api_router.include_router(account_router)
 
 # Diagnostics router (has its own /api/v1 prefix)
 app.include_router(diagnostics_router)
+
+# Legal router (has its own /api/v1 prefix, some endpoints public)
+app.include_router(legal_router)
 
 
 # =============================================================================

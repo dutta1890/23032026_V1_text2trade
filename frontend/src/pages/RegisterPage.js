@@ -4,9 +4,12 @@ import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, Play, UserPlus, ArrowRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { TrendingUp, Play, UserPlus } from "lucide-react";
 import axios from "axios";
 import { extractApiError } from "@/utils/apiError";
+import LegalDocModal from "@/components/LegalDocModal";
+import LegalFooter from "@/components/LegalFooter";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api/v1";
 
@@ -19,15 +22,31 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Consent state
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
+  const [modalDoc, setModalDoc] = useState(null);
+
+  const allConsented = acceptedTerms && acceptedPrivacy && acceptedDisclaimer;
+
   const handleRegister = async (startDemo) => {
     setError("");
     if (!email || !password) { setError("Email and password are required"); return; }
     if (password !== confirmPassword) { setError("Passwords do not match"); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (!allConsented) { setError("You must accept all legal documents to register"); return; }
 
     setLoading(true);
     try {
-      await axios.post(`${API}/auth/register`, { email, password, start_demo: startDemo });
+      await axios.post(`${API}/auth/register`, {
+        email,
+        password,
+        start_demo: startDemo,
+        accepted_terms: acceptedTerms,
+        accepted_privacy: acceptedPrivacy,
+        accepted_disclaimer: acceptedDisclaimer,
+      });
       const userData = await login(email, password);
       navigate(userData?.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
@@ -55,7 +74,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <div className="space-y-3 mb-6">
+          <div className="space-y-3 mb-5">
             <div>
               <label className="text-[10px] text-muted-foreground font-mono block mb-1">EMAIL</label>
               <Input
@@ -82,10 +101,71 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Consent checkboxes */}
+          <div className="space-y-2.5 mb-5 p-3 border border-border bg-background/50" data-testid="consent-section">
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="terms"
+                checked={acceptedTerms}
+                onCheckedChange={setAcceptedTerms}
+                data-testid="consent-terms"
+              />
+              <label htmlFor="terms" className="text-xs font-mono text-muted-foreground leading-tight cursor-pointer">
+                I agree to the{" "}
+                <button
+                  type="button"
+                  onClick={() => setModalDoc("terms")}
+                  className="text-primary hover:underline"
+                  data-testid="link-terms"
+                >
+                  Terms of Service
+                </button>
+              </label>
+            </div>
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="privacy"
+                checked={acceptedPrivacy}
+                onCheckedChange={setAcceptedPrivacy}
+                data-testid="consent-privacy"
+              />
+              <label htmlFor="privacy" className="text-xs font-mono text-muted-foreground leading-tight cursor-pointer">
+                I agree to the{" "}
+                <button
+                  type="button"
+                  onClick={() => setModalDoc("privacy")}
+                  className="text-primary hover:underline"
+                  data-testid="link-privacy"
+                >
+                  Privacy Policy
+                </button>
+              </label>
+            </div>
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="disclaimer"
+                checked={acceptedDisclaimer}
+                onCheckedChange={setAcceptedDisclaimer}
+                data-testid="consent-disclaimer"
+              />
+              <label htmlFor="disclaimer" className="text-xs font-mono text-muted-foreground leading-tight cursor-pointer">
+                I understand the{" "}
+                <button
+                  type="button"
+                  onClick={() => setModalDoc("disclaimer")}
+                  className="text-primary hover:underline"
+                  data-testid="link-disclaimer"
+                >
+                  Risk Disclaimer
+                </button>
+              </label>
+            </div>
+          </div>
+
           {/* Dual CTAs */}
           <div className="space-y-3">
             <Button
-              onClick={() => handleRegister(true)} disabled={loading}
+              onClick={() => handleRegister(true)} disabled={loading || !allConsented}
               className="w-full font-mono text-xs uppercase gap-2 h-11"
               data-testid="register-demo-btn"
             >
@@ -97,7 +177,7 @@ export default function RegisterPage() {
               <div className="relative flex justify-center"><span className="px-2 bg-card text-[10px] text-muted-foreground font-mono">or</span></div>
             </div>
             <Button
-              variant="outline" onClick={() => handleRegister(false)} disabled={loading}
+              variant="outline" onClick={() => handleRegister(false)} disabled={loading || !allConsented}
               className="w-full font-mono text-xs uppercase gap-2 h-10"
               data-testid="register-real-btn"
             >
@@ -116,8 +196,15 @@ export default function RegisterPage() {
             Already have an account?{" "}
             <Link to="/login" className="text-primary hover:underline" data-testid="login-link">Sign in</Link>
           </p>
+
+          <div className="mt-4">
+            <LegalFooter />
+          </div>
         </CardContent>
       </Card>
+
+      {/* Legal document modal */}
+      <LegalDocModal docType={modalDoc} onClose={() => setModalDoc(null)} />
     </div>
   );
 }

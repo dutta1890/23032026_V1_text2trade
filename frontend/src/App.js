@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
+import ReconsentGate from "@/components/ReconsentGate";
 import UserLayout from "@/components/layout/UserLayout";
 import AdminLayout from "@/components/layout/AdminLayout";
 import HomePage from "@/pages/HomePage";
@@ -13,6 +14,7 @@ import RegisterPage from "@/pages/RegisterPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import SharedStrategyPage from "@/pages/SharedStrategyPage";
+import LegalPage from "@/pages/LegalPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import UserDashboard from "@/pages/user/UserDashboard";
 import BuilderPage from "@/pages/user/BuilderPage";
@@ -36,6 +38,7 @@ function App() {
       <BrowserRouter>
         <ErrorBoundary>
           <Toaster position="top-right" richColors />
+          <ReconsentGate />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -43,6 +46,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/shared/:shareToken" element={<SharedStrategyPage />} />
+            <Route path="/legal/:docType" element={<LegalPage />} />
 
             {/* User routes */}
             <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>

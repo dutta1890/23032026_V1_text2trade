@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Loader2, ArrowLeft } from "lucide-react";
 import { extractApiError } from "@/utils/apiError";
+import LegalFooter from "@/components/LegalFooter";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -68,6 +69,7 @@ export default function LoginPage() {
           <Link to="/" className="flex items-center justify-center gap-1 text-xs text-muted-foreground mt-3 hover:text-foreground">
             <ArrowLeft className="w-3 h-3" /> Back to home
           </Link>
+          <div className="mt-4"><LegalFooter /></div>
         </CardContent>
       </Card>
     </div>
