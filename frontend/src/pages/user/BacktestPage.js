@@ -11,14 +11,15 @@ import {
   Loader2, Activity, ArrowLeft, TrendingUp, TrendingDown,
   ChevronDown, ChevronUp
 } from "lucide-react";
+import { InfoTooltip } from "@/components/InfoTooltip";
 import MultiStockCompare from "@/components/MultiStockCompare";
 
 const fmt = (v, d = 2) => v != null ? Number(v).toFixed(d) : "—";
 const fmtCur = (v) => v != null ? `\u20B9${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
 
-const MetricCard = ({ label, value, suffix = "", color = "text-foreground", testId }) => (
+const MetricCard = ({ label, value, suffix = "", color = "text-foreground", testId, termId }) => (
   <div className="p-3 bg-secondary/30 border border-border" data-testid={testId}>
-    <p className="mono-label text-[10px] mb-1">{label}</p>
+    <p className="mono-label text-[10px] mb-1 flex items-center gap-1">{label} {termId && <InfoTooltip termId={termId} />}</p>
     <p className={`font-mono font-bold text-lg ${color} tabular-nums`}>{value}{suffix}</p>
   </div>
 );
@@ -107,10 +108,10 @@ export default function BacktestPage() {
       {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         <MetricCard label="NET P&L" value={`${isUp ? "+" : ""}${fmt(pnl)}`} suffix="%" color={isUp ? "text-primary" : "text-destructive"} testId="metric-pnl" />
-        <MetricCard label="WIN RATE" value={fmt(m.win_rate)} suffix="%" testId="metric-winrate" />
-        <MetricCard label="MAX DRAWDOWN" value={fmt(m.max_drawdown_pct)} suffix="%" color="text-destructive" testId="metric-drawdown" />
-        <MetricCard label="SHARPE" value={fmt(m.sharpe_ratio)} color={m.sharpe_ratio >= 1 ? "text-primary" : "text-foreground"} testId="metric-sharpe" />
-        <MetricCard label="PROFIT FACTOR" value={fmt(m.profit_factor)} color={m.profit_factor >= 1 ? "text-primary" : "text-destructive"} testId="metric-pf" />
+        <MetricCard label="WIN RATE" value={fmt(m.win_rate)} suffix="%" testId="metric-winrate" termId="win_rate" />
+        <MetricCard label="MAX DRAWDOWN" value={fmt(m.max_drawdown_pct)} suffix="%" color="text-destructive" testId="metric-drawdown" termId="max_drawdown" />
+        <MetricCard label="SHARPE" value={fmt(m.sharpe_ratio)} color={m.sharpe_ratio >= 1 ? "text-primary" : "text-foreground"} testId="metric-sharpe" termId="sharpe_ratio" />
+        <MetricCard label="PROFIT FACTOR" value={fmt(m.profit_factor)} color={m.profit_factor >= 1 ? "text-primary" : "text-destructive"} testId="metric-pf" termId="profit_factor" />
       </div>
 
       {/* Equity Curve */}

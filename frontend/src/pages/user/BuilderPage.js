@@ -10,6 +10,7 @@ import {
   Send, Loader2, CheckCircle, AlertTriangle, Sparkles, Copy, Check,
   Save, Play, Activity, BookOpen, X
 } from "lucide-react";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 /* ---------- Chat ---------- */
 const ChatBubble = ({ role, content }) => {
@@ -50,16 +51,16 @@ const RiskEditor = ({ draft, onChange }) => {
       <h4 className="mono-label text-[10px]">RISK CONTROLS</h4>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mono-label text-[10px] mb-1 block">Stop Loss %</label>
+          <label className="mono-label text-[10px] mb-1 flex items-center gap-1">Stop Loss % <InfoTooltip termId="stop_loss" /></label>
           <Input type="number" step="0.1" className="h-8 font-mono text-xs" value={rm.stop_loss?.value || ""} onChange={(e) => update("stop_loss", { type: "percentage", value: parseFloat(e.target.value) || 0 })} data-testid="risk-sl" />
         </div>
         <div>
-          <label className="mono-label text-[10px] mb-1 block">Target Profit %</label>
+          <label className="mono-label text-[10px] mb-1 flex items-center gap-1">Target Profit % <InfoTooltip termId="target_profit" /></label>
           <Input type="number" step="0.1" className="h-8 font-mono text-xs" value={rm.target_profit?.value || ""} onChange={(e) => update("target_profit", { type: "percentage", value: parseFloat(e.target.value) || 0 })} data-testid="risk-tp" />
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <label className="mono-label text-[10px]">Trailing Stop Loss</label>
+        <label className="mono-label text-[10px]">Trailing Stop Loss <InfoTooltip termId="trailing_sl" /></label>
         <Switch checked={rm.trailing_stop_loss?.enabled || false} onCheckedChange={(v) => update("trailing_stop_loss", { ...rm.trailing_stop_loss, enabled: v, type: "percentage", value: rm.trailing_stop_loss?.value || 1.5, activation_profit: 0 })} data-testid="risk-tsl-toggle" />
       </div>
       {rm.trailing_stop_loss?.enabled && (
@@ -69,7 +70,7 @@ const RiskEditor = ({ draft, onChange }) => {
         </div>
       )}
       <div className="flex items-center justify-between">
-        <label className="mono-label text-[10px]">Time-based Exit</label>
+        <label className="mono-label text-[10px]">Time-based Exit <InfoTooltip termId="time_exit" /></label>
         <Switch checked={rm.time_based_exit?.enabled || false} onCheckedChange={(v) => update("time_based_exit", { ...rm.time_based_exit, enabled: v, exit_time: rm.time_based_exit?.exit_time || "15:10" })} data-testid="risk-time-toggle" />
       </div>
     </div>

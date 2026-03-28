@@ -17,6 +17,7 @@ import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import SharedStrategyPage from "@/pages/SharedStrategyPage";
 import LegalPage from "@/pages/LegalPage";
+import GlossaryPage from "@/pages/GlossaryPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import UserDashboard from "@/pages/user/UserDashboard";
 import BuilderPage from "@/pages/user/BuilderPage";
@@ -52,6 +53,7 @@ function App() {
             <Route path="/shared/:shareToken" element={<SharedStrategyPage />} />
             <Route path="/legal/:docType" element={<LegalPage />} />
 
+
             {/* User routes */}
             <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<UserDashboard />} />
@@ -66,6 +68,7 @@ function App() {
               <Route path="/tracker" element={<TrackerPage />} />
               <Route path="/alerts" element={<AlertsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/glossary" element={<GlossaryPage />} />
             </Route>
 
             {/* Admin routes */}

@@ -8,7 +8,7 @@ import LegalFooter from "@/components/LegalFooter";
 import {
   LayoutDashboard, Hammer, BookOpen, Activity, LogOut, Menu, X,
   TrendingUp, User as UserIcon, Search, Zap, Bookmark, BarChart3, Bell,
-  ToggleLeft, ToggleRight, RefreshCw,
+  ToggleLeft, ToggleRight, RefreshCw, GraduationCap,
 } from "lucide-react";
 
 const NAV = [
@@ -21,6 +21,7 @@ const NAV = [
   { to: "/watchlist", label: "Watchlist", icon: Bookmark },
   { to: "/templates", label: "Templates", icon: BookOpen },
   { to: "/paper-trades", label: "Paper Trades", icon: Activity },
+  { to: "/glossary", label: "Glossary", icon: GraduationCap },
 ];
 
 export default function UserLayout() {

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, Check, TrendingUp, Loader2 } from "lucide-react";
+import { InfoTooltip } from "@/components/InfoTooltip";
 import axios from "axios";
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -37,15 +38,15 @@ const OPERATORS = [
 ];
 
 const INDICATORS = [
-  { value: "RSI", label: "RSI", type: "rsi" },
-  { value: "SMA", label: "SMA", type: "ma" },
-  { value: "EMA", label: "EMA", type: "ma" },
-  { value: "MACD", label: "MACD", type: "macd" },
-  { value: "Stochastic", label: "Stochastic", type: "stoch" },
+  { value: "RSI", label: "RSI", type: "rsi", termId: "rsi" },
+  { value: "SMA", label: "SMA", type: "ma", termId: "sma" },
+  { value: "EMA", label: "EMA", type: "ma", termId: "ema" },
+  { value: "MACD", label: "MACD", type: "macd", termId: "macd" },
+  { value: "Stochastic", label: "Stochastic", type: "stoch", termId: "stochastic" },
 ];
 
 const FILTER_INDICATORS = [
-  { value: "ADX", label: "ADX (Trend Strength)", type: "adx" },
+  { value: "ADX", label: "ADX (Trend Strength)", type: "adx", termId: "adx" },
 ];
 
 const initialStrategy = {
@@ -247,10 +248,11 @@ export default function StrategyBuilder({ onClose, onSave }) {
                 <CardTitle className="text-sm font-mono flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-primary" /> Entry Condition
                 </CardTitle>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Define when to enter a trade</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <label className="mono-label">Indicator</label>
+                  <label className="mono-label flex items-center gap-1.5">Indicator <InfoTooltip termId={entryIndicator.type.toLowerCase() === "stochastic" ? "stochastic" : entryIndicator.type.toLowerCase()} /></label>
                   <Select value={entryIndicator.type} onValueChange={(v) => setEntryIndicator(p => ({ ...p, type: v }))}>
                     <SelectTrigger data-testid="select-entry-indicator"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -404,7 +406,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="mono-label">Indicator</label>
+                    <label className="mono-label flex items-center gap-1.5">Indicator <InfoTooltip termId={exitIndicator.type.toLowerCase() === "stochastic" ? "stochastic" : exitIndicator.type.toLowerCase()} /></label>
                     <Select value={exitIndicator.type} onValueChange={(v) => setExitIndicator(p => ({ ...p, type: v }))}>
                       <SelectTrigger data-testid="select-exit-indicator"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -553,7 +555,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
                 className="w-4 h-4 accent-primary"
                 data-testid="checkbox-filter-enabled"
               />
-              <label htmlFor="filter-enabled" className="mono-label cursor-pointer">Enable ADX Filter</label>
+              <label htmlFor="filter-enabled" className="mono-label cursor-pointer flex items-center gap-1.5">Enable ADX Filter <InfoTooltip termId="adx" /></label>
             </div>
             {filterIndicator.enabled && (
               <Card className="border-yellow-500/50 bg-yellow-500/5">
@@ -610,7 +612,7 @@ export default function StrategyBuilder({ onClose, onSave }) {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="mono-label">Stop Loss Type</label>
+              <label className="mono-label flex items-center gap-1.5">Stop Loss Type <InfoTooltip termId="stop_loss" /></label>
               <Select 
                 value={strategy.risk_management.stop_loss_type} 
                 onValueChange={(v) => updateStrategy("risk_management", "stop_loss_type", v)}
@@ -624,8 +626,8 @@ export default function StrategyBuilder({ onClose, onSave }) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="mono-label">
-                  {strategy.risk_management.stop_loss_type === "atr_multiple" ? "ATR Multiple" : "Stop Loss (%)"}
+                <label className="mono-label flex items-center gap-1.5">
+                  {strategy.risk_management.stop_loss_type === "atr_multiple" ? <>ATR Multiple <InfoTooltip termId="atr" /></> : <>Stop Loss (%) <InfoTooltip termId="stop_loss" /></>}
                 </label>
                 <Input
                   type="number"

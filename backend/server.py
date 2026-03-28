@@ -56,6 +56,7 @@ from routers.alerts import router as alerts_router
 from routers.account import router as account_router
 from routers.diagnostics import router as diagnostics_router
 from routers.legal import router as legal_router
+from routers.knowledge import router as knowledge_router
 
 # Diagnostics
 from diagnostics import (
@@ -415,6 +416,9 @@ app.include_router(diagnostics_router)
 
 # Legal router (has its own /api/v1 prefix, some endpoints public)
 app.include_router(legal_router)
+
+# Knowledge base router (has its own /api/v1 prefix, public endpoints)
+app.include_router(knowledge_router)
 
 
 # =============================================================================
