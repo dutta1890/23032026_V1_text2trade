@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TrendingUp, Play, UserPlus } from "lucide-react";
+import { TrendingUp, Play, UserPlus, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { extractApiError } from "@/utils/apiError";
 import LegalDocModal from "@/components/LegalDocModal";
@@ -19,6 +19,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -85,19 +87,29 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground font-mono block mb-1">PASSWORD</label>
-              <Input
-                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 8 characters" className="font-mono text-sm"
-                data-testid="register-password"
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min 8 characters" className="font-mono text-sm pr-9"
+                  data-testid="register-password"
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" data-testid="register-toggle-password">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground font-mono block mb-1">CONFIRM PASSWORD</label>
-              <Input
-                type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat password" className="font-mono text-sm"
-                data-testid="register-confirm-password"
-              />
+              <div className="relative">
+                <Input
+                  type={showConfirm ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat password" className="font-mono text-sm pr-9"
+                  data-testid="register-confirm-password"
+                />
+                <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" data-testid="register-toggle-confirm">
+                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
 

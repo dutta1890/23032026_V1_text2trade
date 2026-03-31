@@ -4,13 +4,14 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Loader2, ArrowLeft } from "lucide-react";
+import { TrendingUp, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { extractApiError } from "@/utils/apiError";
 import LegalFooter from "@/components/LegalFooter";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -55,7 +56,12 @@ export default function LoginPage() {
             </div>
             <div>
               <label className="mono-label text-[10px] mb-1 block">PASSWORD</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="font-mono text-sm" data-testid="login-password-input" />
+              <div className="relative">
+                <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className="font-mono text-sm pr-9" data-testid="login-password-input" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" data-testid="login-toggle-password">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full font-mono text-xs uppercase tracking-wider" disabled={loading} data-testid="login-submit-button">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}

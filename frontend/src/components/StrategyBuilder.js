@@ -38,15 +38,15 @@ const OPERATORS = [
 ];
 
 const INDICATORS = [
-  { value: "RSI", label: "RSI", type: "rsi", termId: "rsi" },
-  { value: "SMA", label: "SMA", type: "ma", termId: "sma" },
-  { value: "EMA", label: "EMA", type: "ma", termId: "ema" },
-  { value: "MACD", label: "MACD", type: "macd", termId: "macd" },
-  { value: "Stochastic", label: "Stochastic", type: "stoch", termId: "stochastic" },
+  { value: "RSI", label: "RSI", type: "rsi", termId: "rsi", desc: "Momentum (0-100). <30 oversold, >70 overbought" },
+  { value: "SMA", label: "SMA", type: "ma", termId: "sma", desc: "Simple Moving Average — smooths price trends" },
+  { value: "EMA", label: "EMA", type: "ma", termId: "ema", desc: "Exponential MA — reacts faster to price changes" },
+  { value: "MACD", label: "MACD", type: "macd", termId: "macd", desc: "Trend + momentum from two moving averages" },
+  { value: "Stochastic", label: "Stochastic", type: "stoch", termId: "stochastic", desc: "Compares close to high-low range. <20 oversold" },
 ];
 
 const FILTER_INDICATORS = [
-  { value: "ADX", label: "ADX (Trend Strength)", type: "adx", termId: "adx" },
+  { value: "ADX", label: "ADX (Trend Strength)", type: "adx", termId: "adx", desc: "Measures trend strength. >25 = strong trend" },
 ];
 
 const initialStrategy = {
@@ -256,7 +256,14 @@ export default function StrategyBuilder({ onClose, onSave }) {
                   <Select value={entryIndicator.type} onValueChange={(v) => setEntryIndicator(p => ({ ...p, type: v }))}>
                     <SelectTrigger data-testid="select-entry-indicator"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {INDICATORS.map(ind => <SelectItem key={ind.value} value={ind.value}>{ind.label}</SelectItem>)}
+                      {INDICATORS.map(ind => (
+                        <SelectItem key={ind.value} value={ind.value}>
+                          <div className="flex flex-col">
+                            <span>{ind.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{ind.desc}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -410,7 +417,14 @@ export default function StrategyBuilder({ onClose, onSave }) {
                     <Select value={exitIndicator.type} onValueChange={(v) => setExitIndicator(p => ({ ...p, type: v }))}>
                       <SelectTrigger data-testid="select-exit-indicator"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {INDICATORS.map(ind => <SelectItem key={ind.value} value={ind.value}>{ind.label}</SelectItem>)}
+                        {INDICATORS.map(ind => (
+                          <SelectItem key={ind.value} value={ind.value}>
+                            <div className="flex flex-col">
+                              <span>{ind.label}</span>
+                              <span className="text-[10px] text-muted-foreground">{ind.desc}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -619,8 +633,18 @@ export default function StrategyBuilder({ onClose, onSave }) {
               >
                 <SelectTrigger data-testid="select-sl-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fixed">Fixed Percentage</SelectItem>
-                  <SelectItem value="atr_multiple">ATR Multiple</SelectItem>
+                  <SelectItem value="fixed">
+                    <div className="flex flex-col">
+                      <span>Fixed Percentage</span>
+                      <span className="text-[10px] text-muted-foreground">Set exact % from entry price</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="atr_multiple">
+                    <div className="flex flex-col">
+                      <span>ATR Multiple</span>
+                      <span className="text-[10px] text-muted-foreground">Dynamic SL based on volatility</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

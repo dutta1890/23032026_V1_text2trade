@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, CheckCircle2, ArrowLeft } from "lucide-react";
+import { TrendingUp, CheckCircle2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { extractApiError } from "@/utils/apiError";
 
@@ -16,6 +16,8 @@ export default function ResetPasswordPage() {
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -78,13 +80,23 @@ export default function ResetPasswordPage() {
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground font-mono block mb-1">NEW PASSWORD</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 8 characters" className="font-mono text-sm" data-testid="reset-password" />
+              <div className="relative">
+                <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min 8 characters" className="font-mono text-sm pr-9" data-testid="reset-password" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" data-testid="reset-toggle-password">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground font-mono block mb-1">CONFIRM PASSWORD</label>
-              <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className="font-mono text-sm" data-testid="reset-confirm" />
+              <div className="relative">
+                <Input type={showConfirm ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="font-mono text-sm pr-9" data-testid="reset-confirm" />
+                <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" data-testid="reset-toggle-confirm">
+                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" disabled={loading} className="w-full font-mono text-xs uppercase" data-testid="reset-submit">
               {loading ? "Resetting..." : "Reset Password"}
