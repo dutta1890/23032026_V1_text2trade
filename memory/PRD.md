@@ -247,6 +247,12 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
   - Added to sidebar navigation with GraduationCap icon
 - **Testing**: 31/31 backend + all frontend passed (iteration_31.json)
 
+### Session 26b (2026-03-28) — UI Polish: Password Toggle, Badge Removal, Dropdown Descriptions
+- **Password Eye Toggle**: Added Eye/EyeOff toggle to all password fields: LoginPage, RegisterPage (password + confirm), ResetPasswordPage (new + confirm)
+- **Emergent Badge Removed**: Hidden "Made with Emergent" badge via index.html inline style + CSS override
+- **Strategy Builder Dropdowns**: Added short descriptions below each indicator name in Entry/Exit/SL type dropdowns (e.g., "Momentum (0-100). <30 oversold, >70 overbought" for RSI)
+- **Testing**: All features verified (iteration_32.json)
+
 ## Routes
 | Route | Auth | Component | Description |
 |-------|------|-----------|-------------|
