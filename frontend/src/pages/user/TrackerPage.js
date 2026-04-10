@@ -36,7 +36,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     <div className="bg-card border border-border p-2.5 font-mono text-xs">
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p, i) => (
-        <p key={i} className="text-foreground">
+        <p key={p.name || i} className="text-foreground">
           <span className="text-primary">{p.name}:</span>{" "}
           <span className="tabular-nums font-bold">{typeof p.value === "number" ? p.value.toFixed(2) : p.value}%</span>
         </p>
@@ -255,7 +255,7 @@ export default function TrackerPage() {
           <h2 className="mono-label text-[10px] mb-3">STRATEGY RANKINGS</h2>
           <div className="space-y-2">
             {strategy_rankings.map((s, i) => (
-              <Card key={i} className="border-border bg-card hover:border-primary/30 transition-colors" data-testid={`ranking-row-${i}`}>
+              <Card key={s.strategy_name || i} className="border-border bg-card hover:border-primary/30 transition-colors" data-testid={`ranking-row-${i}`}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <span className={`font-mono text-xs font-bold w-6 text-center ${s.rank === 1 ? "text-primary" : s.rank === 2 ? "text-blue-400" : "text-muted-foreground"}`}>
@@ -312,7 +312,7 @@ export default function TrackerPage() {
             <CardContent className="p-0">
               <div className="divide-y divide-border">
                 {recent_activity.map((r, i) => (
-                  <div key={i} className="px-4 py-3 flex items-center justify-between" data-testid={`recent-row-${i}`}>
+                  <div key={r.run_id || `recent-${i}`} className="px-4 py-3 flex items-center justify-between" data-testid={`recent-row-${i}`}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div className="min-w-0">

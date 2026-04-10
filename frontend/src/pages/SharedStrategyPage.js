@@ -109,7 +109,7 @@ export default function SharedStrategyPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-2">
-              {entry.length > 0 ? entry.map((c, i) => <ConditionRow key={i} cond={c} index={i} />) : <p className="text-xs text-muted-foreground">None</p>}
+              {entry.length > 0 ? entry.map((c, i) => <ConditionRow key={`entry-${c.name}-${i}`} cond={c} index={i} />) : <p className="text-xs text-muted-foreground">None</p>}
             </CardContent>
           </Card>
           {/* Risk */}
@@ -135,7 +135,7 @@ export default function SharedStrategyPage() {
               <CardTitle className="text-sm font-mono">EXIT CONDITIONS</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-2">
-              {exit.map((c, i) => <ConditionRow key={i} cond={c} index={i} />)}
+              {exit.map((c, i) => <ConditionRow key={`exit-${c.name}-${i}`} cond={c} index={i} />)}
             </CardContent>
           </Card>
         )}

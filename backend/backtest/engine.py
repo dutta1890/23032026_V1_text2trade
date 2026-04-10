@@ -115,7 +115,7 @@ def _parse_risk_management(risk_mgmt: dict) -> dict:
     tsl_cfg = risk_mgmt.get("trailing_stop_loss", {})
     time_exit = risk_mgmt.get("time_based_exit", {})
     daily_lim = risk_mgmt.get("daily_limits", {})
-    pos_size = risk_mgmt.get("position_sizing", {})
+    # pos_size reserved for future position sizing feature
 
     # --- Stop loss ---
     sl_pct = None
@@ -174,6 +174,75 @@ def _parse_risk_management(risk_mgmt: dict) -> dict:
         "time_exit_enabled": time_exit_enabled, "time_exit_str": time_exit_str,
         "max_loss_day": max_loss_day, "max_trades_day": max_trades_day,
     }
+
+
+def _open_position(close: float, idx: int, slippage_pct: float, rp: dict) -> dict:
+    """Create a new position dict with optional trailing SL initialization."""
+    slipped_entry = apply_slippage(close, slippage_pct, is_entry=True)
+    position = {
+        "entry_idx": idx,
+        "entry_price": slipped_entry,
+        "raw_entry": close,
+        "trailing_sl": None,
+        "highest_since_entry": close,
+    }
+    if rp["trailing_enabled"]:
+        if rp["trailing_pct"]:
+            position["trailing_sl"] = slipped_entry * (1 - rp["trailing_pct"] / 100)
+        elif rp["trailing_points"]:
+            position["trailing_sl"] = slipped_entry - rp["trailing_points"]
+    return position
+
+
+def _check_exit(
+    position: dict, close: float, idx: int, rp: dict,
+    is_intraday: bool, df: pd.DataFrame,
+    exit_conditions: list, indicators: dict,
+) -> str:
+    """Check all exit conditions, returning the exit reason or empty string."""
+    raw_entry = position["raw_entry"]
+
+    # Update highest price for trailing SL
+    if close > position["highest_since_entry"]:
+        position["highest_since_entry"] = close
+
+    # Time-based exit
+    if rp["time_exit_enabled"] and is_intraday:
+        candle_time = _ts_time_str(df["timestamp"].iloc[idx])
+        if candle_time >= rp["time_exit_str"]:
+            return "time_exit"
+
+    # Trailing SL update and check
+    if rp["trailing_enabled"] and position["trailing_sl"] is not None:
+        high = position["highest_since_entry"]
+        profit_pct = ((high - raw_entry) / raw_entry) * 100
+        if profit_pct >= rp["trailing_activation"]:
+            if rp["trailing_pct"]:
+                new_tsl = high * (1 - rp["trailing_pct"] / 100)
+            else:
+                new_tsl = high - (rp["trailing_points"] or 0)
+            position["trailing_sl"] = max(position["trailing_sl"], new_tsl)
+        if close <= position["trailing_sl"]:
+            return "trailing_sl"
+
+    # Fixed stop loss
+    if rp["sl_pct"] and close <= raw_entry * (1 - rp["sl_pct"] / 100):
+        return "stop_loss"
+    if rp["sl_points"] and close <= raw_entry - rp["sl_points"]:
+        return "stop_loss"
+
+    # Target profit
+    if rp["tp_pct"] and close >= raw_entry * (1 + rp["tp_pct"] / 100):
+        return "target_profit"
+    if rp["tp_points"] and close >= raw_entry + rp["tp_points"]:
+        return "target_profit"
+
+    # Indicator-based exit
+    if exit_conditions:
+        if any(evaluate_condition(c, indicators, idx, df) for c in exit_conditions):
+            return "indicator_exit"
+
+    return ""
 
 
 def run_backtest(
@@ -253,103 +322,30 @@ def run_backtest(
 
         # Reset daily counters
         candle_date = df["timestamp"].iloc[i]
-        if hasattr(candle_date, "date"):
-            cd = candle_date.date()
-        else:
-            cd = str(candle_date)[:10]
+        cd = candle_date.date() if hasattr(candle_date, "date") else str(candle_date)[:10]
         if cd != current_date:
             current_date = cd
             daily_loss = 0.0
             daily_trades = 0
 
-        # --- Check daily limits before entering ---
         if position is None:
-            # Max daily loss check
-            if daily_loss >= rp["max_loss_day"]:
+            # Check daily limits
+            if daily_loss >= rp["max_loss_day"] or daily_trades >= rp["max_trades_day"]:
                 continue
-            # Max trades per day check
-            if daily_trades >= rp["max_trades_day"]:
+            # Check filters
+            if not all(evaluate_condition(f, indicators, i, df) for f in filters):
                 continue
-
-            filters_pass = all(
-                evaluate_condition(f, indicators, i, df) for f in filters
-            )
-            if not filters_pass:
-                continue
-
-            entry_pass = all(
-                evaluate_condition(c, indicators, i, df) for c in entry_conditions
-            )
-            if entry_pass:
-                slipped_entry = apply_slippage(close, slippage_pct, is_entry=True)
-                position = {
-                    "entry_idx": i,
-                    "entry_price": slipped_entry,
-                    "raw_entry": close,
-                    "trailing_sl": None,
-                    "highest_since_entry": close,
-                }
-                # Initialize trailing SL
-                if rp["trailing_enabled"]:
-                    if rp["trailing_pct"]:
-                        position["trailing_sl"] = slipped_entry * (1 - rp["trailing_pct"] / 100)
-                    elif rp["trailing_points"]:
-                        position["trailing_sl"] = slipped_entry - rp["trailing_points"]
+            # Check entry conditions
+            if all(evaluate_condition(c, indicators, i, df) for c in entry_conditions):
+                position = _open_position(close, i, slippage_pct, rp)
         else:
-            entry_price = position["entry_price"]
-            raw_entry = position["raw_entry"]
-            exit_reason = ""
-
-            # Update highest price for trailing SL
-            if close > position["highest_since_entry"]:
-                position["highest_since_entry"] = close
-
-            # --- Time-based exit ---
-            if rp["time_exit_enabled"] and is_intraday:
-                candle_time = _ts_time_str(df["timestamp"].iloc[i])
-                if candle_time >= rp["time_exit_str"]:
-                    exit_reason = "time_exit"
-
-            # --- Trailing SL update ---
-            if not exit_reason and rp["trailing_enabled"] and position["trailing_sl"] is not None:
-                high = position["highest_since_entry"]
-                profit_pct = ((high - raw_entry) / raw_entry) * 100
-                if profit_pct >= rp["trailing_activation"]:
-                    if rp["trailing_pct"]:
-                        new_tsl = high * (1 - rp["trailing_pct"] / 100)
-                    else:
-                        new_tsl = high - (rp["trailing_points"] or 0)
-                    position["trailing_sl"] = max(position["trailing_sl"], new_tsl)
-
-                if close <= position["trailing_sl"]:
-                    exit_reason = "trailing_sl"
-
-            # --- Fixed stop loss ---
-            if not exit_reason:
-                if rp["sl_pct"] and close <= raw_entry * (1 - rp["sl_pct"] / 100):
-                    exit_reason = "stop_loss"
-                elif rp["sl_points"] and close <= raw_entry - rp["sl_points"]:
-                    exit_reason = "stop_loss"
-
-            # --- Target profit ---
-            if not exit_reason:
-                if rp["tp_pct"] and close >= raw_entry * (1 + rp["tp_pct"] / 100):
-                    exit_reason = "target_profit"
-                elif rp["tp_points"] and close >= raw_entry + rp["tp_points"]:
-                    exit_reason = "target_profit"
-
-            # --- Indicator-based exit ---
-            if not exit_reason and exit_conditions:
-                exit_triggered = any(
-                    evaluate_condition(c, indicators, i, df) for c in exit_conditions
-                )
-                if exit_triggered:
-                    exit_reason = "indicator_exit"
-
+            exit_reason = _check_exit(
+                position, close, i, rp, is_intraday, df, exit_conditions, indicators,
+            )
             if exit_reason:
                 slipped_exit = apply_slippage(close, slippage_pct, is_entry=False)
                 _close_trade(trades, position, i, slipped_exit, df, exit_reason)
-                pnl = ((slipped_exit - entry_price) / entry_price) * 100
+                pnl = ((slipped_exit - position["entry_price"]) / position["entry_price"]) * 100
                 if pnl < 0:
                     daily_loss += abs(pnl)
                 daily_trades += 1

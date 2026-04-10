@@ -253,6 +253,21 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 - **Strategy Builder Dropdowns**: Added short descriptions below each indicator name in Entry/Exit/SL type dropdowns (e.g., "Momentum (0-100). <30 oversold, >70 overbought" for RSI)
 - **Testing**: All features verified (iteration_32.json)
 
+### Session 26c (2026-03-31) — Code Quality Refactor
+**Backend:**
+- **Circular import resolved**: Extracted `consent_utils.py` with `get_latest_versions()` and `record_registration_consents()`. auth.py no longer imports from routers/legal.py
+- **Insecure random fixed**: OTP generation uses `secrets.randbelow(900000) + 100000` instead of `random.randint`
+- **Dynamic import fixed**: `setup_data_source.py` uses `importlib.import_module()` instead of `__import__()`
+- **evaluator.py rewritten**: 288-line if/elif chain (complexity 92) → dispatch pattern with 13 per-indicator functions
+- **engine.py refactored**: Extracted `_open_position()` and `_check_exit()` helpers from 210-line `run_backtest()` loop
+- **Unused variable removed**: `pos_size` in `_parse_risk_management()`
+
+**Frontend:**
+- **Hook dependencies fixed**: BuilderPage (startSession/loadTemplates → useCallback), OptimizerPage (detectParams → useCallback), BacktestPage (runBacktest → useCallback), ScreenerPage/WatchlistPage (added [api] deps)
+- **Empty catch blocks fixed**: AuthContext (3), BuilderPage (3) — all now log errors
+- **Array index keys fixed**: TrackerPage (strategy_name/run_id), BacktestPage (composite key), StrategyDetailPage/SharedStrategyPage (name-index key)
+- **Testing**: 14/14 backend + all frontend passed (iteration_33)
+
 ## Routes
 | Route | Auth | Component | Description |
 |-------|------|-----------|-------------|

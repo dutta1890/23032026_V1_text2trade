@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,23 +103,23 @@ export default function BuilderPage() {
   const [copied, setCopied] = useState(false);
   const chatEnd = useRef(null);
 
-  useEffect(() => { document.title = "Build Strategy | Text2trade"; startSession(); loadTemplates(); }, []);
-  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
-  const startSession = async () => {
+  const startSession = useCallback(async () => {
     try {
       const res = await api.post("/session/start", {});
       setSessionId(res.data.session_id);
       setMessages([{ role: "assistant", content: JSON.stringify({ mode: "question", message: "Describe your trading idea. For example:\n- \"Buy RELIANCE when RSI crosses above 30\"\n- \"Golden cross strategy on INFY with 5% stop loss\"\n- \"Supertrend + RSI on TCS daily\"", fields_needed: [] }) }]);
-    } catch { /* ignore */ }
-  };
+    } catch (e) { console.error("Failed to start session", e); }
+  }, [api]);
 
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       const res = await api.get("/templates");
       setTemplates(res.data.templates || []);
-    } catch { /* ignore */ }
-  };
+    } catch (e) { console.error("Failed to load templates", e); }
+  }, [api]);
+
+  useEffect(() => { document.title = "Build Strategy | Text2trade"; startSession(); loadTemplates(); }, [startSession, loadTemplates]);
+  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim() || !sessionId || sending) return;
@@ -168,7 +168,7 @@ export default function BuilderPage() {
     try {
       await api.post("/paper-trade/deploy", { strategy_id: finalized.strategy_id, symbol: draft?.instrument?.symbol || "RELIANCE", timeframe: draft?.timeframe?.interval || "1d", initial_capital: 100000, lookback_days: 60 });
       navigate("/paper-trades");
-    } catch { /* ignore */ } finally {
+    } catch (e) { console.error("Deploy failed", e); } finally {
       setDeploying(false);
     }
   };
@@ -180,7 +180,7 @@ export default function BuilderPage() {
       setDraft(res.data.strategy);
       setTab("chat");
       setMessages((p) => [...p, { role: "assistant", content: JSON.stringify({ mode: "strategy", message: `Cloned "${t.name}" template. You can now backtest or deploy it.` }) }]);
-    } catch { /* ignore */ }
+    } catch (e) { console.error("Template clone failed", e); }
   };
 
   const handleKeyDown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } };

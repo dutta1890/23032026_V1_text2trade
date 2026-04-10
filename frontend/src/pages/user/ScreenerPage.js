@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,9 +30,9 @@ export default function ScreenerPage() {
     document.title = "Screener | Text2trade";
     api.get("/screener/presets")
       .then((r) => setPresets(r.data.presets || []))
-      .catch(() => {})
+      .catch((e) => console.error("Failed to load presets", e))
       .finally(() => setLoadingPresets(false));
-  }, []);
+  }, [api]);
 
   const addCondition = () => {
     setCustomConditions((p) => [...p, { name: "RSI", params: { period: 14 }, operator: "<", value: 30 }]);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { extractApiError } from "@/utils/apiError";
@@ -44,12 +44,7 @@ export default function BacktestPage() {
   const [showTrades, setShowTrades] = useState(false);
   const [deploying, setDeploying] = useState(false);
 
-  useEffect(() => {
-    document.title = "Backtest | Text2trade";
-    runBacktest();
-  }, [strategyId]);
-
-  const runBacktest = async () => {
+  const runBacktest = useCallback(async () => {
     setLoading(true);
     try {
       const sRes = await api.get(`/strategy/${strategyId}`);
@@ -63,7 +58,12 @@ export default function BacktestPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [api, strategyId]);
+
+  useEffect(() => {
+    document.title = "Backtest | Text2trade";
+    runBacktest();
+  }, [runBacktest]);
 
   const handleDeploy = async () => {
     if (!strategy) return;
@@ -186,7 +186,7 @@ export default function BacktestPage() {
                 </thead>
                 <tbody>
                   {trades.map((t, i) => (
-                    <tr key={i} className="border-b border-border/50 hover:bg-secondary/20">
+                    <tr key={`${t.entry_time}-${t.exit_time}-${i}`} className="border-b border-border/50 hover:bg-secondary/20">
                       <td className="py-2 px-3 font-mono text-xs tabular-nums">{i + 1}</td>
                       <td className="py-2 px-3 font-mono text-xs tabular-nums">{t.entry_time?.split("T")[0]}</td>
                       <td className="py-2 px-3 font-mono text-xs tabular-nums">{fmt(t.entry_price)}</td>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,8 +20,9 @@ export default function WatchlistPage() {
     document.title = "Watchlist | Text2trade";
     api.get("/watchlist")
       .then((r) => setItems(r.data.watchlist || []))
+      .catch((e) => console.error("Failed to load watchlist", e))
       .finally(() => setLoading(false));
-  }, []);
+  }, [api]);
 
   const handleRemove = async (itemId) => {
     setRemoving(itemId);

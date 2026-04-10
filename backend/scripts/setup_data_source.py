@@ -31,8 +31,10 @@ def print_banner():
 
 
 def check_dependency(pkg_name: str, pip_name: str = None) -> bool:
+    """Check if a Python package is importable."""
+    import importlib
     try:
-        __import__(pkg_name)
+        importlib.import_module(pkg_name)
         return True
     except ImportError:
         return False

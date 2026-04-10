@@ -10,24 +10,14 @@ from pydantic import BaseModel
 
 from auth import get_current_user, get_admin_user
 from database import db
+from consent_utils import user_consents, get_latest_versions, DOC_TYPES
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["legal"])
 
 LEGAL_DIR = Path(__file__).parent.parent / "legal"
 legal_docs = db["legal_documents"]
-user_consents = db["user_consents"]
 
-DOC_TYPES = ("terms", "privacy", "disclaimer", "cookies")
-
-# Index for fast lookups
-try:
-    legal_docs.create_index([("type", 1), ("version", 1)], unique=True)
-    user_consents.create_index([("user_id", 1), ("document_type", 1)])
-except Exception:
-    pass
-
-# ── Seed documents from markdown files on startup ────────────────────────────
 FILE_MAP = {
     "terms": "terms_of_service.md",
     "privacy": "privacy_policy.md",
@@ -59,6 +49,13 @@ def seed_legal_documents():
 
 seed_legal_documents()
 
+# Indexes for fast lookups
+try:
+    legal_docs.create_index([("type", 1), ("version", 1)], unique=True)
+    user_consents.create_index([("user_id", 1), ("document_type", 1)])
+except Exception:
+    pass
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def get_latest_doc(doc_type: str) -> Optional[dict]:
@@ -69,16 +66,6 @@ def get_latest_doc(doc_type: str) -> Optional[dict]:
         sort=[("created_at", -1)],
     )
     return doc
-
-
-def get_latest_versions() -> dict:
-    """Return dict of {doc_type: latest_version}."""
-    result = {}
-    for dtype in DOC_TYPES:
-        doc = get_latest_doc(dtype)
-        if doc:
-            result[dtype] = doc["version"]
-    return result
 
 
 def check_user_consents(user_id: str) -> dict:

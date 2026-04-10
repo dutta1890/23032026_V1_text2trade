@@ -9,7 +9,7 @@ const STORAGE_KEYS = { TOKEN: "t2t_token", REFRESH: "t2t_refresh", USER: "t2t_us
 function parseJwt(token) {
   try {
     return JSON.parse(atob(token.split(".")[1]));
-  } catch { return null; }
+  } catch (e) { return null; }
 }
 
 export function AuthProvider({ children }) {
@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.USER);
       return stored ? JSON.parse(stored) : null;
-    } catch { return null; }
+    } catch (e) { return null; }
   });
   const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEYS.TOKEN));
   const [refreshTokenVal, setRefreshToken] = useState(() => localStorage.getItem(STORAGE_KEYS.REFRESH));
@@ -68,7 +68,7 @@ export function AuthProvider({ children }) {
             }
             return newUser;
           });
-        } catch { /* ignore */ }
+        } catch (e) { console.error("cross-tab user parse failed", e); }
       }
     };
     window.addEventListener("storage", handler);
@@ -111,7 +111,7 @@ export function AuthProvider({ children }) {
         await axios.post(`${API}/auth/logout`, {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
-      } catch { /* ignore */ }
+      } catch (e) { console.error("logout API call failed", e); }
     }
     setUser(null);
     setToken(null);

@@ -168,7 +168,7 @@ export default function StrategyDetailPage() {
           </CardHeader>
           <CardContent className="p-4 space-y-2">
             {entry.length > 0 ? entry.map((c, i) => (
-              <ConditionRow key={i} cond={c} index={i} />
+              <ConditionRow key={`entry-${c.name}-${i}`} cond={c} index={i} />
             )) : (
               <p className="text-xs text-muted-foreground py-2">No entry conditions defined.</p>
             )}
@@ -209,7 +209,7 @@ export default function StrategyDetailPage() {
             <CardTitle className="text-sm font-mono">EXIT CONDITIONS</CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-2">
-            {exit.map((c, i) => <ConditionRow key={i} cond={c} index={i} />)}
+            {exit.map((c, i) => <ConditionRow key={`exit-${c.name}-${i}`} cond={c} index={i} />)}
           </CardContent>
         </Card>
       )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,18 +58,7 @@ export default function OptimizerPage() {
   const [detecting, setDetecting] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
 
-  useEffect(() => {
-    document.title = "Optimizer | Text2trade";
-    api.get("/strategies")
-      .then((r) => {
-        const strats = r.data.strategies || [];
-        setStrategies(strats);
-        if (initialStrategyId) detectParams(initialStrategyId);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const detectParams = async (stratId) => {
+  const detectParams = useCallback(async (stratId) => {
     setDetecting(true);
     setTunables([]);
     setParamRanges([]);
@@ -92,7 +81,18 @@ export default function OptimizerPage() {
     } finally {
       setDetecting(false);
     }
-  };
+  }, [api]);
+
+  useEffect(() => {
+    document.title = "Optimizer | Text2trade";
+    api.get("/strategies")
+      .then((r) => {
+        const strats = r.data.strategies || [];
+        setStrategies(strats);
+        if (initialStrategyId) detectParams(initialStrategyId);
+      })
+      .finally(() => setLoading(false));
+  }, [api, initialStrategyId, detectParams]);
 
   const handleSelectStrategy = (id) => {
     setSelectedId(id);

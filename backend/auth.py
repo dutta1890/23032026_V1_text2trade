@@ -3,6 +3,8 @@
 import os
 import re
 import uuid
+import secrets
+import logging
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
@@ -12,6 +14,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
+
+logger = logging.getLogger(__name__)
 
 # MongoDB connection
 mongo_client = MongoClient(os.environ.get("MONGO_URL"))
@@ -238,18 +242,8 @@ def register_user(data: UserRegister, ip_address: str = "unknown") -> UserRespon
 
     # Store consent records
     try:
-        from routers.legal import get_latest_versions, user_consents
-        versions = get_latest_versions()
-        consent_time = now
-        for dtype in ("terms", "privacy", "disclaimer"):
-            ver = versions.get(dtype, "1.0")
-            user_consents.insert_one({
-                "user_id": user_id,
-                "document_type": dtype,
-                "document_version": ver,
-                "accepted_at": consent_time,
-                "ip_address": ip_address,
-            })
+        from consent_utils import record_registration_consents
+        record_registration_consents(user_id, ip_address, now)
     except Exception as e:
         logger.warning(f"Consent record storage failed for {user_id}: {e}")
 
@@ -337,8 +331,6 @@ except Exception:
 # PASSWORD RESET (OTP-based)
 # =============================================================================
 
-import secrets
-import random
 import logging
 logger = logging.getLogger(__name__)
 
@@ -374,7 +366,7 @@ async def create_password_reset_otp(email: str) -> dict:
     if not user:
         return {"otp": None, "email_sent": False, "sandbox_restricted": False}
 
-    otp = f"{random.randint(100000, 999999)}"
+    otp = f"{secrets.randbelow(900000) + 100000}"
     db["password_resets"].insert_one({
         "email": email,
         "otp": otp,
