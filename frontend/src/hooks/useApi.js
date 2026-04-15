@@ -84,5 +84,5 @@ export function useApi() {
   const put = useCallback((url, data, extra) => request("PUT", url, data, extra), [request]);
   const del = useCallback((url, extra) => request("DELETE", url, undefined, extra), [request]);
 
-  return { get, post, put, del };
+  return useMemo(() => ({ get, post, put, del }), [get, post, put, del]);
 }
