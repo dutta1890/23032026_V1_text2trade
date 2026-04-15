@@ -62,9 +62,10 @@
 - Classification enforced at strategy creation time
 
 ## Hosting
-- Application designed for Indian server deployment
-- Data stored in Indian data center (production deployment)
-- No cross-border data transfer of user trading data
+- Application currently hosted on Emergent preview infrastructure (US region)
+- **Migration required**: Production deployment must use Indian servers (e.g., AWS Mumbai ap-south-1, Azure Central India) before live trading launch
+- No cross-border data transfer of user trading data in production
+- Current preview environment is for development and testing purposes only
 
 ## Grievance Handling (Phase 2)
 - Dedicated grievance officer to be appointed before live execution launch

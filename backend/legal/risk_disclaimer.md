@@ -63,3 +63,14 @@ By using Text2trade, you acknowledge that you have read, understood, and agree t
 ---
 
 *This document is a functional template and should be reviewed by a legal professional before production use.*
+
+---
+
+## Regulatory Compliance
+
+This platform operates within the framework established by SEBI's circular on "Safer participation of retail investors in Algorithmic trading" (SEBI/HO/MIRSD/MIRSD-PoD/P/2025/0000013, February 4, 2025).
+
+- Strategy creation, backtesting, and paper trading on this platform do not constitute live market activity and do not require exchange registration.
+- Live execution features (when available) will comply with all SEBI requirements including Algo-ID tagging, static IP routing, broker-principal accountability, and exchange registration.
+- This platform does not act as a stock broker or research analyst. Strategies created are tools for the user's own analysis and are not financial recommendations.
+- Users are solely responsible for any trading decisions made based on strategies created using this platform.

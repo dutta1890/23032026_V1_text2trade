@@ -7,6 +7,7 @@ import uuid
 import logging
 import json
 import re
+import os
 
 from auth import get_current_user, users_collection, verify_password, change_password, ChangePasswordRequest
 from database import db, strategies_collection
@@ -492,6 +493,14 @@ async def export_data(request: Request, current_user: dict = Depends(get_current
         "backtests": backtests,
         "paper_trades": papers,
         "performance_records": perfs,
+        "compliance": {
+            "platform": "Text2trade",
+            "platform_version": os.environ.get("APP_VERSION", "0.2.1"),
+            "sebi_framework": "SEBI/HO/MIRSD/MIRSD-PoD/P/2025/0000013",
+            "strategy_type": "white_box_only",
+            "audit_trail": "active",
+            "data_retention": "5_years",
+        },
     }
     return export
 

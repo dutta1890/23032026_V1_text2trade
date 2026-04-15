@@ -2,6 +2,7 @@
 
 import csv
 import io
+import os
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -16,6 +17,14 @@ from database import db, strategies_collection
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["compliance"])
+
+# Ensure broker_connections collection + index exists (Phase 2 ready)
+broker_connections = db["broker_connections"]
+try:
+    broker_connections.create_index([("user_id", 1), ("broker", 1)])
+    broker_connections.create_index([("status", 1)])
+except Exception:
+    pass
 
 
 # ─── Public compliance status ────────────────────────────────────────────────
@@ -192,4 +201,88 @@ async def strategy_classification(admin: dict = Depends(get_admin_user)):
         "total": total,
         "white_box": white_box,
         "black_box": black_box,
+    }
+
+
+# ─── Admin: Monthly compliance report ────────────────────────────────────────
+
+@router.get("/admin/compliance/monthly-report")
+async def monthly_report(admin: dict = Depends(get_admin_user)):
+    """Auto-generated monthly compliance summary."""
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    total_entries = audit_collection.count_documents({"timestamp": {"$gte": month_start}})
+
+    unique_users_pipeline = [
+        {"$match": {"timestamp": {"$gte": month_start}}},
+        {"$group": {"_id": "$user_id"}},
+        {"$count": "unique_users"},
+    ]
+    unique_result = list(audit_collection.aggregate(unique_users_pipeline))
+    unique_users = unique_result[0]["unique_users"] if unique_result else 0
+
+    # Strategies flagged for OPS threshold
+    flagged_strategies = 0  # All zeros for now (no live trading)
+
+    # Hosting check
+    hosting_region = SEBI_COMPLIANCE.get("hosting_region", "unknown")
+
+    # Storage estimate
+    stats = db.command("collstats", "audit_trail")
+    storage_bytes = stats.get("storageSize", 0)
+    storage_mb = round(storage_bytes / (1024 * 1024), 2)
+
+    alerts = []
+    if hosting_region != "india":
+        alerts.append({
+            "severity": "warning",
+            "message": f"Hosting region is '{hosting_region}'. SEBI requires Indian server hosting for live trading.",
+        })
+    if storage_mb > 800:
+        alerts.append({
+            "severity": "warning",
+            "message": f"Audit trail storage at {storage_mb} MB — approaching 1 GB. Plan for capacity.",
+        })
+
+    return {
+        "period": f"{now.strftime('%B %Y')}",
+        "total_audit_entries": total_entries,
+        "unique_users_audited": unique_users,
+        "strategies_flagged_ops": flagged_strategies,
+        "hosting_region": hosting_region,
+        "hosting_compliant": hosting_region == "india",
+        "storage_mb": storage_mb,
+        "alerts": alerts,
+    }
+
+
+# ─── User: Strategy export with compliance metadata ──────────────────────────
+
+@router.get("/compliance/strategy-export/{strategy_id}")
+async def export_strategy_compliance(strategy_id: str, current_user: dict = Depends(get_current_user)):
+    """Export a single strategy with SEBI compliance metadata attached."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+    doc = strategies_collection.find_one(
+        {"id": strategy_id, "user_id": user_id}, {"_id": 0}
+    )
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    import hashlib
+    user_hash = hashlib.sha256(user_id.encode()).hexdigest()[:16]
+
+    return {
+        "strategy": doc,
+        "compliance": {
+            "classification": doc.get("classification", "white_box"),
+            "logic_disclosed": doc.get("logic_disclosed", True),
+            "algo_id": doc.get("algo_id"),
+            "algo_registered": doc.get("algo_registered", False),
+            "created_by": user_hash,
+            "created_at": doc.get("created_at"),
+            "platform": "Text2trade",
+            "platform_version": os.environ.get("APP_VERSION", "0.2.1"),
+            "sebi_framework": "SEBI/HO/MIRSD/MIRSD-PoD/P/2025/0000013",
+        },
     }

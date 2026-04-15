@@ -13,6 +13,7 @@ import {
 import {
   User, Lock, Settings, Bell, Shield, Link2, Info,
   Save, AlertTriangle, Download, Trash2, RefreshCw, LogOut, ChevronRight,
+  FileText, ExternalLink,
 } from "lucide-react";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
@@ -380,6 +381,44 @@ export default function ProfilePage() {
               support@text2trade.com
             </a>
           </div>
+        </div>
+      </Section>
+
+      {/* Regulatory Information */}
+      <Section icon={FileText} title="Regulatory Information" testId="regulatory-section">
+        <div className="space-y-3">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            This platform complies with SEBI's Algo Trading Framework (2025-26).
+          </p>
+          <div className="space-y-2 text-[11px] text-muted-foreground">
+            <div className="flex items-start gap-2">
+              <span className="text-primary mt-0.5">&#8226;</span>
+              <span>Your strategies are classified as <span className="text-foreground font-bold">white-box</span> — all logic is fully visible to you.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-primary mt-0.5">&#8226;</span>
+              <span>Backtesting and paper trading do not require exchange registration.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-amber-400 mt-0.5">&#8226;</span>
+              <span>Live execution (coming in Phase 2) will require: your own broker account (Zerodha, Angel One, Upstox, or Dhan), static IP configuration, and an exchange-assigned Algo-ID for your strategy.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-primary mt-0.5">&#8226;</span>
+              <span>All your activity is logged for regulatory compliance (5-year retention).</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-primary mt-0.5">&#8226;</span>
+              <span>We do not execute trades on your behalf. All execution happens through YOUR broker.</span>
+            </div>
+          </div>
+          <a
+            href="/compliance"
+            className="inline-flex items-center gap-1 text-[10px] font-mono text-primary hover:underline"
+            data-testid="view-compliance-link"
+          >
+            View SEBI Compliance Details <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       </Section>
 

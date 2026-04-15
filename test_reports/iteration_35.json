@@ -1,0 +1,129 @@
+{
+  "summary": "Iteration 35 - Hosting verification, broker integration architecture, user-facing compliance elements. All 22 backend tests passed (1 skipped). Frontend tests verified: public /compliance page, footer Compliance link, profile Regulatory Information section, re-consent modal for disclaimer v1.1, admin compliance dashboard.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "AdminCompliance.js",
+        "issues": ["React hydration warning: <tr> cannot be child of <span> in audit trail table - cosmetic only, doesn't affect functionality (same as iteration 34)"]
+      }
+    ]
+  },
+  "passed_tests": [
+    "GET /api/v1/compliance/status returns hosting_region field (us-preview)",
+    "GET /api/v1/compliance/status returns hosting_migration_required field (true)",
+    "GET /api/v1/compliance/status has all 12 required fields",
+    "GET /api/v1/admin/compliance/monthly-report returns period (April 2026)",
+    "GET /api/v1/admin/compliance/monthly-report returns alerts array with hosting warning",
+    "GET /api/v1/admin/compliance/monthly-report returns hosting_compliant (false)",
+    "GET /api/v1/admin/compliance/monthly-report returns hosting_region",
+    "GET /api/v1/admin/compliance/monthly-report requires admin auth",
+    "GET /api/v1/compliance/strategy-export/{id} returns strategy + compliance metadata",
+    "GET /api/v1/compliance/strategy-export/{id} has sebi_framework in compliance",
+    "GET /api/v1/compliance/strategy-export/{id} has classification field",
+    "GET /api/v1/compliance/strategy-export/{id} requires auth",
+    "GET /api/v1/compliance/strategy-export/{id} returns 404 for invalid ID",
+    "POST /api/v1/account/export-data includes compliance metadata",
+    "POST /api/v1/account/export-data compliance has sebi_framework",
+    "Broker integration files exist: integrations/__init__.py with BrokerIntegration ABC",
+    "zerodha_kite.py exists with ZerodhaIntegration placeholder",
+    "angel_one.py exists with AngelOneIntegration placeholder",
+    "upstox.py exists with UpstoxIntegration placeholder",
+    "dhan.py exists with DhanIntegration placeholder",
+    "broker_connections collection exists in MongoDB with indexes",
+    "BrokerConnection Pydantic model exists in models.py",
+    "/compliance page loads (public, no auth) with SEBI reference",
+    "/compliance page shows Audit Trail, White-Box, Data Security, OPS Monitoring cards",
+    "/compliance page shows Phase 2 section with future requirements",
+    "/compliance page shows Hosting Region card (us-preview) with migration warning",
+    "Footer shows Compliance link between Disclaimer and version (Terms|Privacy|Disclaimer|Compliance|v0.2.0)",
+    "/profile page shows Regulatory Information section with FileText icon",
+    "/profile page shows white-box strategy classification info",
+    "/profile page shows View SEBI Compliance Details link",
+    "Login as existing user triggers re-consent modal for updated disclaimer v1.1",
+    "Admin /admin/compliance page loads with SEBI Compliance Status card",
+    "Admin compliance dashboard shows audit stats, OPS monitoring, strategy classification"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_35.py",
+    "/app/test_reports/pytest/pytest_iteration_35.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor: AdminCompliance.js has React hydration warning due to dynamic content rendering in table - consider wrapping map() output differently to avoid <span> wrapper inside <tbody> (same issue from iteration 34)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_35.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests passed, 1 skipped)",
+    "frontend": "100% (all UI components verified)"
+  },
+  "test_credentials": {
+    "test_user": "testai@example.com / Password123!",
+    "admin_user": "admin@example.com / Password123!"
+  },
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 35 tested hosting verification, broker integration architecture, and user-facing compliance elements. All 8 tasks verified: (1) HOSTING_REGION=us-preview in .env with hosting_migration_required=true in compliance status, (2) BrokerIntegration ABC with 4 placeholder implementations (Zerodha, Angel One, Upstox, Dhan), (3) broker_connections MongoDB collection with indexes, (4) Regulatory Information section on /profile page with white-box info and compliance link, (5) Public /compliance page with SEBI reference, compliance cards, Phase 2 section, hosting info, (6) Strategy export with compliance metadata including sebi_framework, (7) Re-consent modal appears for disclaimer v1.1 (SEBI section added), (8) Admin monthly compliance report with period, alerts, hosting_compliant fields. The disclaimer v1.1 was seeded and triggers re-consent on login.",
+  "features_verified": {
+    "hosting_verification": {
+      "env_variable": "HOSTING_REGION=us-preview",
+      "compliance_status_fields": ["hosting_region", "hosting_migration_required"],
+      "monthly_report_fields": ["hosting_region", "hosting_compliant", "alerts"],
+      "status": "working"
+    },
+    "broker_integration_architecture": {
+      "base_class": "BrokerIntegration ABC in integrations/__init__.py",
+      "implementations": ["zerodha_kite.py", "angel_one.py", "upstox.py", "dhan.py"],
+      "models": ["BrokerSession", "Order", "OrderResult", "Position", "BrokerConnection"],
+      "mongodb_collection": "broker_connections with indexes",
+      "status": "working (Phase 2 placeholders)"
+    },
+    "user_facing_compliance": {
+      "compliance_page": {
+        "route": "/compliance",
+        "auth_required": false,
+        "components": ["SEBI reference card", "Audit Trail card", "White-Box card", "Data Security card", "OPS Monitoring card", "Phase 2 section", "Hosting card"],
+        "status": "working"
+      },
+      "profile_regulatory_section": {
+        "location": "/profile page",
+        "content": ["white-box classification", "SEBI framework reference", "broker info", "5-year retention", "compliance link"],
+        "status": "working"
+      },
+      "footer_compliance_link": {
+        "order": "Terms|Privacy|Disclaimer|Compliance|version",
+        "status": "working"
+      }
+    },
+    "strategy_export_compliance": {
+      "endpoint": "/api/v1/compliance/strategy-export/{id}",
+      "auth_required": true,
+      "fields": ["strategy", "compliance.sebi_framework", "compliance.classification", "compliance.algo_id"],
+      "status": "working"
+    },
+    "export_data_compliance": {
+      "endpoint": "/api/v1/account/export-data",
+      "compliance_fields": ["platform", "platform_version", "sebi_framework", "strategy_type", "audit_trail", "data_retention"],
+      "status": "working"
+    },
+    "disclaimer_reconsent": {
+      "version": "1.1",
+      "sebi_section_added": true,
+      "reconsent_modal": "appears on login for users who consented to v1.0",
+      "status": "working"
+    },
+    "admin_monthly_report": {
+      "endpoint": "/api/v1/admin/compliance/monthly-report",
+      "fields": ["period", "total_audit_entries", "unique_users_audited", "strategies_flagged_ops", "hosting_region", "hosting_compliant", "storage_mb", "alerts"],
+      "status": "working"
+    }
+  }
+}

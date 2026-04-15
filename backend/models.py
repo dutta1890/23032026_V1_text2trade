@@ -119,6 +119,20 @@ class RiskManagement(BaseModel):
     daily_limits: DailyLimits = Field(default_factory=DailyLimits)
     position_sizing: PositionSizing = Field(default_factory=lambda: PositionSizing(method="fixed_quantity", value=1))
 
+class BrokerConnection(BaseModel):
+    """Phase 2 schema — broker connection tracking."""
+    connection_id: str
+    user_id: str
+    broker: Literal["zerodha", "angel_one", "upstox", "dhan"]
+    status: Literal["connected", "disconnected", "expired"]
+    oauth_token_encrypted: str = ""
+    static_ip: Optional[str] = None
+    connected_at: Optional[str] = None
+    last_active: Optional[str] = None
+    auto_logout_time: str = "08:45"
+    two_factor_verified: bool = False
+
+
 class Strategy(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: Optional[str] = Field(default=None, max_length=50)
