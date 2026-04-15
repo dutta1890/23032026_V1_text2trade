@@ -14,6 +14,17 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 
 ## What's Been Implemented (All Backlog Complete)
 
+### Session 29 (2026-04-10) — Hosting Verification, Broker Architecture, User-Facing Compliance (8 Tasks)
+**Task 1: Hosting Region Verification** — `HOSTING_REGION=us-preview` in `.env`. Compliance status returns `hosting_migration_required: true`. SEBI doc updated with migration plan.
+**Task 2: Broker Integration Architecture** — `integrations/` dir with `BrokerIntegration` ABC (authenticate, place_order, get_positions, cancel_order, disconnect, get_static_ip). 4 placeholder implementations: `zerodha_kite.py`, `angel_one.py`, `upstox.py`, `dhan.py`. Models: `BrokerSession`, `Order`, `OrderResult`, `Position`.
+**Task 3: Broker Connection Schema** — `BrokerConnection` Pydantic model in models.py. `broker_connections` MongoDB collection with indexes. Fields: connection_id, user_id, broker, status, oauth_token_encrypted, static_ip, auto_logout_time, two_factor_verified.
+**Task 4: Profile Regulatory Section** — "Regulatory Information" section on `/profile` with white-box classification, SEBI framework info, Phase 2 broker requirements, 5-year audit retention notice, compliance link.
+**Task 5: Public Compliance Page** — `/compliance` (no auth) showing SEBI circular reference, compliance cards (Audit Trail, White-Box, Data Security, OPS Monitoring), Phase 2 section, hosting region with migration warning.
+**Task 6: Strategy Export Compliance Metadata** — `GET /api/v1/compliance/strategy-export/{id}` returns strategy + `compliance: {classification, logic_disclosed, algo_id, sebi_framework, platform_version}`. Data export endpoint also includes compliance metadata.
+**Task 7: Disclaimer SEBI Update** — risk_disclaimer.md updated with SEBI Regulatory Compliance section. Seeded as v1.1 triggering re-consent modal for existing users.
+**Task 8: Admin Monthly Report** — `GET /api/v1/admin/compliance/monthly-report` returns period, audit entries, unique users, flagged strategies, hosting region/compliance, storage, alerts.
+- **Testing**: 22/22 backend + all frontend passed (iteration_35.json)
+
 ### Session 18 (2026-03-21) — Strategy Performance Tracker + Auth Fix
 - **Strategy Performance Tracker** (P0):
   - `POST /api/v1/tracker/record` — Record a performance entry (strategy name, symbol, metrics)
