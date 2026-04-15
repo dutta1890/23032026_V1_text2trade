@@ -6,6 +6,9 @@ import logging
 from auth import get_current_user
 from database import db, strategies_collection
 from paper_trading.engine import deploy_paper_trade, stop_paper_trade, pause_paper_trade
+from audit import log_audit, get_request_meta
+from logging_config import get_request_id
+from monitoring import record_order
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -48,6 +51,17 @@ async def deploy_paper_trade_endpoint(request: Request, body: PaperTradeDeployRe
         {"$set": {"is_demo": demo}}
     )
     result["is_demo"] = demo
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=user_id, action="paper_trade_deployed",
+        details={
+            "strategy_id": body.strategy_id, "symbol": body.symbol,
+            "capital": body.initial_capital, "paper_trade_id": result.get("paper_trade_id"),
+        },
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "", strategy_id=body.strategy_id,
+    )
+    record_order(user_id, "paper")
     return result
 
 

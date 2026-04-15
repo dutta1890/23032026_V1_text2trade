@@ -134,6 +134,13 @@ class Strategy(BaseModel):
     exit_conditions: List[IndicatorCondition] = Field(default_factory=list, max_length=10)
     filters: List[IndicatorCondition] = Field(default_factory=list, max_length=5)
     risk_management: RiskManagement
+    # SEBI compliance fields (Task 3 + Task 6)
+    algo_id: Optional[str] = Field(default=None, max_length=50)
+    algo_registered: bool = Field(default=False)
+    algo_registration_date: Optional[str] = None
+    algo_version: int = Field(default=1, ge=1)
+    classification: Literal["white_box", "black_box"] = "white_box"
+    logic_disclosed: bool = True
 
 class StrategyResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")

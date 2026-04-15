@@ -8,6 +8,8 @@ import logging
 
 from auth import get_current_user
 from database import strategies_collection, templates_collection, analytics_db
+from audit import log_audit, get_request_meta
+from logging_config import get_request_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -69,4 +71,11 @@ async def clone_template(request: Request, template_id: str, body: CloneTemplate
     templates_collection.update_one({"template_id": template_id}, {"$inc": {"clone_count": 1}})
     analytics_db["strategies_created"] += 1
     logger.info(f"Template '{template['name']}' cloned by {user_id} -> strategy {strategy_id}")
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=user_id, action="template_cloned",
+        details={"template_id": template_id, "template_name": template["name"], "new_strategy_id": strategy_id},
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "", strategy_id=strategy_id,
+    )
     return {"success": True, "strategy_id": strategy_id, "strategy": strategy_doc}

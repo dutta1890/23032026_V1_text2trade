@@ -6,9 +6,10 @@ import logging
 
 from auth import get_current_user
 from indicator_registry import validate_condition
-from logging_config import set_user_id
+from logging_config import set_user_id, get_request_id
 from database import strategies_collection, analytics_db
 from models import Strategy, StrategyResponse, StrategiesListResponse
+from audit import log_audit, get_request_meta
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -84,6 +85,18 @@ async def create_strategy(request: Request, strategy: Strategy, current_user: di
         strategy_doc.pop("_id", None)
         analytics_db["strategies_created"] += 1
         logger.info(f"Strategy created: {strategy_id} by {user_id} (demo={demo})")
+        meta = get_request_meta(request)
+        log_audit(
+            user_id=user_id, action="strategy_created",
+            details={
+                "strategy_id": strategy_id, "name": strategy.metadata.name,
+                "instrument": strategy.instrument.symbol,
+                "indicators": [c.name for c in strategy.entry_conditions],
+                "risk_params": strategy.risk_management.model_dump() if strategy.risk_management else {},
+            },
+            ip_address=meta["ip"], user_agent=meta["ua"],
+            request_id=get_request_id() or "", strategy_id=strategy_id,
+        )
         return {"success": True, "strategy": strategy_doc}
     except Exception as e:
         logger.error(f"Strategy creation failed: {e}")
@@ -170,6 +183,13 @@ async def update_strategy(request: Request, strategy_id: str, strategy: Strategy
             {"$set": update_doc}
         )
         logger.info(f"Strategy updated: {strategy_id}")
+        meta = get_request_meta(request)
+        log_audit(
+            user_id=user_id, action="strategy_updated",
+            details={"strategy_id": strategy_id, "new_version": update_doc["version"]},
+            ip_address=meta["ip"], user_agent=meta["ua"],
+            request_id=get_request_id() or "", strategy_id=strategy_id,
+        )
         return {"success": True, "strategy": update_doc}
     except Exception as e:
         logger.error(f"Strategy update failed: {e}")
@@ -189,4 +209,35 @@ async def delete_strategy(request: Request, strategy_id: str, current_user: dict
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Strategy not found or not owned by user")
     logger.info(f"Strategy deleted: {strategy_id}")
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=user_id, action="strategy_deleted",
+        details={"strategy_id": strategy_id, "snapshot": doc},
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "", strategy_id=strategy_id,
+    )
     return {"success": True, "message": "Strategy deleted"}
+
+
+# ── Algo-ID live trade gate (Phase 2 preparation) ───────────────────────────
+
+@router.post("/strategy/{strategy_id}/execute-live")
+async def execute_live_trade(request: Request, strategy_id: str, current_user: dict = Depends(get_current_user)):
+    """Block live execution unless Algo-ID is registered (SEBI requirement)."""
+    user_id = current_user.get("user_id", current_user.get("email"))
+    doc = strategies_collection.find_one(
+        {"id": strategy_id, "user_id": user_id}, {"_id": 0, "algo_id": 1, "algo_registered": 1}
+    )
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    if not doc.get("algo_id") or not doc.get("algo_registered"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "This strategy must be registered with the exchange before live execution. "
+                "An exchange-assigned Algo-ID is required per SEBI regulations. "
+                "This feature will be available when broker integration launches in Phase 2."
+            ),
+        )
+    # Phase 2: actual live order execution logic
+    raise HTTPException(status_code=501, detail="Live execution is not yet implemented. Coming in Phase 2.")

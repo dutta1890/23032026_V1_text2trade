@@ -15,6 +15,8 @@ from resilience import (
     ServiceTimeoutError, ServiceUnavailableError
 )
 from logging_config import log_ai_call
+from audit import log_audit, get_request_meta
+from logging_config import log_ai_call, get_request_id
 from ai_sessions import (
     get_ai_config, check_and_increment_usage, get_usage_stats,
     create_session, get_session, append_message, update_strategy_draft,
@@ -487,7 +489,15 @@ async def explain_strategy(request: Request, body: ExplainRequest, current_user:
 
 @router.post("/session/start")
 async def start_session_endpoint(request: Request, current_user: dict = Depends(get_current_user)):
-    return create_session(current_user.get("email"))
+    result = create_session(current_user.get("email"))
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=current_user.get("email", ""), action="session_started",
+        details={"session_id": result.get("session_id")},
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "", session_id=result.get("session_id"),
+    )
+    return result
 
 
 @router.post("/session/{session_id}/message")
@@ -639,6 +649,18 @@ async def finalize_session_strategy(request: Request, session_id: str, current_u
 
     strategies_collection.insert_one(strategy_doc)
     analytics_db["strategies_created"] += 1
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=user_id, action="strategy_created",
+        details={
+            "strategy_id": strategy_id, "name": clean_name,
+            "instrument": symbol, "source": "ai_session",
+            "indicators": [c.get("name") for c in normalized.get("entry_conditions", [])],
+        },
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "", strategy_id=strategy_id,
+        session_id=session_id,
+    )
     return {"success": True, "strategy_id": strategy_id, "message": f"Strategy saved for {symbol}."}
 
 

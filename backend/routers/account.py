@@ -10,6 +10,8 @@ import re
 
 from auth import get_current_user, users_collection, verify_password, change_password, ChangePasswordRequest
 from database import db, strategies_collection
+from audit import log_audit, get_request_meta
+from logging_config import get_request_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -388,6 +390,13 @@ async def update_profile(request: Request, body: UpdateProfileRequest, current_u
         raise HTTPException(status_code=400, detail="No valid fields to update")
 
     users_collection.update_one({"user_id": user_id}, {"$set": updates})
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=user_id, action="profile_updated",
+        details={"fields_changed": list(updates.keys())},
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "",
+    )
     return {"success": True, "updated_fields": list(updates.keys())}
 
 
@@ -399,6 +408,13 @@ async def update_profile(request: Request, body: UpdateProfileRequest, current_u
 async def change_password_endpoint(request: Request, body: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id")
     change_password(user_id, body.current_password, body.new_password)
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=user_id, action="password_changed",
+        details={"method": "manual"},
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "",
+    )
     return {"success": True, "message": "Password changed successfully"}
 
 

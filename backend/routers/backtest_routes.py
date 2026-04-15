@@ -9,6 +9,8 @@ from auth import get_current_user, get_optional_user
 from database import db, analytics_db
 from data.service import get_available_symbols, get_data_status
 from backtest.engine import run_backtest as engine_run_backtest
+from audit import log_audit, get_request_meta
+from logging_config import get_request_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -91,10 +93,22 @@ class BacktestResponse(BaseModel):
 
 @router.post("/backtest", response_model=BacktestResponse)
 async def run_backtest_endpoint(request: Request, body: BacktestRequest, current_user: dict = Depends(get_optional_user)):
+    import time as _time
+    t0 = _time.time()
     try:
         strategy = body.strategy
         symbol = strategy.get("instrument", {}).get("symbol", "RELIANCE")
         timeframe = strategy.get("timeframe", {}).get("interval", "1d")
+        strategy_id = strategy.get("id")
+        user_id = current_user.get("user_id", current_user.get("email")) if current_user else "anonymous"
+        meta = get_request_meta(request)
+
+        log_audit(
+            user_id=user_id, action="backtest_run",
+            details={"strategy_id": strategy_id, "symbol": symbol, "timeframe": timeframe},
+            ip_address=meta["ip"], user_agent=meta["ua"],
+            request_id=get_request_id() or "", strategy_id=strategy_id,
+        )
 
         result = engine_run_backtest(
             strategy, symbol, timeframe,
@@ -106,13 +120,23 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest, current
         analytics_db["backtests_run"] += 1
         if result["success"] and result["trades"]:
             analytics_db["backtest_types"]["historical"] += 1
-            # Auto-record to performance tracker
-            user_id = current_user.get("user_id", current_user.get("email")) if current_user else None
             is_demo = current_user.get("account_mode", "real") == "demo" if current_user else False
-            _auto_record(user_id, result, strategy, symbol, timeframe, is_demo)
-            # Email notification if enabled
+            _auto_record(user_id if user_id != "anonymous" else None, result, strategy, symbol, timeframe, is_demo)
             if current_user and not is_demo:
                 _send_backtest_email(current_user, strategy, symbol, result)
+
+        duration_ms = round((_time.time() - t0) * 1000)
+        m = result.get("metrics", {})
+        log_audit(
+            user_id=user_id, action="backtest_completed",
+            details={
+                "strategy_id": strategy_id, "trade_count": m.get("total_trades", 0),
+                "net_pnl": m.get("total_pnl_pct"), "sharpe": m.get("sharpe_ratio"),
+                "duration_ms": duration_ms,
+            },
+            ip_address=meta["ip"], user_agent=meta["ua"],
+            request_id=get_request_id() or "", strategy_id=strategy_id,
+        )
 
         return result
     except Exception as e:

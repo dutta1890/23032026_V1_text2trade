@@ -34,6 +34,7 @@ import ProfilePage from "@/pages/user/ProfilePage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminDiagnostics from "@/pages/admin/AdminDiagnostics";
+import AdminCompliance from "@/pages/admin/AdminCompliance";
 
 function App() {
   return (
@@ -76,6 +77,7 @@ function App() {
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/diagnostics" element={<AdminDiagnostics />} />
+              <Route path="/admin/compliance" element={<AdminCompliance />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

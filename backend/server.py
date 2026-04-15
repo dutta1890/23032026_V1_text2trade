@@ -57,6 +57,7 @@ from routers.account import router as account_router
 from routers.diagnostics import router as diagnostics_router
 from routers.legal import router as legal_router
 from routers.knowledge import router as knowledge_router
+from routers.compliance import router as compliance_router
 
 # Diagnostics
 from diagnostics import (
@@ -64,6 +65,7 @@ from diagnostics import (
     store_slow_request,
 )
 from logging_config import get_request_id, get_user_id, set_user_id as set_user_id_ctx
+from audit import log_audit, get_request_meta
 
 # Setup structured logging
 setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
@@ -294,18 +296,38 @@ async def register(request: Request, body: UserRegister):
     result = register_user(body, ip_address=ip)
     log_auth_attempt(result.email, True)
     logger.info(f"New user registered: {result.email}")
+    meta = get_request_meta(request)
+    log_audit(
+        user_id=result.email, action="user_registered",
+        details={"email": result.email, "account_mode": "real"},
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "",
+    )
     return result
 
 @auth_router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 async def login(request: Request, body: UserLogin):
+    meta = get_request_meta(request)
     try:
         result = login_user(body)
         log_auth_attempt(body.email, True)
         logger.info(f"User logged in: {body.email}")
+        log_audit(
+            user_id=body.email, action="user_login",
+            details={"email": body.email, "success": True},
+            ip_address=meta["ip"], user_agent=meta["ua"],
+            request_id=get_request_id() or "",
+        )
         return result
     except HTTPException as e:
         log_auth_attempt(body.email, False, reason=e.detail)
+        log_audit(
+            user_id=body.email, action="user_login",
+            details={"email": body.email, "success": False, "reason": e.detail},
+            ip_address=meta["ip"], user_agent=meta["ua"],
+            request_id=get_request_id() or "",
+        )
         raise
 
 @auth_router.post("/refresh", response_model=AccessTokenResponse)
@@ -317,9 +339,17 @@ async def refresh(request: Request, body: RefreshRequest):
 @auth_router.post("/logout")
 async def logout(request: Request):
     auth_header = request.headers.get("Authorization", "")
+    meta = get_request_meta(request)
+    user_id = get_user_id() or "unknown"
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
         blacklist_token(token)
+    log_audit(
+        user_id=user_id, action="user_logout",
+        details={"method": "manual"},
+        ip_address=meta["ip"], user_agent=meta["ua"],
+        request_id=get_request_id() or "",
+    )
     return {"success": True, "message": "Logged out"}
 
 
@@ -419,6 +449,9 @@ app.include_router(legal_router)
 
 # Knowledge base router (has its own /api/v1 prefix, public endpoints)
 app.include_router(knowledge_router)
+
+# Compliance router (has its own /api/v1 prefix, public + admin endpoints)
+app.include_router(compliance_router)
 
 
 # =============================================================================

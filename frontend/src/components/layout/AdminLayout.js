@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, LogOut, Menu, X, ArrowLeft, Shield, Activity } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Menu, X, ArrowLeft, Shield, Activity, FileText } from "lucide-react";
 
 const NAV = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/diagnostics", label: "Diagnostics", icon: Activity },
+  { to: "/admin/compliance", label: "Compliance", icon: FileText },
 ];
 
 export default function AdminLayout() {
