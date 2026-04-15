@@ -75,6 +75,9 @@ export default function ProfilePage() {
   // Export
   const [exporting, setExporting] = useState(false);
 
+  // Broker preference
+  const [preferredBroker, setPreferredBroker] = useState("");
+
   useEffect(() => {
     document.title = "Profile & Settings | Text2trade";
     Promise.all([
@@ -90,6 +93,7 @@ export default function ProfilePage() {
       setCapital(p.default_capital || 100000);
       setInstruments((p.preferred_instruments || []).join(", "));
       setNotifPrefs(p.notification_preferences || {});
+      setPreferredBroker(p.preferred_broker || "");
     }).catch(() => toast.error("Failed to load profile"))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -344,6 +348,46 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+        </div>
+      </Section>
+
+      {/* Preferred Broker */}
+      <Section id="broker" title="PREFERRED BROKER" icon={ExternalLink}>
+        <p className="text-xs text-muted-foreground mb-3">Select your primary broker. This will be highlighted when you click "Execute on Broker".</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {[
+            { id: "zerodha", name: "Zerodha Kite" },
+            { id: "angel_one", name: "Angel One" },
+            { id: "upstox", name: "Upstox" },
+            { id: "dhan", name: "Dhan" },
+            { id: "groww", name: "Groww" },
+            { id: "5paisa", name: "5paisa" },
+          ].map((b) => (
+            <button
+              key={b.id}
+              className={`p-3 border text-left transition-colors ${
+                preferredBroker === b.id
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-secondary/20 hover:border-primary/50"
+              }`}
+              onClick={async () => {
+                const newVal = preferredBroker === b.id ? "" : b.id;
+                setPreferredBroker(newVal);
+                try {
+                  await api.put("/account/profile", { preferred_broker: newVal });
+                  toast.success(newVal ? `${b.name} set as preferred` : "Broker preference cleared");
+                } catch {
+                  toast.error("Failed to save preference");
+                }
+              }}
+              data-testid={`broker-pref-${b.id}`}
+            >
+              <span className="font-mono text-xs font-bold text-foreground">{b.name}</span>
+              {preferredBroker === b.id && (
+                <span className="block text-[9px] font-mono text-primary mt-0.5">PREFERRED</span>
+              )}
+            </button>
+          ))}
         </div>
       </Section>
 

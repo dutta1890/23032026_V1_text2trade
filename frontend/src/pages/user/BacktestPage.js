@@ -12,6 +12,7 @@ import {
   ChevronDown, ChevronUp, Download, Hash, Shield, ExternalLink,
 } from "lucide-react";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import BrokerModal from "@/components/BrokerModal";
 import MultiStockCompare from "@/components/MultiStockCompare";
 
 const fmt = (v, d = 2) => v != null ? Number(v).toFixed(d) : "—";
@@ -43,6 +44,7 @@ export default function BacktestPage() {
   const [loading, setLoading] = useState(true);
   const [showTrades, setShowTrades] = useState(false);
   const [deploying, setDeploying] = useState(false);
+  const [brokerModalOpen, setBrokerModalOpen] = useState(false);
 
   const runBacktest = useCallback(async () => {
     setLoading(true);
@@ -98,9 +100,14 @@ export default function BacktestPage() {
             <p className="text-xs text-muted-foreground font-mono">{strategy?.instrument?.symbol} · {strategy?.timeframe?.interval} · {result?.candles_processed || 0} candles</p>
           </div>
         </div>
-        <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={handleDeploy} disabled={deploying} data-testid="deploy-paper-trade-btn">
-          <Activity className="w-3 h-3" /> {deploying ? "Deploying..." : "Paper Trade This Strategy"}
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={handleDeploy} disabled={deploying} data-testid="deploy-paper-trade-btn">
+            <Activity className="w-3 h-3" /> {deploying ? "Deploying..." : "Paper Trade"}
+          </Button>
+          <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5 border-amber-500/50 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10" onClick={() => setBrokerModalOpen(true)} data-testid="execute-broker-btn">
+            <ExternalLink className="w-3 h-3" /> Execute on Broker
+          </Button>
+        </div>
       </div>
 
       {result?.disclaimer && <p className="text-[11px] text-yellow-500/80 font-mono italic border-l-2 border-yellow-500/30 pl-3">{result.disclaimer}</p>}
@@ -243,6 +250,15 @@ export default function BacktestPage() {
 
       {/* Multi-Stock Comparison */}
       {strategy && <MultiStockCompare strategy={strategy} />}
+
+      {/* Broker Modal */}
+      <BrokerModal
+        open={brokerModalOpen}
+        onClose={() => setBrokerModalOpen(false)}
+        symbol={strategy?.instrument?.symbol}
+        strategyId={strategyId}
+        api={api}
+      />
     </div>
   );
 }

@@ -8,10 +8,11 @@ import {
 } from "recharts";
 import {
   Loader2, Copy, Shield, TrendingUp, Target, Clock, Eye, Users,
-  Download, FileText, AlertTriangle, ArrowRight, ChevronDown,
+  Download, FileText, AlertTriangle, ArrowRight, ChevronDown, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
+import BrokerModal from "@/components/BrokerModal";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api/v1";
 const fmt = (v, d = 2) => v != null ? Number(v).toFixed(d) : "\u2014";
@@ -50,6 +51,7 @@ export default function ShareViewPage() {
   const [broker, setBroker] = useState(null);
   const [brokerData, setBrokerData] = useState(null);
   const [brokerLoading, setBrokerLoading] = useState(false);
+  const [brokerModalOpen, setBrokerModalOpen] = useState(false);
 
   useEffect(() => {
     document.title = "Shared Strategy | Text2trade";
@@ -235,7 +237,23 @@ export default function ShareViewPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground mb-3">Select your broker to get step-by-step execution instructions:</p>
+            {isAuthenticated ? (
+              <>
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <Button size="sm" className="font-mono text-[10px] uppercase gap-1.5 border-amber-500/50 text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20" onClick={() => setBrokerModalOpen(true)} data-testid="execute-broker-btn">
+                    <ExternalLink className="w-3 h-3" /> Open Broker Platform
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground font-mono">Opens your broker in a new tab</span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">Or select a broker for step-by-step instructions:</p>
+              </>
+            ) : (
+              <div className="p-3 bg-secondary/30 border border-border mb-4 text-center">
+                <p className="text-xs font-mono text-muted-foreground">
+                  <Link to="/login" className="text-primary hover:underline">Login</Link> to open this strategy directly in your broker
+                </p>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 mb-4">
               {BROKERS.map((b) => (
                 <Button key={b} size="sm" variant={broker === b ? "default" : "outline"}
@@ -306,6 +324,11 @@ export default function ShareViewPage() {
           </Card>
         )}
       </div>
+      <BrokerModal
+        open={brokerModalOpen}
+        onClose={() => setBrokerModalOpen(false)}
+        symbol={s.instrument?.symbol}
+      />
     </div>
   );
 }

@@ -627,3 +627,97 @@ async def admin_share_analytics(current_user: dict = Depends(get_current_user)):
             "shares": s["share_count"],
         } for s in top],
     }
+
+
+# ── Broker Login Links + Audit ───────────────────────────────────────────────
+
+BROKER_LOGIN_LINKS = {
+    "zerodha": {
+        "name": "Zerodha Kite",
+        "url": "https://kite.zerodha.com/",
+        "description": "Opens Zerodha Kite web trading platform",
+        "has_deep_link": False,
+    },
+    "angel_one": {
+        "name": "Angel One",
+        "url": "https://trade.angelone.in/",
+        "description": "Opens Angel One web trading platform",
+        "has_deep_link": False,
+    },
+    "upstox": {
+        "name": "Upstox",
+        "url": "https://pro.upstox.com/",
+        "description": "Opens Upstox Pro web trading platform",
+        "has_deep_link": False,
+    },
+    "dhan": {
+        "name": "Dhan",
+        "url": "https://web.dhan.co/",
+        "description": "Opens Dhan web trading platform",
+        "has_deep_link": False,
+    },
+    "groww": {
+        "name": "Groww",
+        "url": "https://groww.in/stocks",
+        "description": "Opens Groww stocks section",
+        "has_deep_link": False,
+    },
+    "5paisa": {
+        "name": "5paisa",
+        "url": "https://trade.5paisa.com/",
+        "description": "Opens 5paisa web trading platform",
+        "has_deep_link": False,
+    },
+}
+
+
+@router.get("/broker-links")
+async def get_all_broker_links():
+    """Public: returns all broker login URLs."""
+    return {
+        "brokers": [
+            {"id": k, **v} for k, v in BROKER_LOGIN_LINKS.items()
+        ]
+    }
+
+
+@router.post("/broker-link/generate")
+async def generate_broker_link(
+    request: Request,
+    body: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """Generate a broker link and log it to audit trail for SEBI compliance."""
+    from audit import log_audit, get_request_meta
+    from logging_config import get_request_id
+
+    broker_id = body.get("broker", "").lower()
+    if broker_id not in BROKER_LOGIN_LINKS:
+        raise HTTPException(400, f"Unknown broker. Available: {', '.join(BROKER_LOGIN_LINKS.keys())}")
+
+    broker = BROKER_LOGIN_LINKS[broker_id]
+    user_id = current_user.get("user_id", current_user.get("email"))
+    meta = get_request_meta(request)
+
+    # Log to audit trail
+    log_audit(
+        user_id=user_id,
+        action="broker_link_generated",
+        details={
+            "broker": broker_id,
+            "broker_name": broker["name"],
+            "symbol": body.get("symbol", ""),
+            "strategy_id": body.get("strategy_id", ""),
+        },
+        ip_address=meta["ip"],
+        user_agent=meta["ua"],
+        request_id=get_request_id() or "",
+    )
+
+    return {
+        "success": True,
+        "broker": broker_id,
+        "broker_name": broker["name"],
+        "url": broker["url"],
+        "description": broker["description"],
+    }

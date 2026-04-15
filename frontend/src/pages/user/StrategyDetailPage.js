@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import {
   Loader2, ArrowLeft, Play, Activity, Pencil, Trash2,
   ChevronRight, Shield, Clock, Target, TrendingUp, Zap, Share2, Copy, History,
-  Download, FileText, Eye, Users, Link2, XCircle, ArrowRight,
+  Download, FileText, Eye, Users, Link2, XCircle, ArrowRight, ExternalLink,
 } from "lucide-react";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
+import BrokerModal from "@/components/BrokerModal";
 import { toast } from "sonner";
 
 const ConditionRow = ({ cond, index }) => {
@@ -54,6 +55,9 @@ export default function StrategyDetailPage() {
   const [broker, setBroker] = useState(null);
   const [brokerData, setBrokerData] = useState(null);
   const [brokerLoading, setBrokerLoading] = useState(false);
+  const [brokerModalOpen, setBrokerModalOpen] = useState(false);
+  const [preferredBroker, setPreferredBroker] = useState("");
+  const [disclaimerDismissed, setDisclaimerDismissed] = useState(false);
 
   useEffect(() => {
     document.title = "Strategy | Text2trade";
@@ -73,6 +77,12 @@ export default function StrategyDetailPage() {
       .catch(() => {});
     api.get(`/strategies/${strategyId}/share-stats`)
       .then((r) => setShareStats(r.data))
+      .catch(() => {});
+    api.get("/account/profile")
+      .then((r) => {
+        setPreferredBroker(r.data.preferred_broker || "");
+        setDisclaimerDismissed(!!r.data.broker_disclaimer_dismissed);
+      })
       .catch(() => {});
   }, [strategyId]);
 
@@ -187,6 +197,9 @@ export default function StrategyDetailPage() {
           </Button>
           <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={handleShare} disabled={sharing} data-testid="share-btn">
             {sharing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Share2 className="w-3 h-3" />} Share
+          </Button>
+          <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5 border-amber-500/50 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10" onClick={() => setBrokerModalOpen(true)} data-testid="execute-broker-btn">
+            <ExternalLink className="w-3 h-3" /> Execute on Broker
           </Button>
           <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5 text-destructive hover:text-destructive" onClick={handleDelete} disabled={deleting} data-testid="delete-btn">
             {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Delete
@@ -389,6 +402,21 @@ export default function StrategyDetailPage() {
           </pre>
         </CardContent>
       </Card>
+
+      {/* Broker Modal */}
+      <BrokerModal
+        open={brokerModalOpen}
+        onClose={() => setBrokerModalOpen(false)}
+        symbol={instrument.symbol}
+        strategyId={strategyId}
+        api={api}
+        preferredBroker={preferredBroker}
+        disclaimerDismissed={disclaimerDismissed}
+        onPreferenceChange={(dismissed) => {
+          setDisclaimerDismissed(dismissed);
+          api.put("/account/profile", { broker_disclaimer_dismissed: dismissed }).catch(() => {});
+        }}
+      />
     </div>
   );
 }

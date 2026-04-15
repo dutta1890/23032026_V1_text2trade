@@ -338,6 +338,8 @@ async def get_profile(request: Request, current_user: dict = Depends(get_current
         }),
         "has_completed_onboarding": user_doc.get("has_completed_onboarding", False),
         "created_at": user_doc.get("created_at"),
+        "preferred_broker": user_doc.get("preferred_broker", ""),
+        "broker_disclaimer_dismissed": user_doc.get("broker_disclaimer_dismissed", False),
     }
 
 
@@ -353,6 +355,8 @@ class UpdateProfileRequest(BaseModel):
     default_capital: Optional[float] = None
     preferred_instruments: Optional[List[str]] = None
     notification_preferences: Optional[dict] = None
+    preferred_broker: Optional[str] = Field(default=None, max_length=30)
+    broker_disclaimer_dismissed: Optional[bool] = None
 
 
 @router.put("/account/profile")
@@ -386,6 +390,15 @@ async def update_profile(request: Request, body: UpdateProfileRequest, current_u
         valid_keys = {"email_on_backtest_complete", "email_on_paper_trade_signal", "email_weekly_summary"}
         prefs = {k: bool(v) for k, v in body.notification_preferences.items() if k in valid_keys}
         updates["notification_preferences"] = prefs
+
+    if body.preferred_broker is not None:
+        valid_brokers = {"zerodha", "angel_one", "upstox", "dhan", "groww", "5paisa", ""}
+        if body.preferred_broker.lower() not in valid_brokers:
+            raise HTTPException(status_code=400, detail=f"Invalid broker. Valid: {', '.join(valid_brokers - {''})}")
+        updates["preferred_broker"] = body.preferred_broker.lower()
+
+    if body.broker_disclaimer_dismissed is not None:
+        updates["broker_disclaimer_dismissed"] = body.broker_disclaimer_dismissed
 
     if not updates:
         raise HTTPException(status_code=400, detail="No valid fields to update")
