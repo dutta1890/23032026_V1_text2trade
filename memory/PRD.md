@@ -6,60 +6,73 @@ Text2trade is a trading strategy builder platform with AI-powered features for p
 ## Architecture
 - **Frontend**: React + TailwindCSS + Shadcn UI + Recharts
 - **Backend**: FastAPI (Python) — modular routers (v0.2.0)
-- **Database**: MongoDB (with TTL indexes for token blacklist & password resets)
-- **Auth**: JWT with role-based routing (admin/user), token blacklist on logout, password reset flow
+- **Database**: MongoDB
+- **Auth**: JWT with role-based routing (admin/user)
 - **AI**: OpenAI GPT-5.2 via Emergent LLM Key
 - **Market Data**: NSE India via `nse` package
 - **Indicators**: `ta` library (15 indicators)
+- **PDF**: ReportLab (server-side generation)
 
 ## What's Been Implemented
 
+### Session 38 (2026-04-15) — Strategy Sharing & Export (8 Tasks)
+- **Task 1: Share Model** — `strategy_shares` collection with short 8-char URL-friendly IDs, view/clone tracking, expiry support
+- **Task 2: Share Endpoints** — `POST /strategies/{id}/share` (create), `GET /s/{id}` (public view), `POST /s/{id}/clone` (auth clone), `DELETE /strategies/{id}/share/{share_id}` (revoke)
+- **Task 3: Public Share View** — `/s/{shareId}` page with read-only strategy view, backtest results, equity curve, broker instructions, limitations banner, clone/signup CTA
+- **Task 4: Copy as Text** — Formatted plain text for WhatsApp/email with strategy conditions, risk, backtest stats
+- **Task 5: PDF Export** — Server-side PDF (ReportLab) with strategy details, metrics table, disclaimers. Available for owned and shared strategies
+- **Task 6: Broker Instructions** — Dynamic step-by-step for Zerodha, Angel One, Upstox, Dhan, Groww, 5paisa with broker help links
+- **Task 7: Share Analytics** — View/clone tracking per share, admin endpoint with top shared strategies and conversion rate
+- **Task 8: Share Management UI** — Strategy detail page: Share & Export section with Copy Text/PDF/Share Link buttons, stats, revoke. Broker execution section with 6 brokers.
+- **Testing**: 41/41 backend, all frontend verified (iteration_38)
+
 ### Session 37 (2026-04-15) — Reproducible Backtests (7 Tasks)
-- **Task 1: Immutable Backtest Snapshots** — `backtest_snapshots` collection with `snapshot_id` (UUID), full strategy JSON, trades, equity curve, metrics, data hash. Write-only (no update/delete). Every successful backtest creates a snapshot. Public URL: `/backtest/snapshot/{id}`
-- **Task 2: Strategy Versioning** — `strategy_versions` collection. Integer version auto-incremented on strategy update. Old version snapshot saved before each edit with `changed_fields`. Version history accessible via `GET /api/v1/strategy/{id}/versions`. UI shows version timeline on strategy detail page.
-- **Task 3: Data Snapshot Hashing** — SHA-256 hash of OHLCV data computed before every backtest. Stored with snapshot. Same hash = guaranteed identical data. Hash visible in backtest results UI.
-- **Task 4: "Verify This Backtest" Export** — ZIP download at `GET /api/v1/backtest/snapshot/{id}/verify`. Contains: `strategy.json`, `backtest_params.json`, `data_used.csv` (actual OHLCV candles), `expected_results.json`, `README.txt`. Download button on both BacktestPage and public snapshot page.
-- **Task 5: Backtest Comparison Tool** — `/backtest/compare?a=X&b=Y` page. Side-by-side metrics diff with color-coded deltas (green/red). Shows Same Data / Different Data and Same Engine / Different Engine badges. API: `GET /api/v1/backtest/compare-snapshots?a=X&b=Y`
-- **Task 6: Permanent Backtest URLs** — Public `/backtest/snapshot/{id}` page shows full backtest result (metrics, equity curve, trade log) without auth. "Permanent Link" copy button on backtest results page. "Immutable" badge on snapshot page.
-- **Task 7: Engine Version Changelog** — `legal/engine_changelog.md` with v0.1.0 and v0.2.0 entries. Version tracked in every backtest result.
-- **Bug Fix: Infinite loop in BacktestPage.js** — Memoized useApi return object to prevent useCallback re-creation loop.
-- **Testing**: 30/30 backend tests, all frontend pages verified (iteration_37)
+- Immutable backtest snapshots, strategy versioning, SHA-256 data hashing, verify export ZIP, backtest comparison tool, permanent URLs, engine changelog
+- Bug fix: BacktestPage.js infinite loop (memoized useApi)
+- Testing: 30/30 backend (iteration_37)
 
 ### Session 36 (2026-04-15) — Engine Benchmarks & Lookahead Bias Audit
-- Lookahead Bias Audit: NO LOOKAHEAD BIAS DETECTED
-- 12 Anti-Cheat Tests: all passing
-- 10 Benchmark Strategies: all 10/10 PASS
-- Public `/benchmarks` page, Admin dashboard ENGINE BENCHMARKS section
+- 12 anti-cheat tests, 10 benchmark strategies (10/10 PASS), public /benchmarks page, admin integration
 
-### Previous Sessions (Summary)
-- Sessions 10-26c: Full platform — AI strategy builder, backtesting, paper trading, screener, optimizer, tracker, alerts, watchlist, templates, sharing, leaderboard, demo mode, onboarding, legal compliance, diagnostics, session hardening, data export, SEBI compliance, knowledge base, code quality refactor
+### Previous Sessions (10-26c)
+- Full platform: AI strategy builder, backtesting, paper trading, screener, optimizer, tracker, alerts, watchlist, templates, sharing, leaderboard, demo mode, onboarding, legal compliance, diagnostics, session hardening, SEBI compliance, knowledge base
 
-## New Routes Added
-| Route | Auth | Component | Description |
-|-------|------|-----------|-------------|
-| /backtest/snapshot/:snapshotId | No | BacktestSnapshotPage | Public immutable backtest viewer |
-| /backtest/compare | No | BacktestComparePage | Side-by-side snapshot comparison |
+## Key Routes
+| Route | Auth | Description |
+|-------|------|-------------|
+| /s/:shareId | No | Public strategy share view with broker instructions |
+| /backtest/snapshot/:id | No | Public immutable backtest viewer |
+| /backtest/compare | No | Side-by-side snapshot comparison |
+| /benchmarks | No | Engine benchmark results |
+| /compliance | No | SEBI compliance info |
 
-## New API Endpoints
+## Key API Endpoints (New)
 | Endpoint | Auth | Description |
 |----------|------|-------------|
-| GET /api/v1/backtest/snapshot/{id} | No | Public snapshot retrieval |
-| GET /api/v1/backtest/snapshot/{id}/verify | No | ZIP download for verification |
-| GET /api/v1/backtest/compare-snapshots?a=X&b=Y | No | Metrics comparison |
-| GET /api/v1/backtest/snapshots | User | List user's snapshots |
-| GET /api/v1/strategy/{id}/versions | User | Strategy version history |
+| POST /api/v1/strategies/{id}/share | User | Create short share link |
+| GET /api/v1/s/{share_id} | No | Public share view |
+| POST /api/v1/s/{share_id}/clone | User | Clone to account |
+| DELETE /api/v1/strategies/{id}/share/{share_id} | User | Revoke share |
+| GET /api/v1/strategies/{id}/copy-text | User | Formatted text for sharing |
+| GET /api/v1/s/{share_id}/copy-text | No | Public copy text |
+| GET /api/v1/strategies/{id}/pdf | User | PDF download |
+| GET /api/v1/s/{share_id}/pdf | No | Public PDF download |
+| GET /api/v1/strategies/{id}/broker-instructions/{broker} | User | Broker-specific steps |
+| GET /api/v1/s/{share_id}/broker-instructions/{broker} | No | Public broker steps |
+| GET /api/v1/strategies/{id}/share-stats | User | Share analytics |
+| GET /api/v1/admin/analytics/shares | Admin | Platform share analytics |
 
 ## New MongoDB Collections
-- `backtest_snapshots` — immutable backtest records (snapshot_id unique index)
-- `strategy_versions` — strategy change history (strategy_id + version compound unique index)
+- `strategy_shares` — short-ID shares with view/clone counters
+- `backtest_snapshots` — immutable backtest records
+- `strategy_versions` — strategy change history
 
 ## Remaining Backlog
-- **CI Trigger Documentation (P2)**: Update `DEPLOYMENT.md` with release-check instructions
-- **Broker Integrations (P1)**: Zerodha, Angel One, Upstox, Dhan — UI placeholders exist
-- **Scheduled Auto-Evaluation (P2)**: Auto alert checks post-backtest
-- **Verified Domain Email**: Switch from Resend sandbox to full delivery
+- **CI Documentation (P2)**: Update DEPLOYMENT.md
+- **Broker Integrations (P1)**: Zerodha, Angel One, Upstox, Dhan — Phase 2 actual OAuth
+- **Scheduled Auto-Evaluation (P2)**: Auto alert checks
+- **Verified Domain Email**: Resend sandbox to full delivery
 
 ## Credentials
 - Test user: `testai@example.com` / `Password123!`
 - Admin: `admin@example.com` / `Password123!`
-- Market data: 7 symbols (RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, ITC, HINDUNILVR)
