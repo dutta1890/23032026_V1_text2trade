@@ -18,6 +18,7 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import SharedStrategyPage from "@/pages/SharedStrategyPage";
 import LegalPage from "@/pages/LegalPage";
 import CompliancePage from "@/pages/CompliancePage";
+import BenchmarksPage from "@/pages/BenchmarksPage";
 import GlossaryPage from "@/pages/GlossaryPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import UserDashboard from "@/pages/user/UserDashboard";
@@ -55,6 +56,7 @@ function App() {
             <Route path="/shared/:shareToken" element={<SharedStrategyPage />} />
             <Route path="/legal/:docType" element={<LegalPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
+            <Route path="/benchmarks" element={<BenchmarksPage />} />
 
 
             {/* User routes */}

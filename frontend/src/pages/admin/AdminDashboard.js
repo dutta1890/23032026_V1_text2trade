@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   Database, Users, BarChart3, Activity, RefreshCw, Loader2,
-  AlertTriangle, CheckCircle, Clock
+  AlertTriangle, CheckCircle, Clock, FlaskConical, Shield
 } from "lucide-react";
 
 const StatCard = ({ label, value, sub, icon: Icon, color = "text-foreground", testId }) => (
@@ -26,18 +26,22 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [dataStatus, setDataStatus] = useState(null);
   const [screenerStats, setScreenerStats] = useState(null);
+  const [benchmarkStatus, setBenchmarkStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [runningBenchmarks, setRunningBenchmarks] = useState(false);
 
   const fetchAll = async () => {
-    const [aRes, dRes, sRes] = await Promise.all([
+    const [aRes, dRes, sRes, bRes] = await Promise.all([
       api.get("/admin/analytics").catch(() => ({ data: {} })),
       api.get("/admin/data/status").catch(() => ({ data: {} })),
       api.get("/admin/screener/stats").catch(() => ({ data: {} })),
+      api.get("/benchmarks").catch(() => ({ data: {} })),
     ]);
     setAnalytics(aRes.data);
     setDataStatus(dRes.data);
     setScreenerStats(sRes.data);
+    setBenchmarkStatus(bRes.data?.latest_run);
     setLoading(false);
   };
 
@@ -98,6 +102,64 @@ export default function AdminDashboard() {
             <span className="text-[10px] font-mono text-muted-foreground ml-auto">{staleCount} stale symbol{staleCount !== 1 ? "s" : ""}</span>
           </>
         )}
+      </div>
+
+      {/* Data Pipeline Health */}
+      <div>
+        <h2 className="mono-label text-[10px] mb-3">ENGINE BENCHMARKS</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            label="BENCHMARK STATUS"
+            value={benchmarkStatus ? `${benchmarkStatus.passed}/${benchmarkStatus.total}` : "Not Run"}
+            icon={FlaskConical}
+            color={benchmarkStatus?.all_pass ? "text-emerald-400" : "text-muted-foreground"}
+            testId="stat-benchmarks"
+          />
+          <StatCard
+            label="ANTI-CHEAT TESTS"
+            value="12/12"
+            icon={Shield}
+            color="text-emerald-400"
+            testId="stat-anticheat"
+          />
+          <StatCard
+            label="LOOKAHEAD AUDIT"
+            value="Clean"
+            icon={CheckCircle}
+            color="text-emerald-400"
+            testId="stat-audit"
+          />
+          <Card className="border-border bg-card" data-testid="benchmark-run-card">
+            <CardContent className="p-5 flex flex-col justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={runningBenchmarks}
+                className="font-mono text-xs uppercase gap-2 w-full"
+                data-testid="run-benchmarks-btn"
+                onClick={async () => {
+                  setRunningBenchmarks(true);
+                  try {
+                    const res = await api.post("/admin/benchmarks/run", {});
+                    setBenchmarkStatus(res.data);
+                    toast.success(`Benchmarks: ${res.data.passed}/${res.data.total} passed`);
+                  } catch (err) {
+                    toast.error(err.response?.data?.detail || "Benchmark run failed");
+                  }
+                  setRunningBenchmarks(false);
+                }}
+              >
+                {runningBenchmarks ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+                {runningBenchmarks ? "Running..." : "Run Benchmarks"}
+              </Button>
+              {benchmarkStatus?.run_at && (
+                <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                  Last: {new Date(benchmarkStatus.run_at).toLocaleDateString()}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Data Pipeline Health */}

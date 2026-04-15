@@ -1,0 +1,259 @@
+[
+  {
+    "id": "bench_01_sma_golden_cross",
+    "name": "SMA Golden Cross (50/200)",
+    "description": "Classic trend-following: buy when SMA-50 crosses above SMA-200, sell on death cross.",
+    "category": "Trend Following",
+    "symbol": "RELIANCE",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "SMA", "params": {"short": 50, "long": 200}, "operator": "crosses_above"}
+      ],
+      "exit_conditions": [
+        {"name": "SMA", "params": {"short": 50, "long": 200}, "operator": "crosses_below"}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 1,
+      "total_trades_max": 10,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Low-frequency strategy. Expects 1-5 trades over 3 years on RELIANCE daily."
+    }
+  },
+  {
+    "id": "bench_02_rsi_mean_reversion",
+    "name": "RSI Mean Reversion (30/70)",
+    "description": "Buy when RSI dips below 30 (oversold), sell when RSI rises above 70 (overbought).",
+    "category": "Mean Reversion",
+    "symbol": "HDFCBANK",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "RSI", "params": {"period": 14}, "operator": "<", "value": 30}
+      ],
+      "exit_conditions": [
+        {"name": "RSI", "params": {"period": 14}, "operator": ">", "value": 70}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 1,
+      "total_trades_max": 30,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Classic RSI reversal strategy. Trade count depends on market volatility."
+    }
+  },
+  {
+    "id": "bench_03_macd_crossover",
+    "name": "MACD Crossover",
+    "description": "Buy on MACD bullish cross (MACD line crosses above signal), sell on bearish cross.",
+    "category": "Momentum",
+    "symbol": "TCS",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "MACD", "params": {"fast": 12, "slow": 26, "signal": 9}, "operator": "bullish_cross"}
+      ],
+      "exit_conditions": [
+        {"name": "MACD", "params": {"fast": 12, "slow": 26, "signal": 9}, "operator": "bearish_cross"}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 10,
+      "total_trades_max": 50,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Medium-frequency momentum strategy. Expects 15-35 trades on 3-year daily data."
+    }
+  },
+  {
+    "id": "bench_04_bollinger_reversion",
+    "name": "Bollinger Bands Mean Reversion",
+    "description": "Buy when price touches lower Bollinger Band, sell when it touches upper band.",
+    "category": "Mean Reversion",
+    "symbol": "INFY",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "Bollinger", "params": {"period": 20, "std_dev": 2}, "operator": "lower_touch"}
+      ],
+      "exit_conditions": [
+        {"name": "Bollinger", "params": {"period": 20, "std_dev": 2}, "operator": "upper_touch"}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 1,
+      "total_trades_max": 50,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Volatility-based reversion. Higher trade counts in volatile periods."
+    }
+  },
+  {
+    "id": "bench_05_ema_crossover",
+    "name": "EMA Crossover (9/21)",
+    "description": "Fast EMA-9 crosses above slow EMA-21 for entry, crosses below for exit.",
+    "category": "Trend Following",
+    "symbol": "ITC",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "EMA", "params": {"short": 9, "long": 21}, "operator": "crosses_above"}
+      ],
+      "exit_conditions": [
+        {"name": "EMA", "params": {"short": 9, "long": 21}, "operator": "crosses_below"}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 10,
+      "total_trades_max": 80,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Higher frequency than SMA golden cross due to shorter periods."
+    }
+  },
+  {
+    "id": "bench_06_supertrend",
+    "name": "Supertrend Buy/Sell",
+    "description": "Enter on Supertrend buy signal (direction flip bullish), exit on sell signal.",
+    "category": "Trend Following",
+    "symbol": "ICICIBANK",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "Supertrend", "params": {"period": 10, "multiplier": 3}, "operator": "buy_signal"}
+      ],
+      "exit_conditions": [
+        {"name": "Supertrend", "params": {"period": 10, "multiplier": 3}, "operator": "sell_signal"}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 5,
+      "total_trades_max": 40,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Supertrend with default ATR(10) and multiplier 3. Good trend filter."
+    }
+  },
+  {
+    "id": "bench_07_stochastic",
+    "name": "Stochastic Oscillator (20/80)",
+    "description": "Buy when Stochastic %K crosses above 20 (oversold exit), sell when crosses below 80.",
+    "category": "Momentum",
+    "symbol": "HINDUNILVR",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "Stochastic", "params": {"k_period": 14, "d_period": 3}, "operator": "crosses_above", "value": 20}
+      ],
+      "exit_conditions": [
+        {"name": "Stochastic", "params": {"k_period": 14, "d_period": 3}, "operator": "crosses_below", "value": 80}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 1,
+      "total_trades_max": 60,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Stochastic crossover strategy. Frequency depends on market oscillation."
+    }
+  },
+  {
+    "id": "bench_08_rsi_sma_combo",
+    "name": "RSI + SMA Combo",
+    "description": "Buy when RSI < 35 AND SMA-20 crosses above SMA-50. Exit on RSI > 65.",
+    "category": "Multi-Indicator",
+    "symbol": "RELIANCE",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "RSI", "params": {"period": 14}, "operator": "<", "value": 35},
+        {"name": "SMA", "params": {"short": 20, "long": 50}, "operator": "crosses_above"}
+      ],
+      "exit_conditions": [
+        {"name": "RSI", "params": {"period": 14}, "operator": ">", "value": 65}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 0,
+      "total_trades_max": 15,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Multi-condition entry is rare. May produce 0 trades if conditions never align."
+    }
+  },
+  {
+    "id": "bench_09_macd_adx_filter",
+    "name": "MACD + ADX Trend Filter",
+    "description": "MACD bullish cross for entry, with ADX > 25 filter for trend strength. Exit on bearish cross.",
+    "category": "Multi-Indicator",
+    "symbol": "TCS",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "MACD", "params": {"fast": 12, "slow": 26, "signal": 9}, "operator": "bullish_cross"}
+      ],
+      "exit_conditions": [
+        {"name": "MACD", "params": {"fast": 12, "slow": 26, "signal": 9}, "operator": "bearish_cross"}
+      ],
+      "filters": [
+        {"name": "ADX", "params": {"period": 14}, "operator": ">", "value": 25}
+      ],
+      "risk_management": {}
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 0,
+      "total_trades_max": 40,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "ADX filter reduces trade count vs pure MACD. May have 0 trades if ADX rarely > 25."
+    }
+  },
+  {
+    "id": "bench_10_rsi_with_stop_loss",
+    "name": "RSI Mean Reversion + 3% Stop Loss",
+    "description": "RSI < 30 entry, RSI > 70 exit, with a 3% stop loss for risk management.",
+    "category": "Risk-Managed",
+    "symbol": "RELIANCE",
+    "timeframe": "1d",
+    "strategy": {
+      "entry_conditions": [
+        {"name": "RSI", "params": {"period": 14}, "operator": "<", "value": 30}
+      ],
+      "exit_conditions": [
+        {"name": "RSI", "params": {"period": 14}, "operator": ">", "value": 70}
+      ],
+      "risk_management": {
+        "stop_loss": {"type": "percentage", "value": 3.0},
+        "target_profit": {"type": "percentage", "value": 5.0}
+      }
+    },
+    "expected": {
+      "success": true,
+      "total_trades_min": 1,
+      "total_trades_max": 40,
+      "win_rate_min": 0,
+      "win_rate_max": 100,
+      "notes": "Stop loss and target profit will increase trade frequency vs pure RSI exit."
+    }
+  }
+]

@@ -187,6 +187,15 @@ export default function CompliancePage() {
         </div>
 
         <p className="text-[10px] text-muted-foreground text-center">{status?.note}</p>
+
+        {/* Link to Benchmarks */}
+        <div className="mt-6 text-center">
+          <Link to="/benchmarks">
+            <Button variant="outline" size="sm" className="text-xs font-mono h-8 gap-1.5" data-testid="compliance-benchmarks-link">
+              <Activity className="w-3 h-3" /> View Engine Benchmarks
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   );

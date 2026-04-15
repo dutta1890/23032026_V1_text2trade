@@ -58,6 +58,7 @@ from routers.diagnostics import router as diagnostics_router
 from routers.legal import router as legal_router
 from routers.knowledge import router as knowledge_router
 from routers.compliance import router as compliance_router
+from routers.benchmarks import router as benchmarks_router
 
 # Diagnostics
 from diagnostics import (
@@ -452,6 +453,9 @@ app.include_router(knowledge_router)
 
 # Compliance router (has its own /api/v1 prefix, public + admin endpoints)
 app.include_router(compliance_router)
+
+# Benchmarks router (has its own /api/v1 prefix, public + admin endpoints)
+app.include_router(benchmarks_router)
 
 
 # =============================================================================
