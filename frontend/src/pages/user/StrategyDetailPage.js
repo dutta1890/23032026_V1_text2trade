@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Loader2, ArrowLeft, Play, Activity, Pencil, Trash2,
   ChevronRight, Shield, Clock, Target, TrendingUp, Zap, Share2, Copy, History,
+  Download, FileText, Eye, Users, Link2, XCircle, ArrowRight,
 } from "lucide-react";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
@@ -49,6 +50,10 @@ export default function StrategyDetailPage() {
   const [sharing, setSharing] = useState(false);
   const [versions, setVersions] = useState([]);
   const [showVersions, setShowVersions] = useState(false);
+  const [shareStats, setShareStats] = useState(null);
+  const [broker, setBroker] = useState(null);
+  const [brokerData, setBrokerData] = useState(null);
+  const [brokerLoading, setBrokerLoading] = useState(false);
 
   useEffect(() => {
     document.title = "Strategy | Text2trade";
@@ -65,6 +70,9 @@ export default function StrategyDetailPage() {
       .finally(() => setLoading(false));
     api.get(`/strategy/${strategyId}/versions`)
       .then((r) => setVersions(r.data.versions || []))
+      .catch(() => {});
+    api.get(`/strategies/${strategyId}/share-stats`)
+      .then((r) => setShareStats(r.data))
       .catch(() => {});
   }, [strategyId]);
 
@@ -85,10 +93,11 @@ export default function StrategyDetailPage() {
   const handleShare = async () => {
     setSharing(true);
     try {
-      const res = await api.post(`/strategy/${strategyId}/share`);
-      const token = res.data.share_token;
-      setShareToken(token);
-      const url = `${window.location.origin}/shared/${token}`;
+      const res = await api.post(`/strategies/${strategyId}/share`);
+      const sid = res.data.share_id;
+      setShareToken(sid);
+      setShareStats((prev) => prev ? { ...prev, ...res.data } : res.data);
+      const url = `${window.location.origin}/s/${sid}`;
       navigator.clipboard.writeText(url).then(
         () => toast.success("Share link copied to clipboard!"),
         () => toast.success("Share link generated")
@@ -97,6 +106,44 @@ export default function StrategyDetailPage() {
       toast.error(err.response?.data?.detail || "Share failed");
     } finally {
       setSharing(false);
+    }
+  };
+
+  const handleCopyText = async () => {
+    try {
+      const res = await api.get(`/strategies/${strategyId}/copy-text`);
+      await navigator.clipboard.writeText(res.data.text);
+      toast.success("Strategy text copied to clipboard!");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
+
+  const handlePdf = () => {
+    window.open(`${process.env.REACT_APP_BACKEND_URL}/api/v1/strategies/${strategyId}/pdf?token=${localStorage.getItem("t2t_token")}`, "_blank");
+  };
+
+  const handleBroker = async (b) => {
+    setBroker(b);
+    setBrokerLoading(true);
+    try {
+      const res = await api.get(`/strategies/${strategyId}/broker-instructions/${b}`);
+      setBrokerData(res.data);
+    } catch {
+      toast.error("Failed to load instructions");
+    } finally {
+      setBrokerLoading(false);
+    }
+  };
+
+  const handleRevoke = async (sid) => {
+    try {
+      await api.del(`/strategies/${strategyId}/share/${sid}`);
+      toast.success("Share revoked");
+      setShareToken(null);
+      setShareStats((prev) => prev ? { ...prev, active_shares: Math.max(0, (prev.active_shares || 1) - 1) } : prev);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Revoke failed");
     }
   };
 
@@ -150,18 +197,94 @@ export default function StrategyDetailPage() {
       {/* Share Link */}
       {shareToken && (
         <div className="flex items-center gap-2 px-4 py-3 bg-primary/5 border border-primary/30" data-testid="share-link-banner">
-          <Share2 className="w-4 h-4 text-primary shrink-0" />
+          <Link2 className="w-4 h-4 text-primary shrink-0" />
           <p className="text-xs font-mono text-muted-foreground flex-1 truncate">
-            {window.location.origin}/shared/{shareToken}
+            {window.location.origin}/s/{shareToken}
           </p>
           <Button variant="ghost" size="sm" className="h-6 text-[10px] font-mono gap-1" onClick={() => {
-            navigator.clipboard.writeText(`${window.location.origin}/shared/${shareToken}`);
+            navigator.clipboard.writeText(`${window.location.origin}/s/${shareToken}`);
             toast.success("Copied!");
           }} data-testid="copy-share-link">
             <Copy className="w-3 h-3" /> Copy
           </Button>
+          <Button variant="ghost" size="sm" className="h-6 text-[10px] font-mono gap-1 text-destructive hover:text-destructive" onClick={() => handleRevoke(shareToken)} data-testid="revoke-share-btn">
+            <XCircle className="w-3 h-3" /> Revoke
+          </Button>
         </div>
       )}
+
+      {/* Share & Export Section */}
+      <Card className="border-border bg-card" data-testid="share-export-section">
+        <CardHeader className="py-3 px-4 border-b border-border">
+          <CardTitle className="text-sm font-mono flex items-center gap-2">
+            <Share2 className="w-4 h-4 text-primary" /> SHARE & EXPORT
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={handleCopyText} data-testid="copy-text-btn">
+              <Copy className="w-3 h-3" /> Copy as Text
+            </Button>
+            <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={handlePdf} data-testid="download-pdf-btn">
+              <Download className="w-3 h-3" /> Download PDF
+            </Button>
+            <Button size="sm" variant="outline" className="font-mono text-[10px] uppercase gap-1.5" onClick={handleShare} disabled={sharing} data-testid="gen-share-link-btn">
+              {sharing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
+              {shareToken ? "Copy Share Link" : "Generate Share Link"}
+            </Button>
+          </div>
+          {shareStats && (shareStats.total_views > 0 || shareStats.total_clones > 0) && (
+            <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground" data-testid="share-stats">
+              <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {shareStats.total_views} views</span>
+              <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {shareStats.total_clones} clones</span>
+              <span>{shareStats.active_shares || 0} active share{(shareStats.active_shares || 0) !== 1 ? "s" : ""}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Broker Instructions */}
+      <Card className="border-border bg-card" data-testid="broker-instructions-section">
+        <CardHeader className="py-3 px-4 border-b border-border">
+          <CardTitle className="text-sm font-mono flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" /> HOW TO EXECUTE THIS STRATEGY
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground mb-3">Select your broker for step-by-step instructions:</p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {["zerodha", "angel_one", "upstox", "dhan", "groww", "5paisa"].map((b) => (
+              <Button key={b} size="sm" variant={broker === b ? "default" : "outline"}
+                className="font-mono text-[10px] uppercase h-8"
+                onClick={() => handleBroker(b)}
+                data-testid={`broker-btn-${b}`}
+              >
+                {{zerodha:"Zerodha", angel_one:"Angel One", upstox:"Upstox", dhan:"Dhan", groww:"Groww", "5paisa":"5paisa"}[b]}
+              </Button>
+            ))}
+          </div>
+          {brokerLoading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+          {brokerData && !brokerLoading && (
+            <div className="p-4 bg-secondary/30 border border-border space-y-3" data-testid="broker-steps">
+              <p className="text-sm font-mono font-bold text-foreground">How to place this trade on {brokerData.broker_name}:</p>
+              <ol className="space-y-2">
+                {brokerData.steps.map((step, i) => (
+                  <li key={`bstep-${i}`} className="flex gap-2 text-xs font-mono">
+                    <span className="text-primary shrink-0">{i + 1}.</span>
+                    <span className="text-foreground">{step}</span>
+                  </li>
+                ))}
+              </ol>
+              {brokerData.note && <p className="text-[10px] font-mono text-muted-foreground italic border-l-2 border-primary/30 pl-2">{brokerData.note}</p>}
+              {brokerData.help_url && (
+                <a href={brokerData.help_url} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-primary hover:underline flex items-center gap-1">
+                  Broker documentation <ArrowRight className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Entry Conditions */}
