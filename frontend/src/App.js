@@ -19,6 +19,8 @@ import SharedStrategyPage from "@/pages/SharedStrategyPage";
 import LegalPage from "@/pages/LegalPage";
 import CompliancePage from "@/pages/CompliancePage";
 import BenchmarksPage from "@/pages/BenchmarksPage";
+import BacktestSnapshotPage from "@/pages/BacktestSnapshotPage";
+import BacktestComparePage from "@/pages/BacktestComparePage";
 import GlossaryPage from "@/pages/GlossaryPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import UserDashboard from "@/pages/user/UserDashboard";
@@ -57,6 +59,8 @@ function App() {
             <Route path="/legal/:docType" element={<LegalPage />} />
             <Route path="/compliance" element={<CompliancePage />} />
             <Route path="/benchmarks" element={<BenchmarksPage />} />
+            <Route path="/backtest/snapshot/:snapshotId" element={<BacktestSnapshotPage />} />
+            <Route path="/backtest/compare" element={<BacktestComparePage />} />
 
 
             {/* User routes */}

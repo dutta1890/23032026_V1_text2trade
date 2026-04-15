@@ -3,6 +3,8 @@
 Supports: trailing SL, time-based exit, daily limits, position sizing, slippage, costs.
 """
 
+import hashlib
+import json
 import logging
 import math
 from dataclasses import dataclass, asdict
@@ -18,6 +20,19 @@ from backtest.metrics import calculate_metrics
 from backtest.costs import CostConfig, apply_slippage, calculate_all_costs
 
 logger = logging.getLogger(__name__)
+
+ENGINE_VERSION = "0.2.0"
+
+
+def compute_data_hash(df: pd.DataFrame) -> str:
+    """SHA-256 hash of OHLCV data for reproducibility verification."""
+    cols = ["timestamp", "open", "high", "low", "close", "volume"]
+    present = [c for c in cols if c in df.columns]
+    subset = df[present].copy()
+    if "timestamp" in subset.columns:
+        subset["timestamp"] = subset["timestamp"].astype(str)
+    raw = subset.to_csv(index=False)
+    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 @dataclass
@@ -363,10 +378,17 @@ def run_backtest(
     costs = calculate_all_costs(trade_dicts, initial_capital, cost_cfg)
     equity_curve = _build_equity_curve(trade_dicts, initial_capital)
 
+    # Compute data hash for reproducibility
+    data_hash = compute_data_hash(df)
+
     if not trade_dicts:
         warnings.append("No signals generated. Strategy conditions were never met in the data range.")
     if slippage_pct == 0:
         warnings.append("Slippage set to 0%. Real execution will have slippage.")
+
+    # Determine actual date range from data
+    data_start = str(df["timestamp"].iloc[0])[:10] if len(df) > 0 else None
+    data_end = str(df["timestamp"].iloc[-1])[:10] if len(df) > 0 else None
 
     return {
         "success": True,
@@ -382,6 +404,10 @@ def run_backtest(
         "warnings": warnings,
         "data_source": ds_label,
         "candles_processed": len(df),
+        "engine_version": ENGINE_VERSION,
+        "data_snapshot_hash": data_hash,
+        "data_start": data_start,
+        "data_end": data_end,
     }
 
 

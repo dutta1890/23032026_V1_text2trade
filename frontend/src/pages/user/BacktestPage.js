@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import {
   Loader2, Activity, ArrowLeft, TrendingUp, TrendingDown,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Download, Hash, Shield, ExternalLink,
 } from "lucide-react";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import MultiStockCompare from "@/components/MultiStockCompare";
@@ -104,6 +104,43 @@ export default function BacktestPage() {
       </div>
 
       {result?.disclaimer && <p className="text-[11px] text-yellow-500/80 font-mono italic border-l-2 border-yellow-500/30 pl-3">{result.disclaimer}</p>}
+
+      {/* Snapshot & Verify bar */}
+      {result?.snapshot_id && (
+        <div className="flex flex-wrap items-center gap-3 p-3 bg-secondary/30 border border-border" data-testid="snapshot-bar">
+          <div className="flex items-center gap-1.5">
+            <Hash className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] font-mono text-muted-foreground">Snapshot: <span className="text-foreground">{result.snapshot_id.slice(0, 8)}</span></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Shield className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] font-mono text-muted-foreground">Hash: <span className="text-foreground">{result.data_snapshot_hash?.slice(0, 12)}...</span></span>
+          </div>
+          <span className="text-[10px] font-mono text-muted-foreground">Engine v{result.engine_version}</span>
+          <div className="ml-auto flex gap-2">
+            <Button
+              size="sm" variant="outline"
+              className="font-mono text-[10px] uppercase gap-1.5 h-7"
+              onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/v1/backtest/snapshot/${result.snapshot_id}/verify`, "_blank")}
+              data-testid="verify-btn"
+            >
+              <Download className="w-3 h-3" /> Verify
+            </Button>
+            <Button
+              size="sm" variant="outline"
+              className="font-mono text-[10px] uppercase gap-1.5 h-7"
+              onClick={() => {
+                const url = `${window.location.origin}/backtest/snapshot/${result.snapshot_id}`;
+                navigator.clipboard.writeText(url);
+                import("sonner").then(m => m.toast.success("Permanent link copied!"));
+              }}
+              data-testid="share-snapshot-btn"
+            >
+              <ExternalLink className="w-3 h-3" /> Permanent Link
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">

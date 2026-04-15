@@ -168,29 +168,42 @@ async def update_strategy(request: Request, strategy_id: str, strategy: Strategy
         raise HTTPException(status_code=400, detail="; ".join(errors))
 
     try:
+        # Save old version to strategy_versions before updating
+        from routers.snapshots import save_strategy_version
+        old_ver = existing.get("strategy_version", 1)
+        new_doc = strategy.model_dump()
+        changed = [k for k in new_doc if k in existing and new_doc[k] != existing.get(k)]
+        try:
+            save_strategy_version(strategy_id, user_id, existing, changed)
+        except Exception as ve:
+            logger.warning(f"Version save failed: {ve}")
+
         now = datetime.now(timezone.utc).isoformat()
-        update_doc = strategy.model_dump()
+        update_doc = new_doc
         update_doc["metadata"]["updated_at"] = now
         update_doc["metadata"]["created_at"] = existing.get("metadata", {}).get("created_at", now)
         update_doc["user_id"] = user_id
         update_doc["id"] = strategy_id
+        update_doc["strategy_version"] = old_ver + 1
 
-        current_ver = float(existing.get("version", "1.0"))
-        update_doc["version"] = str(current_ver + 0.1)
+        # Keep the legacy version field in sync
+        update_doc["version"] = str(old_ver + 1)
 
         strategies_collection.update_one(
             {"id": strategy_id, "user_id": user_id},
             {"$set": update_doc}
         )
-        logger.info(f"Strategy updated: {strategy_id}")
+        logger.info(f"Strategy updated: {strategy_id} v{old_ver + 1}")
         meta = get_request_meta(request)
         log_audit(
             user_id=user_id, action="strategy_updated",
-            details={"strategy_id": strategy_id, "new_version": update_doc["version"]},
+            details={"strategy_id": strategy_id, "new_version": update_doc["strategy_version"], "changed_fields": changed},
             ip_address=meta["ip"], user_agent=meta["ua"],
             request_id=get_request_id() or "", strategy_id=strategy_id,
         )
         return {"success": True, "strategy": update_doc}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Strategy update failed: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

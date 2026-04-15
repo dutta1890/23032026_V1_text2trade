@@ -1,0 +1,159 @@
+{
+  "summary": "Iteration 37 - Backtest reproducibility features testing. All 30 backend tests passed. Public snapshot page and compare page working correctly. Backtest page has pre-existing infinite loop bug causing 403 rate limit errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "BacktestPage.js",
+        "issue": "Infinite loop causing 403 rate limit errors - useCallback dependency on 'api' object causes infinite re-renders",
+        "selector": "N/A - code issue",
+        "priority": "HIGH",
+        "note": "Pre-existing bug, not related to new snapshot features. The api object changes on every render, causing runBacktest to be recreated and useEffect to re-run infinitely."
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "GET /api/v1/backtest/snapshot/{id} returns 200 for valid snapshot",
+    "Snapshot response has all required fields (snapshot_id, strategy_version, engine_version, data_snapshot_hash, etc.)",
+    "Snapshot excludes user_id for privacy",
+    "Snapshot is marked as immutable (is_immutable=true)",
+    "Snapshot has engine_version: 0.2.0",
+    "Snapshot has SHA-256 data_snapshot_hash (64 chars)",
+    "Non-existent snapshot returns 404",
+    "GET /api/v1/backtest/snapshot/{id}/verify returns application/zip",
+    "Verify ZIP contains 5 files: strategy.json, backtest_params.json, data_used.csv, expected_results.json, README.txt",
+    "strategy.json in ZIP is valid JSON with strategy config",
+    "backtest_params.json contains snapshot_id, symbol, timeframe, engine_version, data_snapshot_hash",
+    "expected_results.json contains metrics and trades",
+    "README.txt contains verification instructions",
+    "Non-existent snapshot verify returns 404",
+    "GET /api/v1/backtest/compare-snapshots?a=X&b=Y returns 200",
+    "Compare response includes snapshot_a and snapshot_b info",
+    "Compare response has same_data boolean flag",
+    "Compare response has same_engine boolean flag",
+    "Compare response has metrics_diff with a/b/delta for each metric",
+    "Compare with non-existent snapshot returns 404",
+    "Compare without params returns 422",
+    "GET /api/v1/backtest/snapshots requires authentication",
+    "Authenticated user can list their snapshots",
+    "POST /api/v1/backtest returns snapshot_id in response",
+    "Backtest response includes engine_version",
+    "Backtest response includes data_snapshot_hash (SHA-256)",
+    "Backtest response includes data_start and data_end dates",
+    "GET /api/v1/strategy/{id}/versions requires authentication",
+    "Non-existent strategy versions returns 404",
+    "Create and update strategy creates version history",
+    "Public /backtest/snapshot/{id} page loads with all UI elements",
+    "Snapshot page shows metrics (P&L, win rate, drawdown, sharpe, profit factor)",
+    "Snapshot page shows equity curve",
+    "Snapshot page shows trade log",
+    "Snapshot page shows Verify Download button",
+    "Snapshot page shows Immutable badge",
+    "Public /backtest/compare?a=X&b=Y page loads correctly",
+    "Compare page shows snapshot A and B info cards",
+    "Compare page shows Same Data / Different Data badge",
+    "Compare page shows Same Engine / Different Engine badge",
+    "Compare page shows metrics comparison table with colored deltas",
+    "Strategy detail page loads correctly",
+    "Strategy detail page shows Version History section when versions exist"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_backtest_snapshots.py",
+    "/app/test_reports/pytest/pytest_backtest_snapshots.xml"
+  ],
+  "action_items": [
+    "FIX (HIGH): BacktestPage.js infinite loop - remove 'api' from useCallback dependencies or memoize the api object in useApi hook"
+  ],
+  "critical_code_review_comments": [
+    "BacktestPage.js line 61: useCallback depends on 'api' which changes every render, causing infinite loop. Fix: use useRef for api or remove from deps array",
+    "The infinite loop causes Cloudflare to return 403 rate limit errors after ~50 requests"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_backtest_snapshots.py"
+  ],
+  "success_rate": {
+    "backend": "100% (30/30 tests passed)",
+    "frontend": "90% (public pages work, authenticated backtest page has infinite loop bug)"
+  },
+  "test_credentials": {
+    "test_user": "testai@example.com / Password123!",
+    "admin_user": "admin@example.com / Password123!"
+  },
+  "seed_data_creation": "Test snapshots already exist: 10f11267-d15d-4a4c-a992-a3442ccb9c5f and a719b3eb-8b90-4eed-910f-59bb33ef62b9",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 37 tested backtest reproducibility features. All backend APIs working correctly. Public snapshot page (/backtest/snapshot/{id}) and compare page (/backtest/compare?a=X&b=Y) work perfectly. The authenticated backtest page (/backtest/{strategyId}) has a pre-existing infinite loop bug in BacktestPage.js - the useCallback on line 47-61 depends on 'api' which changes every render. This causes the page to make infinite API calls until Cloudflare rate limits with 403. The snapshot bar, verify button, and permanent link button are implemented correctly in the code but cannot be tested due to this bug. Strategy version history works - versions are created when a strategy is updated.",
+  "features_verified": {
+    "immutable_backtest_snapshots": {
+      "endpoint": "GET /api/v1/backtest/snapshot/{snapshot_id}",
+      "public": true,
+      "fields": ["snapshot_id", "strategy_version", "strategy_json_snapshot", "symbol", "timeframe", "start_date", "end_date", "engine_version", "data_snapshot_hash", "results", "trades", "equity_curve", "created_at", "is_immutable"],
+      "excludes_user_id": true,
+      "status": "working"
+    },
+    "verify_export_zip": {
+      "endpoint": "GET /api/v1/backtest/snapshot/{snapshot_id}/verify",
+      "content_type": "application/zip",
+      "files": ["strategy.json", "backtest_params.json", "data_used.csv", "expected_results.json", "README.txt"],
+      "status": "working"
+    },
+    "backtest_comparison": {
+      "endpoint": "GET /api/v1/backtest/compare-snapshots?a=X&b=Y",
+      "public": true,
+      "fields": ["snapshot_a", "snapshot_b", "same_data", "same_engine", "metrics_diff"],
+      "status": "working"
+    },
+    "user_snapshots_list": {
+      "endpoint": "GET /api/v1/backtest/snapshots",
+      "auth_required": true,
+      "status": "working"
+    },
+    "backtest_creates_snapshot": {
+      "endpoint": "POST /api/v1/backtest",
+      "returns": ["snapshot_id", "engine_version", "data_snapshot_hash", "data_start", "data_end"],
+      "status": "working"
+    },
+    "strategy_versioning": {
+      "endpoint": "GET /api/v1/strategy/{id}/versions",
+      "auth_required": true,
+      "creates_version_on_update": true,
+      "status": "working"
+    },
+    "public_snapshot_page": {
+      "route": "/backtest/snapshot/:snapshotId",
+      "components": ["metrics cards", "equity curve", "trade log", "verify download button", "immutable badge", "snapshot metadata bar"],
+      "status": "working"
+    },
+    "compare_page": {
+      "route": "/backtest/compare?a=X&b=Y",
+      "components": ["snapshot A/B info cards", "same_data badge", "same_engine badge", "metrics diff table with colored deltas"],
+      "status": "working"
+    },
+    "backtest_page_snapshot_bar": {
+      "route": "/backtest/:strategyId",
+      "components": ["snapshot bar", "verify button", "permanent link button"],
+      "status": "BLOCKED - infinite loop bug prevents testing"
+    },
+    "strategy_version_history": {
+      "route": "/strategy/:strategyId",
+      "components": ["VERSION HISTORY section"],
+      "status": "working (shows when versions exist)"
+    }
+  },
+  "rca_of_issue": {
+    "issue": "BacktestPage.js infinite loop causing 403 rate limit errors",
+    "root_cause": "useCallback on line 47-61 has 'api' in dependency array. The 'api' object from useApi() hook is recreated on every render, causing useCallback to return a new function reference, which triggers the useEffect on line 63-66 to re-run, calling runBacktest() infinitely.",
+    "reproduction_steps": [
+      "1. Login as testai@example.com",
+      "2. Navigate to /backtest/{strategyId}",
+      "3. Observe infinite loading spinner",
+      "4. Check console - 403 errors from Cloudflare rate limiting"
+    ],
+    "mitigation": "Remove 'api' from useCallback dependencies, or memoize the api object in useApi hook using useMemo"
+  }
+}

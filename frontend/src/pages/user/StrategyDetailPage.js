@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, ArrowLeft, Play, Activity, Pencil, Trash2,
-  ChevronRight, Shield, Clock, Target, TrendingUp, Zap, Share2, Copy
+  ChevronRight, Shield, Clock, Target, TrendingUp, Zap, Share2, Copy, History,
 } from "lucide-react";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
@@ -47,6 +47,8 @@ export default function StrategyDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [shareToken, setShareToken] = useState(null);
   const [sharing, setSharing] = useState(false);
+  const [versions, setVersions] = useState([]);
+  const [showVersions, setShowVersions] = useState(false);
 
   useEffect(() => {
     document.title = "Strategy | Text2trade";
@@ -61,6 +63,9 @@ export default function StrategyDetailPage() {
         navigate("/dashboard");
       })
       .finally(() => setLoading(false));
+    api.get(`/strategy/${strategyId}/versions`)
+      .then((r) => setVersions(r.data.versions || []))
+      .catch(() => {});
   }, [strategyId]);
 
   const handleDelete = async () => {
@@ -211,6 +216,39 @@ export default function StrategyDetailPage() {
           <CardContent className="p-4 space-y-2">
             {exit.map((c, i) => <ConditionRow key={`exit-${c.name}-${i}`} cond={c} index={i} />)}
           </CardContent>
+        </Card>
+      )}
+
+      {/* Version History */}
+      {versions.length > 0 && (
+        <Card className="border-border bg-card">
+          <CardHeader className="py-3 px-4 border-b border-border cursor-pointer" onClick={() => setShowVersions(!showVersions)}>
+            <CardTitle className="text-sm font-mono flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" />
+              VERSION HISTORY ({versions.length})
+              <ChevronRight className={`w-3 h-3 ml-auto transition-transform ${showVersions ? "rotate-90" : ""}`} />
+            </CardTitle>
+          </CardHeader>
+          {showVersions && (
+            <CardContent className="p-4 space-y-3" data-testid="version-history">
+              {versions.map((v) => (
+                <div key={`v-${v.version}`} className="flex items-start gap-3 p-3 bg-secondary/20 border border-border">
+                  <div className="w-8 h-8 bg-primary/15 border border-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-mono font-bold text-primary">{v.version}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-mono text-foreground">Version {v.version}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground">{new Date(v.created_at).toLocaleString()}</p>
+                    {v.changed_fields?.length > 0 && (
+                      <p className="text-[10px] font-mono text-muted-foreground mt-1">
+                        Changed: {v.changed_fields.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          )}
         </Card>
       )}
 

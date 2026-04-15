@@ -11,6 +11,7 @@ from data.service import get_available_symbols, get_data_status
 from backtest.engine import run_backtest as engine_run_backtest
 from audit import log_audit, get_request_meta
 from logging_config import get_request_id
+from routers.snapshots import create_snapshot
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -89,6 +90,11 @@ class BacktestResponse(BaseModel):
     warnings: list
     data_source: str
     candles_processed: int = 0
+    snapshot_id: Optional[str] = None
+    engine_version: Optional[str] = None
+    data_snapshot_hash: Optional[str] = None
+    data_start: Optional[str] = None
+    data_end: Optional[str] = None
 
 
 @router.post("/backtest", response_model=BacktestResponse)
@@ -124,6 +130,24 @@ async def run_backtest_endpoint(request: Request, body: BacktestRequest, current
             _auto_record(user_id if user_id != "anonymous" else None, result, strategy, symbol, timeframe, is_demo)
             if current_user and not is_demo:
                 _send_backtest_email(current_user, strategy, symbol, result)
+
+        # Create immutable snapshot for successful backtests
+        snapshot_id = None
+        if result.get("success") and user_id != "anonymous":
+            try:
+                strat_ver = int(float(strategy.get("version", "1") or "1"))
+                snapshot_id = create_snapshot(
+                    user_id=user_id,
+                    strategy_id=strategy_id,
+                    strategy_json=strategy,
+                    strategy_version=strat_ver,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    result=result,
+                )
+                result["snapshot_id"] = snapshot_id
+            except Exception as e:
+                logger.warning(f"Snapshot creation failed: {e}")
 
         duration_ms = round((_time.time() - t0) * 1000)
         m = result.get("metrics", {})
